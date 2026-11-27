@@ -53,7 +53,7 @@ SQL;
      * `submit_token` is the form page's token: a repeated submit with it and the same answers creates
      * nothing and is answered only as a repeat (`{repeated: true, after_submit}`); `utf8mb4_nopad_bin`,
      * compared exactly, and unique within the event. `answers_hash` is the SHA-256 fingerprint of the
-     * stored answers that a repeat with the token must match.
+     * answers as sent that a repeat with the token must match.
      */
     private const SUBMISSIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_submissions (

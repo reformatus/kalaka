@@ -50,7 +50,7 @@ keeps of what it knows about its participants
   the forms' union never adds or retires one. A declaration adopts a `form`
   field of the same type (it becomes `extension`, retired or not, values
   untouched) and never takes over a `staff` or `system` field, a key
-  of another type or another declarer's `extension` field [UNAPPROVED, N4 of #231]. A field stores
+  of another type or another declarer's `extension` field. A field stores
   its declarer's module ID (`declared_by`, e.g. `extras` or `price_ladder`; null for form,
   staff and system fields and for one declared before the column, which the first declarer takes) and
   `money_relevant`, the claim that its value is locked after the first write: an extension makes it in its

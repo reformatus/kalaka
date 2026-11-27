@@ -81,7 +81,12 @@ the waitlist and reference codes
   shown field left blank deletes a value the form showed (one its type
   prefills), and a money-relevant field's value is never changed once
   written. It never writes the registration row, its status or
-  `registered_at`, and never reads or changes capacity or the latch.
+  `registered_at`, and never changes capacity or the latch (its walk reads
+  `event.seats_left` unlocked, before the transaction). The
+  registration's status and field values are read once per attempt before the
+  transaction, for the walk's conditions, and read again under the registration
+  lock: if either differs, the use case throws `VersionConflict` and the walk is
+  run again.
 - An additional form's submit sends no action mail; the page shows the
   form's after-submit text.
 - The submit token is a secret: masked in the audit, never in a log. It is

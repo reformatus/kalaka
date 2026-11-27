@@ -19,18 +19,25 @@ use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\RequestOptions;
+use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
+use Kalaka\Forms\Api\ValueType;
+use Kalaka\Forms\Engine\Condition\ConditionKeys;
+use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Portal\Api\ActiveRegistration;
+use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 
@@ -50,10 +57,14 @@ use Kalaka\Registrations\Api\SubmitToken;
  */
 final class EventFormHost implements FormHost
 {
+    /** A key of the dropped set choice window (`choice_open.<field key>`): it reads as empty in an older revision. */
+    private const CHOICE_OPEN_PREFIX = 'choice_open.';
+
     public function __construct(
         private readonly Events $events = new Events(),
         private readonly ?RegistrationSubmit $registrationSubmit = null,
         private readonly AssignmentSets $sets = new AssignmentSets(),
+        private readonly Seats $seats = new Seats(),
         private ?Registrations $registrations = null,
         private readonly ?\Closure $active = null,
     ) {
@@ -65,12 +76,87 @@ final class EventFormHost implements FormHost
         return $this->registrations ??= new Registrations();
     }
 
+    /**
+     * What a form's conditions read besides the answers (CF2): the event's keys and `account.logged_in`; for every
+     * form the event's places left and its custom points (`EventValues::volatileTypes()`); for an additional form
+     * also the registration's status and the stored values of the event's participant fields, by their keys
+     * (`typesOf()`). A key the form holds as a field is read from the answers: the parser drops it from this list.
+     */
     public function factTypes(Form $form): array
     {
-        return EventValues::FORM_TYPES;
+        $event = $this->event($form);
+
+        return $event === null ? EventValues::FORM_TYPES : $this->typesOf($event, $form->placement);
     }
 
-    /** The event's keys and `account.logged_in`: yes or no on a form with an account step, none on one without. */
+    /**
+     * A key that a revision's conditions read and no longer exists is gone and reads as empty, so no revision
+     * closes over it, as none closes over a removed set option (CF1): a custom point the event no longer has
+     * (staff removed it; a date), and `choice_open.<key>` (a set's choice window, dropped by the owner's ruling
+     * 2026-11-25; a choice). Any other unknown key stays an error. A save refuses a gone point
+     * (`DefinitionCheck`, `unknown_point`), and a `choice_open.*` key as any unknown key.
+     */
+    public function goneTypes(Form $form, array $keys): array
+    {
+        $event = $this->event($form);
+        $gone = [];
+        foreach ($keys as $key) {
+            if (
+                $event !== null
+                && EventValues::isPointKey($key)
+                && !isset(EventValues::volatileTypes($event)[$key])
+            ) {
+                $gone[$key] = ValueType::Date;
+            } elseif (str_starts_with($key, self::CHOICE_OPEN_PREFIX)) {
+                $gone[$key] = ValueType::Choice;
+            }
+        }
+
+        return $gone;
+    }
+
+    /**
+     * The gone keys (`goneTypes()`) that the revision being walked (`Form::$version`) reads, each valued as none
+     * in the facts. A revision that is not readable has none.
+     *
+     * @return array<string, Value>
+     */
+    private function goneKeys(Form $form): array
+    {
+        try {
+            $content = (new FormPosts())->content($form, $form->version);
+        } catch (SystemFailure) {
+            return [];
+        }
+
+        return array_map(
+            static fn (ValueType $type): Value => Value::none($type),
+            $this->goneTypes($form, ConditionKeys::in(parse_blocks($content)))
+        );
+    }
+
+    /**
+     * The types `factTypes()` declares, for an event and a placement (the editor lists them too).
+     *
+     * @return array<string, ValueType>
+     */
+    public function typesOf(Event $event, FormPlacement $placement): array
+    {
+        $types = EventValues::FORM_TYPES
+            + EventValues::volatileTypes($event);
+        if ($placement === FormPlacement::Additional) {
+            $types[RegistrationFacts::STATUS] = ValueType::Choice;
+            $types += (new Forms())->storedTypes($event->id);
+        }
+
+        return $types;
+    }
+
+    /**
+     * The values of `factTypes()` on a form's page and re-fetch: the active registration's status and field
+     * values for an additional form, as they are now, and the event's keys read at the moment the caller gives
+     * (one clock per act: the page, the re-fetch and the submit's walk keep it alike).
+     */
     public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
         $event = $this->event($form);
@@ -78,8 +164,47 @@ final class EventFormHost implements FormHost
             return null;
         }
         $loggedIn = self::accountStepOf($form, $event) === null ? null : is_user_logged_in();
+        $target = $this->target($form);
+        $stored = $target === null ? null : $this->registrations()->values($target);
+        $status = $target === null ? null : $this->registrations()->find($target)?->status->value;
 
-        return new ValueContext(EventValues::form($event, $loggedIn, $now));
+        return $this->factsFor($form, $event, $loggedIn, $now, $stored, $status);
+    }
+
+    /**
+     * The values of `typesOf()` for the form, from what the caller read: the one builder behind the page, the
+     * re-fetch and the submit's walk (so a key declared is a key valued). Every key is valued; an additional
+     * form with no registration (`$stored` null) reads its registration keys as none, never fails.
+     *
+     * The caller gives the moment the facts are read at (the page and re-fetch the act's
+     * moment, a submit's walk the same one before its transaction), so one moment is used for all the facts of a
+     * read, and the page, the re-fetch and the submit's walk keep it alike: `time.now` and the event's dates read
+     * it.
+     *
+     * @param array<string, string>|null $stored the registration's field values by key (an additional form)
+     * @param string|null $status the registration's status (an additional form)
+     */
+    public function factsFor(
+        Form $form,
+        Event $event,
+        ?bool $loggedIn,
+        \DateTimeImmutable $now,
+        ?array $stored,
+        ?string $status
+    ): ValueContext {
+        $values = $this->goneKeys($form) + EventValues::form($event, $loggedIn, $now)
+            + EventValues::volatile($event, $this->seats->left($this->seats->eventPool($event->id)));
+        if ($form->placement === FormPlacement::Additional) {
+            $values[RegistrationFacts::STATUS] = $status === null
+                ? Value::none(ValueType::Choice)
+                : Value::choice([$status], '');
+            $typed = $stored === null ? [] : (new Forms())->participantValues($event->id, $stored);
+            foreach ((new Forms())->storedTypes($event->id) as $key => $type) {
+                $values[$key] = $typed[$key] ?? Value::none($type);
+            }
+        }
+
+        return new ValueContext($values);
     }
 
     public function refusals(Form $form, \DateTimeImmutable $now, array $roles, bool $passwordGiven): array
@@ -226,7 +351,7 @@ final class EventFormHost implements FormHost
             $options[] = ['value' => $option->key, 'label' => $option->label];
         }
 
-        return new RequestOptions($options, $set->windowOpens, $set->windowCloses);
+        return new RequestOptions($options);
     }
 
     public function submitToken(): string
@@ -319,7 +444,7 @@ final class EventFormHost implements FormHost
     /**
      * The event's participant fields' titles and option labels, retired fields and options included: what a form shows
      * where it leaves a label empty. For a code-declared (`extension`) field these are the declarer's texts, its admin
-     * name. [UNAPPROVED N806, N807 of #231]
+     * name.
      */
     public function labelFallbacks(Form $form): array
     {

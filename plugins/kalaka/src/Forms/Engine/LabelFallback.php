@@ -9,7 +9,6 @@ namespace Kalaka\Forms\Engine;
  * (events-and-forms.md, "Fields"): a field block's `label` and a choice option's `label` (matched by value).
  * A label the form author wrote is never replaced. The texts come from the host (`FormHost::labelFallbacks()`);
  * this class only reads blocks and fills them, so the engine knows no participant field.
- * [UNAPPROVED N806 of #231]
  */
 final class LabelFallback
 {

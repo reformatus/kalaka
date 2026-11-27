@@ -86,10 +86,11 @@ flowchart LR
 Modules, workshops, talk groups, rooms and meal turns share one core concept.
 
 - **A set** belongs to an event: a name, an optional time slot,
-  required or optional, a choice window, an access mode and a **published
+  required or optional, an access mode and a **published
   switch** (for a direct set, unpublished, it is hidden from participants
-  and publishing opens the choice; a request set's field follows its choice
-  window only).
+  and publishing opens the choice). A set has **no choice window of its
+  own:** the form that holds the choice, with its own open period and
+  conditions, decides when it can be answered.
 - **An option** has a capacity, leaders (display text) and a place. Who may
   pick it is decided in the form: the form field that names the set may hold a
   condition per option ([Conditions](events-and-forms.md#conditions)).
@@ -111,16 +112,16 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
     field writes a confirmed assignment; capacity is checked
     in the transaction under a lock on the option row; a full option cannot be
     chosen; the choice can be changed through an additional form holding it
-    while the window is open, then only by staff;
+    while that form is open, then only by staff;
   - **request** (e.g. IVK's modules): the participant writes a request (a
     field value; the ranking field type comes from the `kalaka-ranking`
-    extension), which an additional form holding it can change while the
-    window is open. The request field's block either names its set, and its
+    extension), which an additional form holding it can change while that
+    form is open. The request field's block either names its set, and its
     options are then the set's, or names none and holds its own options; the
     author picks one per block. The participant field a block that names a
     set declares becomes the set's one **request field**, recorded on the
     set, and a second, different field naming the same set is refused on
-    save. The request is locked at close;
+    save. The request is locked when its form closes;
     staff run the proposer with a preview, then confirm in bulk; the
     participant sees the result once confirmed and the set is published.
     **Bulk confirmation** runs one transaction per item: it locks the option
@@ -145,8 +146,8 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 - **The assignment proposer** is an extension point. The IVK ranking engine
   is the first: it fills first choices in registration order, then second
   choices into what is left, then third; staff confirm. **It runs once, on
-  module choices frozen beforehand** (after the set's choice window has
-  closed), and need not handle later changes. Talk-group and room
+  module choices frozen beforehand** (after the form that holds the request
+  has closed), and need not handle later changes. Talk-group and room
   algorithms come later on the same point.
 - Extensions read confirmed assignments through point inputs and keep their
   own per-option data (e.g. a module's level and the needs it answers).

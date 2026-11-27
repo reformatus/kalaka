@@ -13,7 +13,7 @@ use Kalaka\Ranking\RankingFieldType;
 
 /**
  * IVK's three tracks and its module set, on the first published sample event (core's seeders run first): a
- * request-mode set "Modulok" whose window is open on the seed day, a registration form holding the track
+ * request-mode set "Modulok", a registration form holding the track
  * question (`szolgalati_terulet`: ifivezető, iskolamisszió, PRO) and the ranking naming the set, and a page
  * that embeds it. The ifivezető modules A–F are for everybody; "Iskolamisszió" and "PRO" carry a condition
  * on the track, in the ranking block's `optionConditions` (S44). Configuration is S48's; these are seed data,
@@ -42,16 +42,12 @@ final class RankingSeeder implements Seeder
             throw new \LogicException('The ranking seeder needs the published sample event of the event seeder.');
         }
         $eventId = $published[0]->id;
-        $day = static fn (int $offset, string $time): string
-            => $seeding->today()->modify(sprintf('%+d days', $offset))->format('Y-m-d') . ' ' . $time;
         $actor = new CliActor(null);
 
         $setId = $this->sets->save([
             'event_id' => $eventId,
             'name' => 'Modulok',
             'required' => true,
-            'window_opens_at' => $day(-14, '08:00'),
-            'window_closes_at' => $day(21, '20:00'),
             'published' => false,
         ], $actor);
 

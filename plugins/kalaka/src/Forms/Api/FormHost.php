@@ -30,6 +30,17 @@ interface FormHost
     public function factTypes(Form $form): array;
 
     /**
+     * Of the keys that the conditions of any revision of the form read and `factTypes()` does not declare, the
+     * ones that were valid once and are gone now (e.g. a custom point staff removed), with their types. A
+     * revision that reads one still parses, and the key reads as empty (none), so the condition is unknown and
+     * its branch does not hold. Asked only when a definition is read, never when it is saved.
+     *
+     * @param list<string> $keys
+     * @return array<string, ValueType>
+     */
+    public function goneTypes(Form $form, array $keys): array;
+
+    /**
      * The values of `factTypes()` for the form, as of `$now` (the request's moment, the one the page's refusals
      * read); null when what the form belongs to is gone (the form's page then shows it unavailable, and its
      * routes answer `NotFound`).
@@ -74,7 +85,7 @@ interface FormHost
     public function prefill(Form $form): array;
 
     /**
-     * The options and the choice window of the set a request field names (`RequestFieldType`), for the
+     * The options of the set a request field names (`RequestFieldType`), for the
      * form: null when the form's event has no such set in request mode (the form is then unusable). Read
      * when the definition is parsed, outside any transaction.
      */
@@ -129,7 +140,7 @@ interface FormHost
      * (events-and-forms.md, "Fields"): `title` for a field block's empty question title, and each option's label by
      * its value (retired options included, so a stored value still reads) for a choice option's empty label. Asked
      * only when a form's field block has an empty label, and read when the definition is parsed or the blocks are
-     * rendered, outside any transaction. A key the host has no field for is left out. [UNAPPROVED N807 of #231]
+     * rendered, outside any transaction. A key the host has no field for is left out.
      *
      * @return array<string, array{title: string, options: array<string, string>}>
      */

@@ -202,7 +202,7 @@ final class Forms
      * field under the key has other decimals than given: what a declaration that fixes the key's decimals
      * (an extra charge) must not close. A field counts with `(int) ($settings['decimals'] ?? 0)`, as
      * `SharedKeyCheck` reads it, and only a number field does. It reads the event's form posts, so it runs
-     * outside a use case's transaction. [UNAPPROVED N808]
+     * outside a use case's transaction.
      *
      * @return list<array{form_id: int, title: string}> by ascending form ID
      */
@@ -288,6 +288,27 @@ final class Forms
     }
 
     /**
+     * The keys of the event's participant fields an additional form's condition may read from the registration's
+     * stored values, with their value types: not a `system` field (a decision, not a stored answer), not a field
+     * of a type no longer contributed, and not a path (`pathKeys()`: read with `contains` against the field's own
+     * ancestors, which only a form's own field offers). Retired ones are read too, since their values are stored.
+     *
+     * @return array<string, ValueType>
+     */
+    public function storedTypes(int $eventId): array
+    {
+        $types = [];
+        foreach ($this->typedFields($eventId) as [$field, $type]) {
+            $readable = $type !== null && $field->source !== ParticipantField::SOURCE_SYSTEM;
+            if ($readable && !$type instanceof PathFieldType) {
+                $types[$field->key] = $type->valueType();
+            }
+        }
+
+        return $types;
+    }
+
+    /**
      * The event's participant fields, retired ones included, each with its contributed type (null when no
      * type is contributed for it any more).
      *
@@ -324,6 +345,28 @@ final class Forms
         }
 
         return $attributes;
+    }
+
+    /**
+     * The facts a submit's walk reads for the form, built the same way as its page's and re-fetch's
+     * (`FormHost::facts()`) but from what the caller read: the account state, the moment, and for an additional
+     * form the registration's field values and status (one read, so the use case can check the same read under
+     * its lock). Reads the database, so it runs before a use case's transaction.
+     *
+     * The moment is the caller's, the same one the page's and re-fetch's facts read at.
+     *
+     * @param array<string, string>|null $stored the registration's field values by key; null for none
+     * @param string|null $status the registration's status value
+     */
+    public function submitFacts(
+        Form $form,
+        Event $event,
+        ?bool $loggedIn,
+        \DateTimeImmutable $now,
+        ?array $stored,
+        ?string $status
+    ): ValueContext {
+        return (new EventFormHost())->factsFor($form, $event, $loggedIn, $now, $stored, $status);
     }
 
     /**

@@ -9,14 +9,11 @@ use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\AfterSubmit;
-use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
-use Kalaka\Forms\Api\ValidatedAnswers;
-use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Entry\Boundary;
@@ -31,6 +28,9 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Account\AccountOutcome;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
 use Kalaka\Registrations\SubmitAdditionalForm;
+use Kalaka\Forms\Api\FormTerminal;
+use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Registrations\SubmitRegistration;
 
 /**
@@ -65,6 +65,7 @@ final class RegistrationSubmit
         private readonly Events $events = new Events(),
         private readonly ParticipantFields $participantFields = new ParticipantFields(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
+        private readonly Registrations $registrations = new Registrations(),
         private readonly ?array $seatClaimSources = null,
     ) {
     }
@@ -108,6 +109,7 @@ final class RegistrationSubmit
         }
         $definition = $this->forms->latestDefinition($form, $request->version);
         $runner = $this->runner ?? Runner::current();
+        $fingerprint = SubmitRegistration::fingerprint($form->id, $request->answers);
 
         for ($attempt = 1;; $attempt++) {
             $event = $this->events->find($form->eventId) ?? throw new NotFound();
@@ -120,12 +122,33 @@ final class RegistrationSubmit
                 : $actor instanceof AccountActor;
             // One moment for the attempt's form facts and its after-submit section (`time.now`).
             $now = $runner->clock()->now();
-            $answers = $this->forms->validate(
-                $definition,
-                $request->answers,
-                new ValueContext(EventValues::form($event, $loggedIn, $now))
-            );
             $target = $request->target;
+            // One read of the registration's values and status, per attempt: the walk's facts are built from it,
+            // and an additional form's submit compares it with the rows under the registration lock.
+            $read = $form->placement === FormPlacement::Additional && $target !== null
+                ? $this->readOf($target)
+                : null;
+            // The walk's failure is not acted on here: the use case checks the token's repeat rule first, under
+            // the lock (the one owner of that rule), and only then throws it. A resend whose walk now fails or
+            // keeps other answers (the places left changed since) is still a repeat.
+            $failure = null;
+            try {
+                $answers = $this->forms->validate(
+                    $definition,
+                    $request->answers,
+                    $this->forms->submitFacts(
+                        $form,
+                        $event,
+                        $loggedIn,
+                        $now,
+                        $read['values'] ?? null,
+                        $read['status'] ?? null
+                    )
+                );
+            } catch (InvalidAnswers | FormTerminal $walk) {
+                $failure = $walk;
+                $answers = new ValidatedAnswers([], []);
+            }
             $fieldTypes = self::fieldTypes($definition);
             if ($form->placement === FormPlacement::Additional && $target !== null) {
                 // An additional form writes a supplementary submission to the registration (S60). What its
@@ -144,6 +167,9 @@ final class RegistrationSubmit
                     $fieldTypes,
                     $this->participantFields->of($form->eventId),
                     SubmitAdditionalForm::clearable($definition, $answers, $current),
+                    $read,
+                    $failure,
+                    fingerprint: $fingerprint,
                 );
                 $input = [
                     'form' => $form->id,
@@ -162,6 +188,8 @@ final class RegistrationSubmit
                     $fieldTypes,
                     $this->participantFields->of($form->eventId),
                     account: $account,
+                    walkFailure: $failure,
+                    fingerprint: $fingerprint,
                     seatClaims: $this->seatClaims($event, $answers),
                 );
                 $input = ['form' => $form->id, 'token' => $request->token];
@@ -182,6 +210,21 @@ final class RegistrationSubmit
             // After the transaction: the after-submit content reads the form's post.
             return $result->withAfterSubmit($this->afterSubmit($form, $definition->version, $event, $result, $now));
         }
+    }
+
+    /**
+     * The registration's field values and status, one read: what an additional form's walk reads for its
+     * conditions (`Forms::submitFacts()`) and what its submit checks again under the registration lock.
+     * A registration that is gone reads as no values and no status.
+     *
+     * @return array{values: array<string, string>, status: string|null}
+     */
+    private function readOf(RegistrationKey $target): array
+    {
+        return [
+            'values' => $this->registrations->values($target),
+            'status' => $this->registrations->find($target)?->status->value,
+        ];
     }
 
     /**

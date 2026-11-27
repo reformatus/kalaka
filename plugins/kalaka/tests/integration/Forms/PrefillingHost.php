@@ -24,6 +24,11 @@ final class PrefillingHost implements FormHost
         return $this->inner->factTypes($form);
     }
 
+    public function goneTypes(Form $form, array $keys): array
+    {
+        return $this->inner->goneTypes($form, $keys);
+    }
+
     public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
         return $this->inner->facts($form, $now);
