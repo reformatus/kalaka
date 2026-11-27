@@ -129,7 +129,9 @@ retention and the materializer
 - Whether a registration is confirmed is read only through `Api\Confirmations` (`isConfirmed()`, or `confirmedOf()`
   for a batch of one event); nobody else names the decision's kind or state.
 - The manual flag is a fact in `kalaka_manual_confirmations`, set only by
-  `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
+  `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm` or by the leaving of its registration
+  (`Api\ManualConfirmations::revokeOnLeaving()`, which Registrations' withdraw and remove call inside their
+  transaction; a restore does not bring the flag back).
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
   registration), written only by `kalaka/unconfirm`. Both use cases take the
   per-event action `kalaka_confirm_manually` and a required reason. Setting a

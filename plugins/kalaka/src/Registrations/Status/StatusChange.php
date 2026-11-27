@@ -25,6 +25,7 @@ use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\FeeComposition;
+use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -53,7 +54,9 @@ use Kalaka\Registrations\RegistrationRepository;
  * - The same act on a registration already in its target state is `{changed: false}` and writes nothing; any other
  *   status the act does not allow is `StatusActRefused`.
  * - Leaving (withdraw, remove): the status and the version; every seat is freed (`Seats::releaseAll()`). Nobody on
- *   the waitlist moves up. `registered_at` and `registered_by` stay as they were.
+ *   the waitlist moves up. `registered_at` and `registered_by` stay as they were. The registration's manual
+ *   confirmation flag is revoked in the same transaction (`ManualConfirmations::revokeOnLeaving()`), so the
+ *   change is in the act's audit entry; a restore does not bring it back. [UNAPPROVED N1145]
  * - A restore is full access only and returns the registration to the status it left from: `registered` when it was
  *   ever registered (it has a `registered_at`), `waitlisted` (at its place by submit time, nothing else written, no
  *   seat) when it never was.
@@ -98,6 +101,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         private readonly Ledger $ledger = new Ledger(),
         private readonly Registrations $reads = new Registrations(),
         private readonly MoneySettings $settings = new MoneySettings(),
+        private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
     ) {
     }
 
@@ -337,6 +341,8 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
             $this->mails->due($context, ActionMail::Waitlisted, $key, self::restoreCause($key, $stored));
         } else {
             $this->seats->releaseAll($key, $context);
+            // A leaving clears the manual confirmation flag; a restore does not bring it back. [UNAPPROVED N1145]
+            $this->manualConfirmations->revokeOnLeaving($key, $context);
         }
 
         return self::result($target, false, []);
