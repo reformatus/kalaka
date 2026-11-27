@@ -73,19 +73,29 @@ describe( 'the buttons of the manual confirmation block', () => {
 
 	test( 'the one unconfirm is offered only with can.unconfirm, whatever the flag says', () => {
 		expect( manualActions( null, { confirm_manually: true, unconfirm: true } ) ).toEqual( [ 'confirm', 'unconfirm' ] );
+		expect( manualActions( null, { confirm_manually: true, unconfirm: true }, false ) ).toEqual( [ 'confirm', 'unconfirm' ] );
 		expect( manualActions( flag, { confirm_manually: true, unconfirm: true } ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( undefined, { unconfirm: true } ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( flag, { confirm_manually: true, unconfirm: false } ) ).toEqual( [] );
 	} );
 
 	test( 'can.unconfirm decides alone: it does not matter why the registration is confirmed', () => {
-		// The pure logic takes only the flag and `can`: no status, no confirmation cause, no money.
-		expect( manualActions.length ).toBe( 2 );
+		// The pure logic takes only the flag, `can` and the confirmed fact: no status, no confirmation cause, no money.
+		expect( manualActions.length ).toBe( 3 );
 		const can = { unconfirm: true, status: 'waitlisted', cause: 'payments', threshold: 'below', view_money: false };
 		expect( manualActions( null, can ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( flag, { ...can, cause: 'nothing_due' } ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( flag, { ...can, cause: 'manual' } ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( flag, { ...can, unconfirm: false, cause: 'manual' } ) ).toEqual( [] );
+	} );
+
+	test( 'the set button is hidden while the registration is confirmed: the two buttons never show together', () => {
+		const can = { confirm_manually: true, unconfirm: true };
+		expect( manualActions( null, can, true ) ).toEqual( [ 'unconfirm' ] );
+		expect( manualActions( undefined, can, true ) ).toEqual( [ 'unconfirm' ] );
+		// Not known (an old server): the set stays.
+		expect( manualActions( null, { confirm_manually: true }, undefined ) ).toEqual( [ 'confirm' ] );
+		expect( manualActions( null, { confirm_manually: true }, null ) ).toEqual( [ 'confirm' ] );
 	} );
 
 	test( 'the set button follows can.confirm_manually only, whatever else the read says', () => {

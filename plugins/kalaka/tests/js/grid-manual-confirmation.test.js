@@ -72,7 +72,7 @@ describe( 'focus after the act', () => {
 	} );
 
 	test( 'goes to the block when the act removed the button (a plain unconfirm: can.unconfirm turns false)', async () => {
-		const after = props( { can: { confirm_manually: true, unconfirm: false }, manual: null } );
+		const after = props( { can: { confirm_manually: true, unconfirm: false }, manual: null, confirmed: false } );
 		await mount( props( { reload: async () => {
 			await mount( after );
 			return { registration: {}, can: after.can };
@@ -87,7 +87,7 @@ describe( 'focus after the act', () => {
 
 	test( 'goes to the block after a set, which removes the set button', async () => {
 		const after = props( { can: { confirm_manually: true, unconfirm: true } } );
-		await mount( props( { manual: null, can: { confirm_manually: true, unconfirm: false }, reload: async () => {
+		await mount( props( { manual: null, confirmed: false, can: { confirm_manually: true, unconfirm: false }, reload: async () => {
 			await mount( after );
 			return { registration: {}, can: after.can };
 		} } ) );

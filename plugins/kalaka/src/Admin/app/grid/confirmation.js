@@ -23,16 +23,21 @@ export function validateReason( reason ) {
 
 /**
  * The buttons of the manual confirmation block: `confirm` (the manual flag) with `can.confirm_manually` while the
- * flag is not set (also when the read does not carry it, which is only under the money gate: the set is
- * idempotent); `unconfirm` only with `can.unconfirm`, which the server makes true only on a confirmed registration,
+ * flag is not set and the registration is not confirmed, so the two buttons never show together ([UNAPPROVED N34
+ * reboxed] [UNAPPROVED N75 reboxed]); it shows also when the read does not carry the flag, which is only under the
+ * money gate: the set is idempotent; `unconfirm` only with `can.unconfirm`, which the server makes true only on a confirmed registration,
  * whatever the flag says ([UNAPPROVED N33 reboxed: confirmed only, with no required reason]). No status logic here:
  * the server's `can` decides alone. A flag on a registration that is not confirmed has no button that revokes it
  * ([UNAPPROVED N70 reboxed: the server clears the manual flag when the registration is withdrawn or removed, which
- * is Backend's work, not built here]). [UNAPPROVED N75] [UNAPPROVED N34]
+ * is Backend's work, not built here]).
+ *
+ * @param {?Object}  manual    the read's flag: null when not set, undefined when the read does not carry it
+ * @param {Object}   can       the read's `can`
+ * @param {?boolean} confirmed the read's `registration.confirmed`; anything but `true` (an old server too) keeps the set
  */
-export function manualActions( manual, can ) {
+export function manualActions( manual, can, confirmed ) {
 	const actions = [];
-	if ( can && can.confirm_manually && ! manual ) {
+	if ( can && can.confirm_manually && ! manual && confirmed !== true ) {
 		actions.push( 'confirm' );
 	}
 	if ( can && can.unconfirm ) {

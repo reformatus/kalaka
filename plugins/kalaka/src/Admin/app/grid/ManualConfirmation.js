@@ -54,7 +54,7 @@ export default function ManualConfirmation( {
 	const opener = useRef( null );
 	const block = useRef( null );
 	const timers = useRef( [] );
-	const actions = manualActions( manual, can );
+	const actions = manualActions( manual, can, confirmed );
 
 	useEffect(
 		() => () => {
