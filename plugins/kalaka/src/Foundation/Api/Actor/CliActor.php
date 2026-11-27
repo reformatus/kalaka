@@ -10,6 +10,14 @@ final readonly class CliActor implements Actor
     {
     }
 
+    /** The command line as WP-CLI's `--user` has it: that user, or no user. */
+    public static function current(): self
+    {
+        $id = get_current_user_id();
+
+        return new self($id > 0 ? $id : null);
+    }
+
     public function side(): Side
     {
         return Side::Admin;

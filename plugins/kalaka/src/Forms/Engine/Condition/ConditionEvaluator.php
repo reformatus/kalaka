@@ -13,7 +13,7 @@ use Kalaka\Vendor\Brick\Math\BigDecimal;
 /**
  * Decides whether a parsed condition holds for a fact source. Pure: no database, hook, user,
  * request or clock, so a caller inside a transaction can use it. It is the one evaluator behind
- * every availability (S76), reached through `Api\Availability` and the form walk.
+ * every availability (S76), reached through the form walk.
  *
  * Three values: true, false and unknown (null). A comparison on a missing value, or against a
  * reference to a missing date, is unknown: nothing was answered, so the comparison cannot be

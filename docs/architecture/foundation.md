@@ -88,8 +88,10 @@ reached; the grant defines who holds the view.**
     by their role. The user who activates the plugin gets it while nobody
     holds it; after that a holder gives or takes it on the user's profile screen, or WP-CLI does
     (`wp kalaka full-access grant|revoke`), both through audited use cases.
-    The last holder cannot lose it. On multisite, super admins pass every
-    check.
+    The last holder cannot lose it through Kaláka's use cases, the WordPress
+    users screen, REST or WP-CLI; plain code can still delete the user, which
+    is logged, and re-activation restores a holder. On multisite, super admins
+    pass every check.
 - **Actions that are not a column** (withdraw, remove, admit, record payment,
   refund, regenerate link, notes, audit history) are carried by the grant,
   not by WordPress roles. An action is usable only on registrations inside
@@ -568,9 +570,18 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **A setting that money or a rule needs from a field** (a number field's
     decimals) is stored on the event's participant field, never
     read from the form post.
+  - **Seats follow one rule:** the event's places, a set option's places, and
+    a limited tier's or offer's places. A seat is a fact. The form only
+    controls visibility; the backend takes the seat under a lock, inside the
+    registration's own act. Leaving frees it, and only another act can take
+    it again; a seat never moves by itself. A full pool turns away only the
+    registrant's own submit (a full event waitlists it). A staff act
+    (placing, admission, restore, answering a request, an admin's submit)
+    takes the seat even over the limit, with a "full" warning, and leaves the
+    event's "full" latch as it is.
 - **Decisions** are made by the system: confirmation in core
-  ([Money](money.md#confirmation)), and the late fee, price-tier place and
-  support place from extensions ([Money](money.md#quota-places)).
+  ([Money](money.md#confirmation)), and the late fee from an extension.
+  Seats are facts, not decisions (the seat rule above).
   - **Each decision is an append-only transition record** with kind, state,
     effective time, recorded time, cause (record type, event and key) and
     actor. The current state is the latest record.
