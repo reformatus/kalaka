@@ -275,8 +275,6 @@ final class MailCommand
 
             return;
         }
-        // WP-CLI's helper, not installed for the static analysis.
-        // @phpstan-ignore function.notFound
         \WP_CLI\Utils\format_items($format, $rows, $fields);
     }
 

@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace Kalaka\PriceLadder;
 
 use Kalaka\Forms\Api\Value;
+use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Ledger\Api\Payer;
+use Kalaka\PriceLadder\Api\PriceLadder;
 use Kalaka\PriceLadder\Api\Tier;
+use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\PlainAmount;
+use Kalaka\Pricing\Api\ProposedComponentSettings;
 use Kalaka\Pricing\Api\ProvidesBase;
 
 /**
@@ -21,7 +26,7 @@ use Kalaka\Pricing\Api\ProvidesBase;
  * the proposed tiers in a preview. The ladder sets only the base price; who pays how much of it is decided by
  * the registrant's answers (the share extension, S29), never by the tier.
  */
-final class PriceLadderComponent implements ProvidesBase
+final class PriceLadderComponent implements ProvidesBase, ConfigurableFeeComponent
 {
     public const ID = 'price_ladder';
 
@@ -70,6 +75,26 @@ final class PriceLadderComponent implements ProvidesBase
             $tier->amount->isPositive() ? [Payer::PARTICIPANT => $tier->amount] : [],
             computed: $computed
         );
+    }
+
+    public function settingsToArray(int $eventId): array
+    {
+        $tiers = [];
+        foreach ((new PriceLadder())->tiers($eventId) as $tier) {
+            $tiers[] = ['key' => $tier->key, 'label' => $tier->label, 'amount' => PlainAmount::of($tier->amount)];
+        }
+
+        return ['tiers' => $tiers];
+    }
+
+    public function settingsFromArray(int $eventId, array $settings): ProposedComponentSettings
+    {
+        $tiers = $settings['tiers'] ?? null;
+        if (array_keys($settings) !== ['tiers'] || !is_array($tiers) || !array_is_list($tiers)) {
+            throw new InvalidInput();
+        }
+
+        return (new PriceLadder())->propose($eventId, $tiers);
     }
 
     /** The tier the registration chose in `price_tier`, or null: no answer, or no such field yet. */

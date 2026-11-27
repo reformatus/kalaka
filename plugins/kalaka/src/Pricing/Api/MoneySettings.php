@@ -16,6 +16,7 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
 use Kalaka\Pricing\FixedPrice;
+use Kalaka\Pricing\FixedPriceRepository;
 use Kalaka\Pricing\SetFixedPrice;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -40,7 +41,14 @@ final class MoneySettings
         private readonly FeeComposer $composer = new FeeComposer(),
         private readonly Events $events = new Events(),
         private readonly Registrations $registrations = new Registrations(),
+        private readonly FixedPriceRepository $prices = new FixedPriceRepository(),
     ) {
+    }
+
+    /** The event's current fixed price; null when it has none. A plain read. */
+    public function fixedPrice(int $eventId): ?Money
+    {
+        return $this->prices->find($eventId)?->amount;
     }
 
     /**

@@ -11,7 +11,7 @@ refusal that says why), `Materializer` (the evaluation's money phase) and `Money
 
 Tables, created by the schema in `Module.php`: `kalaka_fixed_prices`. There is no tariff snapshot.
 
-Entry points: none yet (the settings screen is S72's).
+Entry points: the WP-CLI command `wp kalaka money-settings show|preview|apply <event_id>` (`Cli/MoneySettingsCommand`; `Cli/SettingsDocument` is the JSON shape: `fixed_price` and `components` keyed by component ID, each component a `Api\ConfigurableFeeComponent`). The settings screen is S72's.
 
 Modules contribute fee components with `Contributions::feeComponent()`; `CoreFeeComponents` lists core's fixed
 price, then the contributed ones, core's Extras among them. A module's proposed settings reach `MoneySettings` as
