@@ -106,6 +106,18 @@ final class StatusMarkup
     }
 
     /**
+     * The leave block: one bare form with one button, no look of its own beyond core's button class. The
+     * label is a stand-in. [UNAPPROVED T1110]
+     */
+    public static function leave(string $action, string $returnUrl): string
+    {
+        return '<form class="kalaka-leave" method="post" action="' . esc_url($action) . '">'
+            . '<input type="hidden" name="return_url" value="' . esc_attr($returnUrl) . '">'
+            . '<button type="submit" class="wp-element-button">' . esc_html(ParticipantBlocks::LEAVE_LABEL)
+            . '</button></form>';
+    }
+
+    /**
      * The payment table (lines, total, paid, then still due or overpaid), the deadline and the note on
      * hand-recorded payments. Only the amount still due is bold, and only while it is payable now.
      */
