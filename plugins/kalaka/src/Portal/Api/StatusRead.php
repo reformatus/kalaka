@@ -69,7 +69,7 @@ final class StatusRead
         $confirmation = null;
         $payment = null;
         $transfer = null;
-        if ($registration->status === RegistrationStatus::Registered) {
+        if ($registration->status->isActive()) {
             $now = Runner::current()->clock()->now();
             $decisions = $this->decisions->currentOf($key);
             $confirmed = isset($decisions[self::CONFIRMATION])

@@ -8,7 +8,6 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
-use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Seats;
 
 /**
@@ -51,7 +50,7 @@ final class PlacementWarnings
         $warnings = [];
         $pool = new OptionSeatPool($registration->eventId, $setId, $optionKey);
         if (
-            $this->registrations->find($registration)?->status === RegistrationStatus::Registered
+            $this->registrations->find($registration)?->status->isActive() === true
             && $this->seats->wouldOverfill($pool, $registration)
         ) {
             $warnings[] = self::FULL;

@@ -27,10 +27,36 @@ enum RegistrationStatus: string
     }
 
     /**
+     * Whether the registration is active: `registered` only. Waitlisted, withdrawn and removed are inactive
+     * (owner 2026-11-27, walkthrough 7.1: "there should be one abstraction for active registrations, and
+     * waitlisted are not in that"). The one test of an active registration: code that means "active" (a count, a
+     * seat held, a price, a payment) calls this and never compares with `Registered`; code that means the status
+     * itself (a transition's target, `registered_at`, a status's word) names `Registered`.
+     * [UNAPPROVED N1163]
+     */
+    public function isActive(): bool
+    {
+        return $this === self::Registered;
+    }
+
+    /**
+     * The stored values of the active statuses: the one list SQL filters on, `isActive()` as strings.
+     *
+     * @return list<string>
+     */
+    public static function activeValues(): array
+    {
+        return array_map(
+            static fn (self $status): string => $status->value,
+            array_values(array_filter(self::cases(), static fn (self $status): bool => $status->isActive()))
+        );
+    }
+
+    /**
      * Whether the registrant's page shows their details (the money table and the rest): true unless the
      * registration is waitlisted, who see only that they are waitlisted (owner ruling 2026-11-25). The one read of
      * what a waitlisted registrant sees; not an action gate: additional forms and payments stay on
-     * `=== Registered`.
+     * `isActive()`.
      */
     public function showsDetails(): bool
     {

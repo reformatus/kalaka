@@ -11,7 +11,6 @@ use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
-use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SeatAct;
 use Kalaka\Registrations\Api\Seats;
 
@@ -90,7 +89,7 @@ final class PlaceRegistration implements AdminUseCase
             $held = new OptionSeatPool($registration->eventId, $target->setId, $record->optionKey);
             $this->seats->release($held, $registration, $context);
         }
-        if ($this->registrations->find($registration)?->status === RegistrationStatus::Registered) {
+        if ($this->registrations->find($registration)?->status->isActive() === true) {
             $this->seats->retake(
                 new OptionSeatPool($registration->eventId, $target->setId, $target->option->key),
                 $registration,

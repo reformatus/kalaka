@@ -17,6 +17,22 @@ final class RegistrationTables
     /** The participant field values, keyed `event_id`, `code`, `field_key`. */
     public const FIELD_VALUES = 'kalaka_field_values';
 
+    /** The SQL list of the active statuses: `RegistrationStatus::activeValues()`, a test holds the two together. */
+    public const ACTIVE_STATUSES_SQL = "'registered'";
+
+    /**
+     * The condition that a row is an active registration (`RegistrationStatus::isActive()`).
+     *
+     * @param literal-string $alias the registrations table's alias, or '' for none
+     * @return literal-string
+     */
+    public static function isActive(string $alias = ''): string
+    {
+        $column = $alias === '' ? '' : $alias . '.';
+
+        return "{$column}status IN (" . self::ACTIVE_STATUSES_SQL . ')';
+    }
+
     /**
      * The instant the sorszám orders by: `registered_at` for a registered row, `created_at` otherwise.
      *

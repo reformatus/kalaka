@@ -175,6 +175,9 @@ erDiagram
 - **Only capacity (waitlisted) and withdrawal or removal keep a registration
   from being `registered`.** Deposit or aid status never makes a registration
   invalid.
+- **Active means `registered` only:** a waitlisted, withdrawn or removed
+  registration is not active. One test in code decides it, for counts, seats
+  and every rule that applies to live registrations.
 - **Confirmation sits beside status, not in it:** it is defined only for
   `registered` registrations, a system decision recorded from payments or a
   manual flag ([Money](money.md#confirmation)). Participants see one phase
