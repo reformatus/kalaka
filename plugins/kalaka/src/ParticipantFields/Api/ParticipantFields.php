@@ -101,7 +101,6 @@ final class ParticipantFields
      * longer declares is retired, its label kept) and whether forms may hold its key. A `form` field of the same
      * type under the key is adopted. `$declarer` is the declaring module's slug, stored as `declared_by`;
      * `$moneyRelevant` claims the lock after the first write (a stored claim is never lowered by a later declaration).
-     * [UNAPPROVED, #200 N5, N301]
      *
      * @param ?list<array{value: string, label: string}> $options null for a field without options
      * @param ?int $decimals the number of decimals the declarer fixes for a number field; none when null
