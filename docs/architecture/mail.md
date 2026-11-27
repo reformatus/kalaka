@@ -6,8 +6,11 @@ title: Mail
 
 ## Words
 
-- A **mail** is one configured message: its trigger settings plus its
-  **body**, one to one. There are no "templates".
+- A **mail** is one configured message (a **sending point** on the screen): its
+  trigger settings plus its **template**, one to one. The template is a
+  `kalaka_mail` post of the event; the screen calls it a sablon. A template
+  that is not published may be held, but only a published one lets the point
+  send. [UNAPPROVED R320]
 - A **delivery** is one row in the send log: one mail to one registration (or
   address) on one occurrence: pending, sending, sent or failed. A pending
   delivery may carry the error of an earlier attempt. **Only the sender

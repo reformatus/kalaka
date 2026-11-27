@@ -45,7 +45,7 @@ use Kalaka\Mail\Pause\MailState;
  *   `refusals` of a switch, the `template` each holds (`{id, status, title, subject, modified, uses_frame,
  *   edit_url}` or null), why it cannot be switched on (`enable_unavailable`: `no_template`, `template_draft` or
  *   null) and whether an act queues it on this line (`wired`), the bodies, the counts and `can.clear_event`.
- *   `can.enable` is the point's own switch-on capability (the same check the use case runs). [UNAPPROVED N1172]
+ *   `can.enable` is the point's own switch-on capability (the same check the use case runs). [UNAPPROVED N1176]
  * - `POST /events/{id}/mail/points/{mail}/template`: a new draft template for the point, assigned to it, the point
  *   switched off; `{id, edit_url}` (the one write here, through `Api\MailTemplates`).
  * - `GET /mail`: the sender: the pause, the errors in a row, the budget and its default, the pending count and
@@ -333,7 +333,7 @@ final class MailRoutes
     /**
      * What a sending point adds to its setting: the template it holds (with what the point's own row needs of it:
      * its title, subject, last change and whether the levélkeret wraps it), why it cannot be switched on, and
-     * whether an act queues it. [UNAPPROVED N1172]
+     * whether an act queues it. [UNAPPROVED N1176]
      *
      * @param array<string, mixed> $mail the point's setting (`ActionMailSetting::toArray()`)
      * @param list<MailBodyInfo> $bodies the event's templates
@@ -370,7 +370,7 @@ final class MailRoutes
     /**
      * `POST /events/{id}/mail/points/{mail}/template`: a new, empty draft template for the sending point,
      * assigned to it, the point switched off (`Api\MailTemplates`). Full access, like the settings abilities.
-     * [UNAPPROVED N1173]
+     * [UNAPPROVED N1177]
      *
      * @param \WP_REST_Request<array<string, mixed>> $request
      */
