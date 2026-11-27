@@ -117,7 +117,7 @@ final class CardPaymentStartTest extends PortalTestCase
         $other->query("SELECT GET_LOCK('" . $name . "', 0)");
 
         try {
-            (new CardPayments(waitMs: 0))->start($key);
+            (new CardPayments())->start($key);
             self::fail('Nothing refused it.');
         } catch (CardPaymentInFlight $e) {
             self::assertSame('kalaka_card_payment_in_flight', $e->errorCode());

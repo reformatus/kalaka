@@ -80,8 +80,6 @@ final readonly class Money
      * a hundred, rounded up (toward positive infinity) to the eight decimals of the stored form. Used by the
      * WooCommerce card surcharge (#251).
      *
-     * [UNAPPROVED N817]
-     *
      * @throws InvalidInput When the percent is not a non-negative decimal text.
      * @throws SystemFailure When the result leaves the DECIMAL(26,8) range.
      */
