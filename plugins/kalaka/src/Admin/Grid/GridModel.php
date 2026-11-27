@@ -477,7 +477,7 @@ final class GridModel
             ];
         }
         if ($column === 'awaits_answer') {
-            // A core-derived yes/no column [UNAPPROVED N669]: shown, filtered and counted as a consent field is
+            // A core-derived yes/no column: shown, filtered and counted as a consent field is
             // (stored '1' / '0'), but with three values: no value is N/A (the registration is not `registered`),
             // shown as `na` („–”), different from „Nem”; there is no „Nincs válasz” and no N/A filter option.
             // The title is [UNAPPROVED T852]. [UNAPPROVED N690, T1120]

@@ -120,8 +120,8 @@ final class Requests
      * Core alone writes the SQL:
      * each test is an `EXISTS` or `NOT EXISTS` over the field values table, every value a placeholder argument.
      * The rule is the one `awaits()` evaluates in PHP, for a `registered` registration. No statement is run.
-     * (Access) any view may list the column; it tells that something awaits, not what. [UNAPPROVED N668]
-     * (Shapes) a core-derived grid column over the sources' declarative rules. [UNAPPROVED N669]
+     * (Access) any view may list the column; it tells that something awaits, not what.
+     * (Shapes) a core-derived grid column over the sources' declarative rules.
      *
      * @param string $fieldValues the participant field values table
      * @return array{0: literal-string, 1: list<string|int>} the condition and its placeholder arguments

@@ -42,7 +42,6 @@ interface RequestSource
      * a `registered` registration awaits in the grid). Core compiles the rule to SQL (`awaitingCondition()`) and
      * evaluates it in PHP (`awaits()`); the source writes no SQL and reads no database, only its configuration (which
      * offers need approval). Null when this event's registrations can have no request from the source.
-     * [UNAPPROVED N669]
      */
     public function awaitingRule(int $eventId): ?AwaitingRule;
 

@@ -14,7 +14,7 @@ use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\RequestSource;
 
-/** The grid's "awaits an answer" condition is compiled by core from the sources' rules alone. [UNAPPROVED N669] */
+/** The grid's "awaits an answer" condition is compiled by core from the sources' rules alone. */
 final class RequestsAwaitingConditionTest extends RegistrationsTestCase
 {
     private function source(?AwaitingRule $rule): RequestSource

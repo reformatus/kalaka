@@ -22,7 +22,7 @@ use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 /**
  * "Awaits an answer" is a grid column of its own with a filter, a sort and a count, all over one SQL expression
  * (`RequestSource::awaitingRule()`, compiled by core); it equals `registered` and `Requests::states()` saying a request
- * awaits, for every status. The row's mark comes from the same SQL. [UNAPPROVED N668] [UNAPPROVED N669]
+ * awaits, for every status. The row's mark comes from the same SQL.
  */
 final class ViewAwaitsAnswerTest extends AdminTestCase
 {

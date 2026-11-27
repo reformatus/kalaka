@@ -150,7 +150,7 @@ final class ViewQuery extends Query
             $order = 'n.serial_no' . $direction . ', ' . $serialOrder;
         } elseif ($sort === 'awaits_answer') {
             // Yes first descending: yes, then no, then N/A (NULL, a registration that is not `registered`);
-            // ascending is the reverse. [UNAPPROVED N669] [UNAPPROVED N690]
+            // ascending is the reverse. [UNAPPROVED N690]
             [$awaiting, $sortArgs] = $this->awaiting($eventId);
             $order = $awaiting . $direction . ', ' . $serialOrder;
         } elseif ($sort !== null && str_starts_with($sort, 'field:')) {
@@ -180,7 +180,7 @@ final class ViewQuery extends Query
             $offset,
             $total,
         ): ViewPage {
-            // [UNAPPROVED N669] "awaits an answer" comes from the same SQL as its filter, sort and count, in the
+            // "awaits an answer" comes from the same SQL as its filter, sort and count, in the
             // page's one statement; with no request source it is the constant false.
             [$awaiting, $awaitingArgs] = $this->awaiting($eventId);
             $registrations = $this->select(
@@ -841,7 +841,7 @@ final class ViewQuery extends Query
     /**
      * "Awaits an answer" as one three-valued expression over `r`: 1 for a `registered` registration with a request
      * waiting, 0 for a `registered` one with none, NULL (N/A) for every other status (`Requests::awaitingCondition()`).
-     * The column's filter, sort and count and the row's mark all use this one expression. [UNAPPROVED N669]
+     * The column's filter, sort and count and the row's mark all use this one expression.
      * [UNAPPROVED N690]
      *
      * @return array{0: literal-string, 1: list<string|int>}
@@ -941,7 +941,7 @@ final class ViewQuery extends Query
     private function aggregate(AggregateSpec $spec, string $values, int $eventId): array
     {
         if ($spec->column === 'awaits_answer') {
-            // Yes: the registrations that await an answer. [UNAPPROVED N669]
+            // Yes: the registrations that await an answer.
             [$awaiting, $awaitingArgs] = $this->awaiting($eventId);
 
             return ['COALESCE(SUM(' . $awaiting . '), 0)', $awaitingArgs];
