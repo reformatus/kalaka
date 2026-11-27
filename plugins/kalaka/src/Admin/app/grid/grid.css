@@ -62,8 +62,8 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
    alternative, a reduced opacity, are N25's). [UNAPPROVED N25] */
 #kalaka-grid .kg-inactive { color: var(--wpds-color-foreground-interactive-neutral-disabled, #8d8d8d); }
 
-/* A long field is one line, cut with „…”. */
-.kg-long { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A long field wraps within its column, never cut (owner 2026-11-27, walkthrough 9.4 b). [UNAPPROVED N1260] */
+.kg-long { display: block; max-width: 240px; white-space: normal; overflow-wrap: anywhere; }
 
 /* DataViews inside wp-admin. */
 #kalaka-grid .dataviews-wrapper { background: #fff; border: 1px solid #dcdcde; }
