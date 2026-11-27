@@ -6,7 +6,7 @@ namespace Kalaka\Registrations\Status;
 
 use Kalaka\Registrations\Api\StatusAct;
 
-/** Record a withdrawal (lemondott): the registration leaves and frees its seats. [UNAPPROVED N510] */
+/** Record a withdrawal (lemondott): the registration leaves and frees its seats. */
 final class WithdrawRegistration extends StatusChange
 {
     public static function name(): string

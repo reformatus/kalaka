@@ -65,7 +65,7 @@ SQL;
     /**
      * money.md, "Withdrawal, removal and substitution": the event's retention rule, the ID of a
      * `RetentionRule` (`nothing` or `everything_paid` in core); no row means the default, everything paid.
-     * Read as it is now. [UNAPPROVED N526]
+     * Read as it is now.
      */
     private const RETENTION = <<<'SQL'
 CREATE TABLE {prefix}kalaka_retention (

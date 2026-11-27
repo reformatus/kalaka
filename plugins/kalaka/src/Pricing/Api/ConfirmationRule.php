@@ -79,6 +79,15 @@ final class ConfirmationRule implements DecisionRule
         return [self::CONFIRMED => 'Visszaigazolva', self::UNCONFIRMED => 'Nincs visszaigazolva'];
     }
 
+    /** The marks of the grid and the detail (UX's table, the owner's Q51 (b)). [UNAPPROVED N1107] */
+    public function marks(): array
+    {
+        return [
+            self::CONFIRMED => ['icon' => 'yes-alt', 'tone' => 'ok'],
+            self::UNCONFIRMED => ['icon' => 'marker', 'tone' => ''],
+        ];
+    }
+
     /** No record reads `unconfirmed`, and only a `registered` registration has a confirmation state. */
     public function defaultState(): DecisionDefault
     {

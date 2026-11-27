@@ -46,7 +46,7 @@ retention and the materializer
   a component cannot say, so leaving does not fail on it; a rule that needs the fee decides what null means). A rule
   that throws, or returns anything but Money in the event's currency per payer, fails as
   `FeeComponentFailed('retention')`. The ID `retention` is core's line key:
-  `Contributions::feeComponent()` refuses it. [UNAPPROVED N671]
+  `Contributions::feeComponent()` refuses it.
 - A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings as plain data and reads
   them back (`settingsToArray()`, `settingsFromArray()` into `ProposedComponentSettings`), so
   `wp kalaka money-settings show|preview|apply` (`Cli/`) carries every component's settings as JSON by component
@@ -90,7 +90,7 @@ retention and the materializer
   `Api\FeeComposition`, as one `retention` line per payer (label
   `Retention::LABEL`). The kept amount is held to the payer's own payments: it never owes more than was paid and
   refunds nothing. A restore makes the line read zero and the materializer reverses it; a
-  change of the rule re-evaluates the registrations that left too. [UNAPPROVED N526, T505, N674]
+  change of the rule re-evaluates the registrations that left too. [UNAPPROVED T505]
 - The money phase runs first in the evaluation, before the decision rules,
   with the registration's row lock held.
 - A money settings change goes preview → apply: the preview writes nothing;
