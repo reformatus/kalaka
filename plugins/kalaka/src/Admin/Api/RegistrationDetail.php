@@ -285,7 +285,7 @@ final class RegistrationDetail
      * as the item's `amount` does (`requestsPart()`): answering sets a money amount, but the figures are only for a
      * holder whose view/grant gives the money fields. Null when the source gives no terms or a fee component
      * fails.
-     * [UNAPPROVED N1131]
+     *
      *
      * @return ?array{full_price: string, can_pay: ?string, asked: ?string, max_award: string}
      */

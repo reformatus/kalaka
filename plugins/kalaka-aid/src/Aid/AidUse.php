@@ -11,7 +11,7 @@ use Kalaka\Registrations\Api\Registrations;
  * Whether an event's aid is in use: an open (`registered` or `waitlisted`) registration has a request awaiting an
  * answer (`aid_can_pay` filled, no award) or holds an award above zero. A refusal (an award of 0) is not in use,
  * it reduces nothing. Turning aid off asks this first (N120). A plain read of the field values, one statement per
- * open registration, for a rare settings act. [UNAPPROVED N120]
+ * open registration, for a rare settings act.
  */
 final class AidUse
 {

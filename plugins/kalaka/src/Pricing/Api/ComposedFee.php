@@ -30,7 +30,7 @@ final readonly class ComposedFee
     /**
      * What the payer owes from the components of the stages before the given one, in composition order: the
      * "part" a later stage's component sees as its earlier-stage total. Zero when the payer owes nothing there.
-     * A read of the composition; no component, line or ledger is touched. [UNAPPROVED N1133]
+     * A read of the composition; no component, line or ledger is touched.
      */
     public function totalBefore(FeeStage $stage, string $payer): Money
     {

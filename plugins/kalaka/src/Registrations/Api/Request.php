@@ -17,7 +17,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * `askFields` are the participant field keys the participant asks it with (an offer's consent field, the aid
  * request's `aid_can_pay`), and `answerField` is the participant field key its answer is written to (null when
  * the source has none), both as stored keys: the admin detail groups a request's fields by them. Each source
- * fills them when it builds the request. [UNAPPROVED N1100]
+ * fills them when it builds the request.
  */
 final readonly class Request
 {

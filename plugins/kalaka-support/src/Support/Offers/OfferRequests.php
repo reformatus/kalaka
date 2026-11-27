@@ -96,7 +96,7 @@ final class OfferRequests implements RequestSource
         return $groups === [] ? null : new AwaitingRule($groups);
     }
 
-    /** An offer has no price to compare an answer with. [UNAPPROVED N1133] */
+    /** An offer has no price to compare an answer with. */
     public function terms(
         RegistrationKey $registration,
         Request $request,

@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 
 /**
  * Turning an event's aid off is refused while an open registration has a request awaiting an answer or holds an
- * award above zero (owner 2026-11-27, merge-queue Q17 b). Its own code, `kalaka_aid_in_use`. [UNAPPROVED N120]
+ * award above zero (owner 2026-11-27, merge-queue Q17 b). Its own code, `kalaka_aid_in_use`.
  * [UNAPPROVED T1132]
  */
 final class AidInUse extends RuleViolation

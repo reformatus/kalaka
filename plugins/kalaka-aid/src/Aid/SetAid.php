@@ -17,12 +17,12 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * every open registration. Saving alone touches no registration. Site-level, like core's fixed price: full access
  * only. Turning aid off is refused (`AidInUse`) while an open registration has a request awaiting an answer or holds an
  * award above zero; with none it deletes the setting only: the stored requests and awards (refusals, 0) stay, and
- * the apply takes the aid lines away. Turning aid on again revives them. [UNAPPROVED N120]
+ * the apply takes the aid lines away. Turning aid on again revives them.
  *
  * With a label it declares the aid's two participant fields in the same transaction (the owner's rulings
  * 2026-11-23, topic 14: the code defines the field, the form's field links to it by key): `aid_can_pay`, a number
  * the participant states what they can pay in, form-writable, and `aid_award`, a number written only by the aid
- * request source (the answer act), never by a form. [UNAPPROVED N115, N361, N362]
+ * request source (the answer act), never by a form.
  *
  * The two fields are declared as declarer `aid` (the module's ID), money relevant (locked after their first
  * write), and their keys are judged by core's `ParticipantFields::checkDeclarable()`.
@@ -35,10 +35,10 @@ final class SetAid implements AdminUseCase
     /** The declarer this module declares its fields with (`declared_by`) and writes them under: its module ID. */
     public const DECLARER = 'aid';
 
-    /** The title of `aid_can_pay`, the declarer's text. [UNAPPROVED T55] */
+    /** The title of `aid_can_pay`, the declarer's text. */
     public const CAN_PAY_TITLE = 'Befizetni vállalt összeg';
 
-    /** The title of `aid_award`, the declarer's text. [UNAPPROVED T56] */
+    /** The title of `aid_award`, the declarer's text. */
     public const AWARD_TITLE = 'Megítélt összeg';
 
     public function __construct(
@@ -92,7 +92,7 @@ final class SetAid implements AdminUseCase
         $stored = $this->settings->findForUpdate($eventId, $context);
         if ($label === null) {
             if ($stored !== null) {
-                $this->use->assertNotInUse($eventId); // [UNAPPROVED N120]
+                $this->use->assertNotInUse($eventId); //
                 $this->settings->delete($stored, $context);
             }
 

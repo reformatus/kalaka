@@ -36,14 +36,14 @@ use Kalaka\Registrations\Api\SeatPool;
  *
  * `awaitingRule()` is the same question as a declarative rule for the admin grid's awaiting column: the request exists
  * and the award is empty, which is `aid_can_pay` holding a value and `aid_award` none (an award holding any value, `0`
- * included, is an answer). Null while the event has no aid. [UNAPPROVED N363]
- * [UNAPPROVED N115, N116, N117, N124, N363]
+ * included, is an answer). Null while the event has no aid.
+ * [UNAPPROVED N116, N117]
  */
 final class AidRequests implements RequestSource
 {
     public const ID = 'aid';
 
-    /** The participant field the participant states what they can pay in, form-writable. [UNAPPROVED N115] */
+    /** The participant field the participant states what they can pay in, form-writable. */
     public const CAN_PAY_FIELD = 'aid_can_pay';
 
     /** What the number field `aid_award` can hold: core's number field takes at most this many integer digits. */
@@ -72,7 +72,7 @@ final class AidRequests implements RequestSource
         )];
     }
 
-    /** The award is the truth: empty is awaiting, `0` is a refusal, an amount is granted. [UNAPPROVED N363] */
+    /** The award is the truth: empty is awaiting, `0` is a refusal, an amount is granted. */
     public function isAnswered(Request $request, array $values): bool
     {
         return ($values[AidComponent::AWARD_FIELD] ?? '') !== '';
@@ -95,7 +95,7 @@ final class AidRequests implements RequestSource
      * the tier, support and share stages and before the aid and the extras, the same part the component caps the
      * line at (`ComposedFee::totalBefore()`), never below zero. It is null while the event has no aid or the
      * registration is not `registered` (nothing is composed for it). The answer act refuses an award above it
-     * (N1132); the detail read shows it (N1131). [UNAPPROVED N1131, N1133]
+     * (N1132); the detail read shows it (N1131).
      */
     public function terms(
         RegistrationKey $registration,

@@ -39,8 +39,8 @@ final class Aid
      *
      * @throws NotFound when there is no such event
      * @throws InvalidInput when the label is not valid or is „Kedvezmény”; `kalaka/set-aid` checks its schema again
-     * @throws AidInUse when turning aid off while a request awaits or holds an award [UNAPPROVED N120]
-     * @throws RuleViolation when a field key aid needs is held by a field it may not declare [UNAPPROVED N361]
+     * @throws AidInUse when turning aid off while a request awaits or holds an award
+     * @throws RuleViolation when a field key aid needs is held by a field it may not declare
      *     (`ParticipantFields::checkDeclarable()`: a staff or system field, another type, another declarer)
      */
     public function propose(int $eventId, ?string $label): ProposedAid
