@@ -7,7 +7,7 @@ namespace Kalaka\Registrations\Api;
 /**
  * A request of a registration, whether its source says it is answered (read from the source's answer field: the
  * field is the truth), and the latest answer record of the act, if any: who, when, the note. A request not
- * answered awaits one; an answer of 0 Ft or "no" is an answer. [UNAPPROVED N1] [UNAPPROVED N136]
+ * answered awaits one; an answer of 0 Ft or "no" is an answer.
  */
 final readonly class RequestState
 {

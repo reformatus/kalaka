@@ -10,7 +10,6 @@ import * as api from './api';
 import {
 	aidFigures,
 	asksAmount,
-	asksReason,
 	buildAnswer,
 	hintedAmount,
 	savedText,
@@ -117,7 +116,7 @@ export default function AnswerDialog( { config, code, currency, item, onClose, o
 						// Another choice starts afresh for the choice and the amount; the note's message stays.
 						setAnswer( value );
 						// A "yes" to an aid hints the amount asked for (owner 2026-11-27, walkthrough 6.8); the
-						// read carries it only for a holder with the money fields. [UNAPPROVED T1134]
+						// read carries it only for a holder with the money fields. [UNAPPROVED T8]
 						setAmount( asksAmount( item, value ) ? hintedAmount( item ) : '' );
 						setErrors( ( now ) => ( now.note ? { note: now.note } : {} ) );
 					} }
@@ -146,7 +145,9 @@ export default function AnswerDialog( { config, code, currency, item, onClose, o
 					/>
 				) }
 				<TextareaControl
-					label={ asksReason( item, answer ) ? MONEY.reasonField : REQUESTS.noteField }
+					// The note is always „Megjegyzés”, never a reason, for every request kind (owner 2026-11-27,
+					// walkthrough 6.8). [UNAPPROVED N1183]
+					label={ REQUESTS.noteField }
 					value={ note }
 					onChange={ setNote }
 					rows={ 3 }

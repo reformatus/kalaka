@@ -41,7 +41,7 @@ use Kalaka\Registrations\Api\Requests;
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
  * The manual confirmation flag shows behind the same gate as the money. The requests (and whether they are
  * answered) show only to a holder of the answer action of a grant whose view holds the registration.
- * [UNAPPROVED Access] [UNAPPROVED N11]
+ * [UNAPPROVED Access] [UNAPPROVED N11] [UNAPPROVED N6]
  */
 final class RegistrationDetail
 {
@@ -277,7 +277,6 @@ final class RegistrationDetail
      * as the item's `amount` does (`requestsPart()`): answering sets a money amount, but the figures are only for a
      * holder whose view/grant gives the money fields. Null when the source gives no terms or a fee component
      * fails.
-     *
      *
      * @return ?array{full_price: string, can_pay: ?string, asked: ?string, max_award: string}
      */

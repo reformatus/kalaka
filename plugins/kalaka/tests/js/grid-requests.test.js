@@ -6,7 +6,6 @@
 import {
 	aidFigures,
 	asksAmount,
-	asksReason,
 	buildAnswer,
 	hintedAmount,
 	itemsOf,
@@ -66,10 +65,7 @@ describe( 'the dialog', () => {
 		expect( validateAnswer( offer, 'yes', '' ) ).toBe( '' );
 	} );
 
-	test( 'names the note a reason for a yes to an offer only, and never requires it', () => {
-		expect( asksReason( offer, 'yes' ) ).toBe( true );
-		expect( asksReason( offer, 'no' ) ).toBe( false );
-		expect( asksReason( aid, 'yes' ) ).toBe( false );
+	test( 'never requires the note, whichever way the answer goes (N1183)', () => {
 		expect( validateNote( offer, 'yes', '' ) ).toBe( '' );
 		expect( validateNote( offer, 'yes', '   ' ) ).toBe( '' );
 		expect( validateNote( offer, 'yes', 'Telefonon megerősítve' ) ).toBe( '' );

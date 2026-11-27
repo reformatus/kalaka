@@ -30,7 +30,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  *
  * Whether the registration is confirmed comes from Pricing's `Confirmations`. Whether a request awaits an answer
  * is computed (`RegistrationFacts::awaitsAnswer`), never read from a stored hold: it replaces the old payment
- * hold. [UNAPPROVED N12]
+ * hold.
  */
 final class StatusRead
 {

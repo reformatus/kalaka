@@ -32,21 +32,21 @@ use Kalaka\Registrations\Api\RequestState;
  * "Answer a request" (foundation.md, "Facts, decisions and computed values"; money.md, "Sponsor and church
  * support"): the one act that answers a registration's requests, offers and aid alike, for staff and for a
  * partner (a grant holder whose view holds only their registrations), carried by `kalaka_answer_request`. Giving
- * a different answer later is this act again. [UNAPPROVED N1] [UNAPPROVED N3]
+ * a different answer later is this act again.
  *
  * - Input: the registration, the request's id, `yes` or `no`, for aid the amount awarded, and a note: optional, a
  *   "yes" to an offer (a partner's approval) too, where it is the reason (owner 2026-11-26: a reason is never
  *   required).
  *   For aid a "no" is an award of 0 Ft (B2) and a "yes" needs an amount above zero and no more than the full
  *   price the participant has to pay (`RequestSource::terms()`; a larger one is `AidAbovePrice`, nothing written);
- *   an offer takes no amount. [UNAPPROVED N5] [UNAPPROVED N1132]
+ *   an offer takes no amount. [UNAPPROVED N1132]
  * - Writes one answer record per act (its id is the key the "answered" mail takes) and the answer as the
  *   source's own participant field value (B3: the source stays that field's only writer). Both are facts; the
  *   registration is then evaluated in the same run, so money, then confirmation, then mail, follow the answer.
  * - A repeat of the latest answer, the same yes or no, the same amount and no new note, writes nothing; a new
- *   note alone is a new act. [UNAPPROVED N8] Only a
+ *   note alone is a new act. Only a
  *   `registered` registration is answered (a waitlisted registration is inactive: its request waits until it is
- *   admitted); a waitlisted, withdrawn or removed one is a `RuleViolation`. [UNAPPROVED N9]
+ *   admitted); a waitlisted, withdrawn or removed one is a `RuleViolation`.
  * - Queues the "answered" mail for the answering act, inside the same transaction (`ActionMails::due()`).
  * - A refusal frees the offer's seat; a "yes" after a refusal takes one again, and when the pool is full the
  *   answer stands and `over_limit` says so (B1). Both go through `OfferSeats`, a seam until slice A.
@@ -137,7 +137,7 @@ final class AnswerRequest implements AdminUseCase
         $answer = new Answer($yes, $amount, $note === '' ? null : $note);
         $previous = $state->answer;
         // An answer whose only change is a new note is a new act (a new row, so the "answered" mail goes out
-        // again); an empty note adds nothing. [UNAPPROVED N8]
+        // again); an empty note adds nothing.
         $newNote = $answer->note !== null && $answer->note !== $previous?->note;
         if (
             $previous !== null && $previous->approved === $yes

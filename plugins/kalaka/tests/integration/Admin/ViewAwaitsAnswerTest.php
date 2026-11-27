@@ -13,7 +13,7 @@ use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 /**
  * A grid row carries `awaits_answer`, computed per page by Registrations' `Requests` at a fixed cost; it is a row
  * value, not a column. (Shapes) grid rows carry awaits_answer: bool, PHP-computed per page; not filterable,
- * sortable or summable (alt: a per-request-source SQL predicate seam, after opening). [UNAPPROVED N351]
+ * sortable or summable (alt: a per-request-source SQL predicate seam, after opening).
  */
 final class ViewAwaitsAnswerTest extends AdminTestCase
 {
