@@ -3,13 +3,15 @@
 .kg-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace; font-variant-ligatures: none; letter-spacing: 0.02em; text-decoration: none; border-bottom: 0; }
 
 /* Above the table: the tab row. */
-.kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+/* Above the table: the tab row. Its own bottom margin is gone: the toolbar's 16 px is the one space above its
+   controls, as beside them (owner ruling 9.3). */
+.kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; }
 .kg-tabrow { min-width: 0; }
 .kg-tabrow .components-tab-panel__tabs { flex-wrap: wrap; }
 /* The grid's TabPanel has no content of its own (the table stays below), so its empty tabpanel is hidden: it is not
    a keyboard stop, and the tabs' `aria-controls` points to nothing visible. [UNAPPROVED N934] */
 .kg-tabs .components-tab-panel__tab-content { display: none; }
-.kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 8px var(--wpds-dimension-padding-2xl, 24px); min-height: 32px; }
+.kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 16px; min-height: 32px; }
 .kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .kg-spacer { flex: 1 1 auto; }
 .kg-bulkbar-sep { align-self: stretch; width: 0; border-left: 1px solid #dcdcde; margin: 4px 0; }
@@ -24,6 +26,13 @@
 .kg-perpage select { min-width: 72px; }
 @media (max-width: 600px) { .kg-dv-foot { justify-content: flex-start; } }
 
+/* The toolbar (`.kg-bulkbar`) and the paging row (`.kg-dv-foot`) have the same space above and beside their controls:
+   16px on all four sides, at both widths, and the tab row above the toolbar gives up its 8px bottom margin so the
+   toolbar's own padding is the whole space above its first control (owner ruling 9.3; the controls may sit slightly
+   outside the table's inner content). Measured at 1440: 18 above and 17 beside the search box, 16/17 for the paging
+   row; at 375: 17/17 and 16/17 (the 1px is the card's border, and the search box is 1px shorter than its row).
+   [UNAPPROVED N1251] [UNAPPROVED N920 reboxed: the space above and beside them is one 16px instead of 8px above and
+   below with `var(--wpds-dimension-padding-2xl, 24px)` at the sides] */
 /* The table fills the window (owner's walk, topic 6a G9): the title and the controls stay at the top,
    the rows scroll inside, and the header row, the horizontal scrollbar and the paging stay in view. */
 body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
@@ -33,7 +42,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid .dataviews-wrapper { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 #kalaka-grid .dataviews-layout__container { flex: 1 1 auto; min-height: 0; overflow: auto; }
 #kalaka-grid thead { position: sticky; top: 0; z-index: 3; }
-#kalaka-grid .kg-dv-foot { flex: none; padding: 8px var(--wpds-dimension-padding-2xl, 24px); }
+#kalaka-grid .kg-dv-foot { flex: none; padding: 16px; }
 @media (max-width: 600px) { .kg-above { margin-top: 4px; } }
 
 /* The table's own empty texts and a failed load. */
