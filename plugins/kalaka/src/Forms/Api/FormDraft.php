@@ -18,6 +18,9 @@ namespace Kalaka\Forms\Api;
  *
  * `$guestStart` (owner ruling 2026-11-26): a guest's page that holds no guest draft yet, so that the first
  * answer is saved at once and gets the cookie; a guest's page that holds one is saved on the usual rest.
+ *
+ * `$guestChoice` (N1106): the choice waiting in `$claimConflict` is a guest's, between their own guest draft
+ * (`$answers`) and a handoff that waits in its own cookie; the popup's title and intro say so.
  */
 final readonly class FormDraft
 {
@@ -29,6 +32,7 @@ final readonly class FormDraft
         public int $linkChanges = 0,
         public ?DraftClaimChoice $claimNotice = null,
         public bool $guestStart = false,
+        public bool $guestChoice = false,
     ) {
     }
 }

@@ -9,6 +9,7 @@ use Kalaka\Events\UnpublishEvent;
 use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Foundation\Api\Actor\AccountActor;
+use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
@@ -218,28 +219,261 @@ final class DraftsTest extends FormsTestCase
         self::assertFalse($this->drafts->holds($first));
     }
 
-    /** [UNAPPROVED N1106] a link onto a guest's typed draft: the link wins on its keys, other typing is kept. */
-    public function testAHandoffMergesIntoTheGuestsTypedDraftKeyByKey(): void
+    /** A guest's typed draft: returns its claim token. @param array<string, mixed> $answers */
+    private function typed(array $answers, int $claims = 0, ?int $form = null): string
     {
-        $typed = $this->drafts->save(
+        $form ??= $this->form;
+        $token = $this->drafts->save(
+            $this->event,
+            $form,
+            $this->readForm($form)->version,
+            new AnswerSet($answers),
+            2,
+            $claims,
+            new GuestActor()
+        );
+        self::assertNotNull($token);
+
+        return $token;
+    }
+
+    /** More typing into the guest draft under the token, from a page that opened with that claim count. */
+    private function typeMore(string $token, array $answers, int $claims): void
+    {
+        $this->drafts->save(
             $this->event,
             $this->form,
             $this->version(),
-            new AnswerSet(['name' => 'Gépelt Anna', 'note' => 'gépelt']),
-            2,
+            new AnswerSet($answers),
             0,
-            new GuestActor()
+            $claims,
+            new GuestActor(),
+            $token
         );
-        self::assertNotNull($typed);
-        $token = $this->handOver(['note' => 'linkből', 'email' => 'link@example.org'], $typed);
+    }
+
+    private function settle(string $handoff, ?string $draft, ?Actor $actor = null, ?int $form = null): DraftClaimOutcome
+    {
+        return $this->drafts->settleHandoff($form ?? $this->form, $handoff, $draft, $actor ?? new GuestActor());
+    }
+
+    /** @return array<string, ?string> the row of the draft under the token */
+    private function rowOf(string $token): array
+    {
+        foreach ($this->draftRows() as $row) {
+            if ($row['claim_hash'] === DraftClaim::hash($token)) {
+                return $row;
+            }
+        }
+        self::fail('No draft under that token.');
+    }
+
+    /** N1106: the handoff, the quiz's cross-site POST included, never reads or changes the draft the browser holds. */
+    public function testAHandoffLeavesTheGuestsTypedDraftAloneAndWaitsAsItsOwnDraft(): void
+    {
+        $typed = $this->typed(['name' => 'Gépelt Anna', 'note' => 'gépelt']);
+        $before = $this->rowOf($typed);
+
+        $handoff = $this->handOver(['note' => 'linkből', 'email' => 'link@example.org']);
+
+        self::assertCount(2, $this->draftRows());
+        self::assertSame($before, $this->rowOf($typed));
+        self::assertSame(
+            ['note' => 'linkből', 'email' => 'link@example.org'],
+            AnswerSet::fromJson((string) $this->rowOf($handoff)['answers'])->answers
+        );
+    }
+
+    public function testAHandoffWithNothingTypedBecomesTheBrowsersDraft(): void
+    {
+        $handoff = $this->handOver(['note' => 'linkből']);
+
+        self::assertSame(DraftClaimOutcome::Claimed, $this->settle($handoff, null));
+        self::assertCount(1, $this->draftRows());
+        $opening = $this->drafts->opening($this->event, $this->form, null, $handoff);
+        self::assertSame(['note' => 'linkből'], $opening->answers->answers);
+    }
+
+    public function testAHandoffMeetingADraftWithNoAnswersOrOfAnotherFormGivesTheEarlierDraftWay(): void
+    {
+        $empty = $this->typed([]);
+        $handoff = $this->handOver(['note' => 'linkből']);
+        self::assertSame(DraftClaimOutcome::Claimed, $this->settle($handoff, $empty));
+        self::assertCount(1, $this->draftRows());
+        self::assertSame(DraftClaim::hash($handoff), $this->draftRows()[0]['claim_hash']);
+
+        $other = $this->insertForm($this->slotFields(), ['kalaka_event_id' => $this->event]);
+        $elsewhere = $this->typed(['name' => 'x'], 0, $other);
+        $second = $this->handOver(['note' => 'újabb']);
+        self::assertSame(DraftClaimOutcome::Claimed, $this->settle($second, $elsewhere));
+        self::assertFalse($this->drafts->holds($elsewhere));
+    }
+
+    public function testAHandoffThatChangesNothingInTheTypedDraftSettlesSilentlyAsKeepDraft(): void
+    {
+        $typed = $this->typed(['name' => 'Gépelt Anna', 'note' => 'ugyanaz']);
+        $handoff = $this->handOver(['note' => 'ugyanaz']);
+
+        self::assertSame(DraftClaimOutcome::Settled, $this->settle($handoff, $typed));
 
         $rows = $this->draftRows();
         self::assertCount(1, $rows);
-        self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
+        self::assertSame(DraftClaim::hash($typed), $rows[0]['claim_hash']);
+        self::assertSame(['name' => 'Gépelt Anna', 'note' => 'ugyanaz'], $this->onlyAnswers());
+        self::assertSame('0', $rows[0]['claims']);
+        self::assertSame(DraftClaimChoice::KeepDraft->value, $rows[0]['resolved_choice']);
         self::assertSame(
-            ['name' => 'Gépelt Anna', 'note' => 'linkből', 'email' => 'link@example.org'],
-            AnswerSet::fromJson((string) $rows[0]['answers'])->answers
+            DraftClaimChoice::KeepDraft,
+            $this->drafts->settledGuestChoice($this->form, $typed, $handoff)
         );
+    }
+
+    public function testAHandoffThatChangesAValueWaitsForTheGuestsChoiceAndWritesNothing(): void
+    {
+        $typed = $this->typed(['name' => 'Gépelt Anna', 'note' => 'gépelt']);
+        $handoff = $this->handOver(['note' => 'linkből', 'name' => 'Gépelt Anna']);
+        $before = $this->draftRows();
+
+        self::assertSame(DraftClaimOutcome::Conflict, $this->settle($handoff, $typed));
+
+        self::assertSame($before, $this->draftRows());
+        $opening = $this->drafts->opening($this->event, $this->form, null, $typed, $handoff);
+        self::assertTrue($opening->claimConflict);
+        self::assertTrue($opening->guestChoice);
+        self::assertSame(1, $opening->linkChanges);
+        self::assertSame(0, $opening->claims);
+        self::assertSame(['name' => 'Gépelt Anna', 'note' => 'gépelt'], $opening->answers->answers);
+        self::assertFalse($this->drafts->opening($this->event, $this->form, null, $typed)->claimConflict);
+    }
+
+    /** @return iterable<string, array{DraftClaimChoice, array<string, string>, int}> */
+    public static function guestChoices(): iterable
+    {
+        yield 'merge: the link wins where both answer, the rest is kept' => [
+            DraftClaimChoice::Merge,
+            ['name' => 'Gépelt Anna', 'note' => 'linkből', 'email' => 'link@example.org'],
+            1,
+        ];
+        yield 'keep the draft' => [DraftClaimChoice::KeepDraft, ['name' => 'Gépelt Anna', 'note' => 'gépelt'], 0];
+        yield 'keep the link' => [DraftClaimChoice::KeepLink, ['note' => 'linkből', 'email' => 'link@example.org'], 1];
+    }
+
+    /**
+     * @dataProvider guestChoices
+     * @param array<string, string> $expected
+     */
+    public function testTheGuestsChoiceSettlesOnTheirOwnDraftWhichKeepsItsTokenAndDropsTheHandoff(
+        DraftClaimChoice $choice,
+        array $expected,
+        int $claims
+    ): void {
+        $typed = $this->typed(['name' => 'Gépelt Anna', 'note' => 'gépelt']);
+        $handoff = $this->handOver(['note' => 'linkből', 'email' => 'link@example.org']);
+        self::assertSame(DraftClaimOutcome::Conflict, $this->settle($handoff, $typed));
+
+        $this->drafts->resolveGuest($this->form, $typed, $handoff, $choice, new GuestActor());
+
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertSame(DraftClaim::hash($typed), $rows[0]['claim_hash']);
+        self::assertNull($rows[0]['user_id']);
+        self::assertSame((string) $claims, $rows[0]['claims']);
+        self::assertSame($choice->value, $rows[0]['resolved_choice']);
+        $answers = AnswerSet::fromJson((string) $rows[0]['answers'])->answers;
+        ksort($answers);
+        ksort($expected);
+        self::assertSame($expected, $answers);
+        self::assertSame($choice, $this->drafts->settledGuestChoice($this->form, $typed, $handoff));
+        self::assertFalse($this->drafts->opening($this->event, $this->form, null, $typed, $handoff)->claimConflict);
+        self::assertSame(DraftClaimOutcome::Gone, $this->settle($handoff, $typed));
+    }
+
+    public function testASaveFromTheGuestsPageBeforeTheirChoiceIsRefusedAndTheChoiceKept(): void
+    {
+        $typed = $this->typed(['note' => 'gépelt']);
+        $handoff = $this->handOver(['note' => 'linkből']);
+        $this->drafts->resolveGuest($this->form, $typed, $handoff, DraftClaimChoice::KeepLink, new GuestActor());
+
+        try {
+            $this->typeMore($typed, ['note' => 'régi lap'], 0);
+            self::fail('A save from before the choice went in.');
+        } catch (VersionConflict) {
+            // Refused.
+        }
+        self::assertSame(['note' => 'linkből'], $this->onlyAnswers());
+
+        $this->typeMore($typed, ['note' => 'új'], 1);
+        self::assertSame(['note' => 'új'], $this->onlyAnswers());
+    }
+
+    public function testAKeepDraftChoiceKeepsTheCountSoTheGuestsOpenPageStillSaves(): void
+    {
+        $typed = $this->typed(['note' => 'gépelt']);
+        $handoff = $this->handOver(['note' => 'linkből']);
+        $this->drafts->resolveGuest($this->form, $typed, $handoff, DraftClaimChoice::KeepDraft, new GuestActor());
+
+        $this->typeMore($typed, ['note' => 'tovább gépelt'], 0);
+
+        self::assertSame(['note' => 'tovább gépelt'], $this->onlyAnswers());
+    }
+
+    public function testTheGuestsSameChoiceAgainAnswersTheSameAndAnotherIsRefused(): void
+    {
+        $typed = $this->typed(['note' => 'gépelt']);
+        $handoff = $this->handOver(['note' => 'linkből']);
+        $this->drafts->resolveGuest($this->form, $typed, $handoff, DraftClaimChoice::Merge, new GuestActor());
+        $after = $this->draftRows();
+
+        $this->drafts->resolveGuest($this->form, $typed, $handoff, DraftClaimChoice::Merge, new GuestActor());
+        self::assertSame($after, $this->draftRows());
+
+        $this->expectException(DraftClaimRefused::class);
+        $this->drafts->resolveGuest($this->form, $typed, $handoff, DraftClaimChoice::KeepLink, new GuestActor());
+    }
+
+    public function testAGuestsChoiceOnAHandoffTheSweepDeletedOrOfAnotherFormIsRefusedAndChangesNothing(): void
+    {
+        $typed = $this->typed(['note' => 'gépelt']);
+        $handoff = $this->handOver(['note' => 'linkből']);
+        $other = $this->insertForm($this->slotFields(), ['kalaka_event_id' => $this->event]);
+        $before = $this->draftRows();
+
+        foreach ([[$this->form, 'nincs-ilyen-token-1234'], [$other, $handoff]] as [$form, $token]) {
+            try {
+                $this->drafts->resolveGuest($form, $typed, $token, DraftClaimChoice::Merge, new GuestActor());
+                self::fail('The choice was applied.');
+            } catch (DraftClaimRefused) {
+                // Refused.
+            }
+        }
+        self::assertSame($before, $this->draftRows());
+    }
+
+    public function testAHandoffOfAnotherFormStaysForThatFormAndASweptOneIsGone(): void
+    {
+        $other = $this->insertForm($this->slotFields(), ['kalaka_event_id' => $this->event]);
+        $handoff = $this->handOver(['note' => 'linkből']);
+
+        self::assertSame(DraftClaimOutcome::OtherForm, $this->settle($handoff, null, null, $other));
+
+        $this->afterClose();
+        (new DraftSweep($this->runner))->run();
+        self::assertSame(DraftClaimOutcome::Gone, (new Drafts($this->runner))->settleHandoff(
+            $this->form,
+            $handoff,
+            null,
+            new GuestActor()
+        ));
+    }
+
+    public function testALoggedInPersonsHandoffWithNoClaimWaitingBecomesTheBrowsersDraftToClaim(): void
+    {
+        $anna = $this->person();
+        $this->save($anna, self::ANSWERS + ['note' => 'saját']);
+        $handoff = $this->handOver(['note' => 'a kvízből']);
+
+        self::assertSame(DraftClaimOutcome::Claimed, $this->settle($handoff, null, $anna));
+        self::assertSame(DraftClaimOutcome::Conflict, $this->drafts->claim($this->form, $handoff, $anna));
     }
 
     public function testAHandoffWithNoEarlierDraftKeepsOnlyTheLinksAnswers(): void

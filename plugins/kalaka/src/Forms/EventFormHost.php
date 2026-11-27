@@ -180,8 +180,14 @@ final class EventFormHost implements FormHost
             return new FormDraft();
         }
         $user = get_current_user_id();
-        $draft = $this->drafts->opening($form->eventId, $form->id, $user > 0 ? $user : null, DraftClaim::current());
-        $notice = $user > 0 ? DraftHandoff::settledNow() : null;
+        $draft = $this->drafts->opening(
+            $form->eventId,
+            $form->id,
+            $user > 0 ? $user : null,
+            DraftClaim::current(),
+            DraftClaim::handoff()
+        );
+        $notice = DraftHandoff::settledNow();
 
         return $notice === null ? $draft : new FormDraft(
             $draft->answers,
@@ -189,7 +195,9 @@ final class EventFormHost implements FormHost
             $draft->claimConflict,
             $draft->claims,
             $draft->linkChanges,
-            $notice
+            $notice,
+            $draft->guestStart,
+            $draft->guestChoice
         );
     }
 
@@ -223,7 +231,7 @@ final class EventFormHost implements FormHost
             // save into the draft the cookie names is bounded by the body limit, as a logged-in person's is.
             $this->guard->checkHandoff($actor);
         }
-        $kept = $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, 0, $actor, $token);
+        $kept = $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $claims, $actor, $token);
         if ($kept !== null) {
             DraftClaim::setCookie($kept, $closes);
         }
@@ -231,9 +239,11 @@ final class EventFormHost implements FormHost
 
     /**
      * A link's or the quiz's accepted answers as a guest draft (S74, the handoff), in every account mode: the
-     * claim token, and the instant the cookie lives until, the event's registration closing; null when the
-     * form keeps no drafts (an additional form) or its event is gone.
+     * claim token for the handoff cookie, and the instant the cookie lives until, the event's registration
+     * closing; null when the form keeps no drafts (an additional form) or its event is gone. The answers wait
+     * there for the next load (`settleHandoff()`).
      *
+     * @param ?string $claimToken the token of the request's handoff cookie: a handoff left waiting is replaced
      * @return array{string, \DateTimeImmutable}|null
      */
     public function handOver(Form $form, int $version, AnswerSet $accepted, ?string $claimToken, Actor $actor): ?array
@@ -253,6 +263,31 @@ final class EventFormHost implements FormHost
         return $this->drafts->claim($form->id, $token, $actor);
     }
 
+    /**
+     * The page load after a handoff (N1106): the handoff that waits under the token meets the guest draft the
+     * draft cookie names (`$claimToken`, if any); see `Drafts::settleHandoff()`.
+     */
+    public function settleHandoff(
+        Form $form,
+        string $handoffToken,
+        ?string $claimToken,
+        Actor $actor
+    ): DraftClaimOutcome {
+        return $this->drafts->settleHandoff($form->id, $handoffToken, $claimToken, $actor);
+    }
+
+    /** The choice that settled the handoff into the guest's own draft; null when none (N1106). */
+    public function settledGuestChoice(Form $form, string $claimToken, string $handoffToken): ?DraftClaimChoice
+    {
+        return $this->drafts->settledGuestChoice($form->id, $claimToken, $handoffToken);
+    }
+
+    /** The instant the draft cookies of the form live until, its event's registration closing; null when none. */
+    public function cookieUntil(Form $form): ?\DateTimeImmutable
+    {
+        return $this->event($form)?->registrationCloses;
+    }
+
     /** The choice that settled the person's claim of the guest draft; null when none. */
     public function settledChoice(Form $form, int $userId, string $token): ?DraftClaimChoice
     {
@@ -268,6 +303,18 @@ final class EventFormHost implements FormHost
     public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void
     {
         $token = DraftClaim::current();
+        if ($actor instanceof GuestActor) {
+            // A guest's choice (N1106): the guest's own draft (the draft cookie) against the handoff that waits
+            // (the handoff cookie); the request proves itself with both tokens, as it has no account.
+            $handoff = DraftClaim::handoff();
+            if ($token === null || $handoff === null) {
+                $error = new DraftClaimRefused();
+                throw $error;
+            }
+            $this->drafts->resolveGuest($form->id, $token, $handoff, $choice, $actor);
+
+            return;
+        }
         if ($token === null) {
             $error = new DraftClaimRefused();
             throw $error;

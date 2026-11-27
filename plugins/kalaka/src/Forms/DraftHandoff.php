@@ -34,9 +34,18 @@ use Kalaka\Registrations\Api\DraftClaimOutcome;
  *   type makes nothing of are dropped and the rest kept (a multi-choice keeps its offered options); then it
  *   is checked alone with the type. An unknown key, a value that cleans to nothing or a value the type does
  *   not accept is dropped, silently (`Forms::linkAnswers()`; Master ruling 2026-11-17). What is left is kept
- *   as a guest draft under a new claim token, set in the cookie until the event's registration closes, and
- *   the request is answered with a 303 to
- *   the page without `kalaka`, never cached. Nothing of the request is logged.
+ *   as a guest draft under a new claim token, set in the handoff cookie (`kalaka_handoff`) until the event's
+ *   registration closes, and the request is answered with a 303 to the page without `kalaka`, never cached.
+ *   The handoff never reads or changes the draft the browser already holds (`kalaka_draft`): the quiz's
+ *   cross-site POST does not carry that cookie. Nothing of the request is logged.
+ * - **The settling** (N1106, owner ruling 2026-11-26). The next load of the page finds the handoff cookie. With
+ *   no draft in the draft cookie, or one with no answers, the handoff becomes the browser's draft (its token
+ *   moves into the draft cookie). With a guest draft of the form that the link would change
+ *   (`Forms::changedKeys()`), the guest chooses in the claim popup (merge, keep the draft, keep the link; the
+ *   choice is settled on the guest's own draft, which keeps its token) and the handoff cookie stays until
+ *   then; when the link changes nothing, it settles silently as keep_draft. A logged-in person's request
+ *   claims the draft cookie's draft first, and moves the handoff into it once that claim is settled, so
+ *   the claim below asks as it always did.
  * - **The limit.** Every handoff request counts per client, like a submit and with its budget
  *   (`SubmitGuard::checkHandoff()`); one over the budget keeps nothing and is answered the same, with the 303.
  *   Every draft read and write goes through the event form host, in every account mode (owner ruling 2026-11-26).
@@ -49,7 +58,8 @@ use Kalaka\Registrations\Api\DraftClaimOutcome;
  * - **The notice.** A claim the person's choice settled (the claim route keeps the cookie) is found on the
  *   load after it: the cookie is cleared, and the page carries the choice once (`settledNow()`).
  *
- * Any other page view (no `kalaka`, and no claim cookie of a logged-in visitor) returns before any read.
+ * Any other page view (no `kalaka`, no handoff cookie, and no claim cookie of a logged-in visitor) returns before
+ * any read.
  */
 final class DraftHandoff
 {
@@ -90,7 +100,7 @@ final class DraftHandoff
         $url = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '/';
         // phpcs:enable
         $user = get_current_user_id();
-        if (!self::hasWork($prefill, $user, DraftClaim::current())) {
+        if (!self::hasWork($prefill, $user, DraftClaim::current(), DraftClaim::handoff())) {
             return;
         }
         $redirect = $this->handle($post, $prefill, $user > 0 ? new AccountActor($user) : new GuestActor());
@@ -102,14 +112,18 @@ final class DraftHandoff
     }
 
     /**
-     * Whether a page view has anything to do here: a prefill, or a logged-in visitor holding a claim cookie.
-     * Every other page view of the site stops before any read.
+     * Whether a page view has anything to do here: a prefill, a handoff waiting in its cookie, or a logged-in
+     * visitor holding a claim cookie. Every other page view of the site stops before any read.
      *
      * @param ?array<array-key, mixed> $prefill
      */
-    public static function hasWork(?array $prefill, int $userId, ?string $claimToken): bool
-    {
-        return $prefill !== null || ($userId > 0 && $claimToken !== null);
+    public static function hasWork(
+        ?array $prefill,
+        int $userId,
+        ?string $claimToken,
+        ?string $handoffToken = null
+    ): bool {
+        return $prefill !== null || $handoffToken !== null || ($userId > 0 && $claimToken !== null);
     }
 
     /**
@@ -140,6 +154,7 @@ final class DraftHandoff
                 return;
             }
             $this->claim($form, $actor);
+            $this->settleHandoff($form, $actor);
         });
 
         return $redirect;
@@ -157,13 +172,14 @@ final class DraftHandoff
         if ($accepted->isEmpty()) {
             return;
         }
-        $kept = $this->host->handOver($form, $definition->version, $accepted, DraftClaim::current(), $actor);
+        $kept = $this->host->handOver($form, $definition->version, $accepted, DraftClaim::handoff(), $actor);
         // An event with no closing date keeps nothing on handoff (`EventFormHost::handOver`). That branch is
         // unreachable: publishing requires a closing date (`PublishEvent`, `registrationClosesAt`).
         if ($kept !== null) {
-            DraftClaim::setCookie($kept[0], $kept[1]);
+            DraftClaim::setHandoffCookie($kept[0], $kept[1]);
         }
-        // A logged-in person claims it at once, on the page the 303 leads to.
+        // The page the 303 leads to settles it against the draft the browser holds (`settleHandoff()`), and a
+        // logged-in person claims it there at once.
     }
 
     private function claim(Form $form, Actor $actor): void
@@ -179,6 +195,43 @@ final class DraftHandoff
         $done = [DraftClaimOutcome::Claimed, DraftClaimOutcome::Settled, DraftClaimOutcome::Gone];
         if (in_array($outcome, $done, true)) {
             DraftClaim::setCookie(null);
+        }
+    }
+
+    /**
+     * The handoff that waits in its cookie meets the draft the draft cookie names (N1106): see the class docs.
+     * A logged-in person's earlier claim that still waits for its choice goes first.
+     */
+    private function settleHandoff(Form $form, Actor $actor): void
+    {
+        $handoff = DraftClaim::handoff();
+        if ($handoff === null) {
+            return;
+        }
+        $current = DraftClaim::current();
+        if ($actor instanceof AccountActor && $current !== null) {
+            return;
+        }
+        $outcome = $this->host->settleHandoff($form, $handoff, $current, $actor);
+        switch ($outcome) {
+            case DraftClaimOutcome::Claimed:
+                // The waiting draft is the browser's draft now; a logged-in person claims it as any other.
+                DraftClaim::setCookie($handoff, $this->host->cookieUntil($form));
+                DraftClaim::setHandoffCookie(null);
+                $this->claim($form, $actor);
+                break;
+            case DraftClaimOutcome::Settled:
+                DraftClaim::setHandoffCookie(null);
+                break;
+            case DraftClaimOutcome::Gone:
+                if ($current !== null && $actor instanceof GuestActor) {
+                    self::$settled = $this->host->settledGuestChoice($form, $current, $handoff);
+                }
+                DraftClaim::setHandoffCookie(null);
+                break;
+            default:
+                // Conflict: the guest's choice waits, and the cookie stays. OtherForm: it stays for that form.
+                break;
         }
     }
 

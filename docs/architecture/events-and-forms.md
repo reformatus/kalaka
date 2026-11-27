@@ -143,7 +143,13 @@ flowchart TB
   What is left is kept as a guest
   draft ([Submissions and values](registrations-and-identity.md#submissions-and-values))
   under a claim token in a cookie, in every account mode, and the request is answered with a 303 to
-  the page without them. The form then opens with them, as editable values.
+  the page without them. The answers wait in a guest draft and a cookie of their
+  own, never touching the draft the browser already holds; the page the 303
+  leads to settles them against it: they become the browser's draft, or, when
+  that draft holds a guest's typing the link would change, the guest chooses
+  (merge, keep the draft, keep the link; the
+  popup of [Submissions and values](registrations-and-identity.md#submissions-and-values)).
+  The form then opens with them, as editable values.
   A link-only field never takes public prefill. Nothing of the request is
   logged.
 - **Forms start from the active registration**

@@ -17,7 +17,7 @@ use Kalaka\Foundation\Api\UseCase\PublicUseCase;
  * and person, created at the first answer; or, for a guest (owner ruling 2026-11-26), as the guest draft under
  * the claim token's hash (`claim_hash`), the one a link's or the quiz's handoff writes: the first save creates
  * it (and deletes the guest draft of another form the same browser held, `replaces`: one browser holds one),
- * a later one updates it. A guest draft takes no claim count: nothing claims it while it is typed into. The
+ * a later one updates it. The
  * answers come through the constructor, already reduced to the form's own keys by the route; they are
  * never input, so they never reach a failed run's audit entry.
  *
@@ -25,7 +25,8 @@ use Kalaka\Foundation\Api\UseCase\PublicUseCase;
  * (`ClaimDraft`, `ResolveDraftClaim`), the count differs and the save is refused as a `VersionConflict`:
  * the answers of a page from before the claim never write over what the claim brought. Saves alone never
  * change the count, so two tabs' saves still both go in, the last one winning. A first save, with no draft
- * yet, starts the draft at the count it carries.
+ * yet, starts the draft at the count it carries. A guest's draft has a count too (N1106): a guest's choice on a
+ * link's answers that changed it (`ResolveGuestHandoff`) raises it, and a save from the page before it is refused.
  */
 final class SaveDraft implements PublicUseCase
 {
@@ -147,9 +148,15 @@ final class SaveDraft implements PublicUseCase
                 (int) $input['page'],
                 $now,
                 $now,
+                claims: (int) $input['claims'],
             ), $context);
 
             return null;
+        }
+        if ($draft->claims !== (int) $input['claims']) {
+            // A page from before a choice that changed the guest's draft (N1106): its answers are not kept.
+            $error = new VersionConflict();
+            throw $error;
         }
         $draft->formVersion = (int) $input['form_version'];
         $draft->answers = $this->answers;

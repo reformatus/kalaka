@@ -11,11 +11,13 @@ use Kalaka\Foundation\Api\UseCase\PublicUseCase;
 /**
  * A link's or the quiz's answers handed over to a registration form (S74, owner ruling 2026-11-14: the quiz
  * handoff is a guest draft): kept as a guest draft under the new claim token's hash, with no expiry of its
- * own (it lives until the form is sent or the registration has closed; owner ruling 2026-11-26). The earlier
- * guest draft of the same browser (`replaces`, the hash of the cookie it had) is deleted: one browser holds
- * one. Anyone may run it, a guest included. The answers come through the constructor, already the ones the
- * form's types accept; never input, so they never reach a failed run's audit entry, and the draft's audit
- * records only that they were set.
+ * own (it lives until the form is sent or the registration has closed; owner ruling 2026-11-26). It waits
+ * there, in the handoff cookie, until the next page load settles it against the draft the browser already
+ * holds (`SettleHandoff`; N1106, owner ruling 2026-11-26): the handoff itself never reads or changes that
+ * draft, which the quiz's cross-site POST could not even find. `replaces`, the hash of the handoff an earlier
+ * request left waiting, is deleted: one browser holds one waiting handoff. Anyone may run it, a guest
+ * included. The answers come through the constructor, already the ones the form's types accept; never input,
+ * so they never reach a failed run's audit entry, and the draft's audit records only that they were set.
  */
 final class HandOverPrefill implements PublicUseCase
 {
@@ -55,29 +57,21 @@ final class HandOverPrefill implements PublicUseCase
 
     public function execute(array $input, Context $context): null
     {
-        $formId = (int) $input['form_id'];
-        $answers = $this->answers;
-        $page = 0;
         if (isset($input['replaces'])) {
             $earlier = $this->drafts->ofClaim((string) $input['replaces'], $context);
             if ($earlier !== null && $earlier->userId === null) {
-                if ($earlier->isGuestOf($formId)) {
-                    // [UNAPPROVED N1106] the link wins on its keys; typing on other keys is kept.
-                    $answers = $earlier->answers->overwrittenBy($this->answers);
-                    $page = $earlier->page;
-                }
                 $this->drafts->delete($earlier, $context);
             }
         }
         $now = $context->now();
         $this->drafts->upsert(new Draft(
             (int) $input['event_id'],
-            $formId,
+            (int) $input['form_id'],
             (int) $input['form_version'],
             null,
             (string) $input['claim_hash'],
-            $answers,
-            $page,
+            $this->answers,
+            0,
             $now,
             $now,
         ), $context);

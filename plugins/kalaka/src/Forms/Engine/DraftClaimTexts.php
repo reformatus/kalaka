@@ -17,19 +17,27 @@ final class DraftClaimTexts
 {
     /**
      * The popup's texts for the page's context, merge's line with the number of fields the link would
-     * change.
+     * change. A guest's choice (N1106: a handoff meets the guest's own draft, no login involved) has its own
+     * title and intro; every other text is the same.
      *
      * @return array<string, string>
      */
-    public static function popup(int $changes): array
+    public static function popup(int $changes, bool $guest = false): array
     {
         return [
-            // [UNAPPROVED T1100] stand-in: the draft may be the guest's own typing, not only a link's.
-            'title' => 'Bejelentkezés előtti válaszok',
-            // [UNAPPROVED T1101] stand-in, as T1100.
-            'intro' => 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
-                . 'Ezen az eszközön bejelentkezés előtt is érkeztek válaszok: amit beírtál, '
-                . 'vagy egy előre kitöltött linkből jött. Hogyan folytassuk?',
+            'title' => $guest
+                // [UNAPPROVED T1102] stand-in: a guest's choice, no login involved.
+                ? 'Mentett és bejövő válaszok'
+                // [UNAPPROVED T1100] stand-in: the draft may be the guest's own typing, not only a link's.
+                : 'Bejelentkezés előtti válaszok',
+            'intro' => $guest
+                // [UNAPPROVED T1103] stand-in, as T1102.
+                ? 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
+                    . 'Most előre kitöltött válaszok is érkeztek: egy linkből vagy a kvízből. Hogyan folytassuk?'
+                // [UNAPPROVED T1101] stand-in, as T1100.
+                : 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
+                    . 'Ezen az eszközön bejelentkezés előtt is érkeztek válaszok: amit beírtál, '
+                    . 'vagy egy előre kitöltött linkből jött. Hogyan folytassuk?',
             'warning' => 'Egyesítéskor a bejövő válaszok miatt az űrlap későbbi részén kérdések tűnhetnek el '
                 . 'vagy jelenhetnek meg. Egy eltűnt kérdésre adott válaszod nem kerül be a jelentkezésedbe, '
                 . 'így az egyesítés a későbbi válaszaidat is megváltoztathatja. '

@@ -261,9 +261,13 @@ values and conditions, prefill and form links
   cleaned by its type's prefill rules (`FieldType::prefill()`, as a stored
   value is: bad parts dropped, the rest kept, null drops it), then checked
   alone with the type (`Forms::linkAnswers()`). What is left becomes a
-  guest draft (in every account mode, the cookie lasting until the event's registration closes), and the
-  request ends in an uncached 303 without them. No value of the request is logged. A logged-in
-  request to that page claims the cookie's guest draft there, never in the
+  guest draft that waits in its own cookie (`kalaka_handoff`; in every account mode, the cookie
+  lasting until the event's registration closes), and the
+  request ends in an uncached 303 without them. No value of the request is logged. The handoff never
+  reads or changes the draft the `kalaka_draft` cookie names: the page the 303 leads to settles it (a
+  handoff waiting in its cookie is work for any visitor, `hasWork()`): it becomes that cookie's draft, or
+  settles silently when it changes none of a guest's values, or the guest chooses in the claim popup. A
+  logged-in request to that page claims the cookie's guest draft there, never in the
   render.
 - The claim popup (`Blocks/form/claim.js`, a `@wordpress/components` Modal)
   is the only React on a public page: `render.php` enqueues it only while the

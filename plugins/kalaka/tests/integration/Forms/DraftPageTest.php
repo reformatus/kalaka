@@ -23,6 +23,7 @@ use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Forms\Engine\SubmitGuard;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Actor\AccountActor;
+use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -88,7 +89,7 @@ final class DraftPageTest extends FormsTestCase
     {
         Runner::publish($this->previous);
         $GLOBALS['wp_rest_server'] = null;
-        unset($_COOKIE[DraftClaim::COOKIE]);
+        unset($_COOKIE[DraftClaim::COOKIE], $_COOKIE[DraftClaim::HANDOFF_COOKIE]);
         DraftHandoff::forget();
         wp_set_current_user(0);
         parent::tear_down();
@@ -158,6 +159,15 @@ final class DraftPageTest extends FormsTestCase
         self::assertInstanceOf(\WP_Post::class, $post);
 
         return $post;
+    }
+
+    /**
+     * The page load the 303 of a handoff leads to (N1106): the handoff that waits in its cookie is settled
+     * against the draft the draft cookie names.
+     */
+    private function landing(Actor $actor): void
+    {
+        (new DraftHandoff())->handle($this->page(), null, $actor);
     }
 
     /** @return list<array<string, ?string>> */
@@ -238,6 +248,9 @@ final class DraftPageTest extends FormsTestCase
         self::assertFalse(DraftHandoff::hasWork(null, 0, DraftClaim::generate()));
         self::assertTrue(DraftHandoff::hasWork(null, 7, DraftClaim::generate()));
         self::assertTrue(DraftHandoff::hasWork(['note' => 'x'], 0, null));
+        // A handoff waiting in its cookie is work for a guest too (N1106).
+        self::assertTrue(DraftHandoff::hasWork(null, 0, null, DraftClaim::generate()));
+        self::assertFalse(DraftHandoff::hasWork(null, 0, null, null));
     }
 
     public function testTheRedirectDropsTheWholePrefillParameter(): void
@@ -259,11 +272,11 @@ final class DraftPageTest extends FormsTestCase
         self::assertCount(1, $rows);
 
         // A new browser: without the cookie, an allowed handoff would write a second row.
-        unset($_COOKIE[DraftClaim::COOKIE]);
+        unset($_COOKIE[DraftClaim::COOKIE], $_COOKIE[DraftClaim::HANDOFF_COOKIE]);
         self::assertTrue($handoff->handle($this->page(), ['size' => 'm'], new GuestActor()));
 
         self::assertSame($rows, $this->draftRows());
-        self::assertNull(DraftClaim::current());
+        self::assertNull(DraftClaim::handoff());
     }
 
     /**
@@ -275,6 +288,7 @@ final class DraftPageTest extends FormsTestCase
         $this->accountMode('off');
         $handoff = new DraftHandoff();
         self::assertTrue($handoff->handle($this->page(), ['size' => 'm', 'note' => 'a kvízből'], new GuestActor()));
+        $this->landing(new GuestActor());
 
         $rows = $this->draftRows();
         self::assertCount(1, $rows);
@@ -329,6 +343,7 @@ final class DraftPageTest extends FormsTestCase
         self::assertSame('', $context['nonce']);
 
         (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new GuestActor());
+        $this->landing(new GuestActor());
         $context = $this->context($this->render());
         self::assertArrayHasKey('draftUrl', $context);
         self::assertArrayNotHasKey('draftStart', $context);
@@ -475,9 +490,14 @@ final class DraftPageTest extends FormsTestCase
             ['size' => 'm', 'note' => 'a kvízből'],
             AnswerSet::fromJson((string) $rows[0]['answers'])->answers
         );
-        $token = DraftClaim::current();
-        self::assertNotNull($token);
-        self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
+        // The handoff waits in its own cookie; the draft cookie is the next load's (N1106).
+        self::assertNull(DraftClaim::current());
+        $waiting = DraftClaim::handoff();
+        self::assertNotNull($waiting);
+        self::assertSame(DraftClaim::hash($waiting), $rows[0]['claim_hash']);
+        $this->landing(new GuestActor());
+        self::assertSame($waiting, DraftClaim::current());
+        self::assertNull(DraftClaim::handoff());
 
         // The guest's page opens with them, and their own typing is saved into the same draft.
         $html = $this->render();
@@ -497,6 +517,8 @@ final class DraftPageTest extends FormsTestCase
         self::assertCount(1, $rows);
         self::assertNull($rows[0]['user_id']);
         self::assertSame(['note' => 'a kvízből'], AnswerSet::fromJson((string) $rows[0]['answers'])->answers);
+        self::assertNotNull(DraftClaim::handoff());
+        $this->landing(new GuestActor());
         self::assertNotNull(DraftClaim::current());
     }
 
@@ -510,6 +532,7 @@ final class DraftPageTest extends FormsTestCase
 
         self::assertTrue($redirect);
         self::assertSame(['size' => 'm'], AnswerSet::fromJson((string) $this->draftRows()[0]['answers'])->answers);
+        $this->landing(new GuestActor());
 
         $html = $this->render();
         self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
@@ -547,6 +570,7 @@ final class DraftPageTest extends FormsTestCase
             ['meret' => ['s', 'l']],
             AnswerSet::fromJson((string) $this->draftRows()[0]['answers'])->answers
         );
+        $this->landing(new GuestActor());
         $html = $this->render();
         self::assertMatchesRegularExpression('#name="meret\[\]"\s+value="s"[^>]* checked#', $html);
         self::assertMatchesRegularExpression('#name="meret\[\]"\s+value="l"[^>]* checked#', $html);
@@ -661,6 +685,7 @@ final class DraftPageTest extends FormsTestCase
         $user = $this->logIn();
         $this->autosave(['name' => 'Teszt Anna', 'note' => 'saját']);
         (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new AccountActor($user));
+        $this->landing(new AccountActor($user));
 
         self::assertSame(200, $this->post('draft/claim', ['choice' => 'keep_link'])->get_status());
         $again = $this->post('draft/claim', ['choice' => 'keep_link']);
@@ -781,7 +806,7 @@ final class DraftPageTest extends FormsTestCase
             ['szallas' => 'igen', 'polo' => 'l'],
             new AccountActor($user)
         ));
-        self::assertNotNull(DraftClaim::current());
+        self::assertNotNull(DraftClaim::handoff());
         self::assertCount(2, $this->draftRows());
         // Even before the claim settles it, the page offers no choice.
         self::assertArrayNotHasKey('draftClaimUrl', $this->context($this->render()));
@@ -844,6 +869,7 @@ final class DraftPageTest extends FormsTestCase
         self::assertFalse(wp_script_is(Module::CLAIM_SCRIPT, 'enqueued'), 'no claim: no popup');
 
         (new DraftHandoff())->handle($this->page(), ['polo' => 'm'], new AccountActor($user));
+        $this->landing(new AccountActor($user));
         $context = $this->context($this->render());
 
         self::assertArrayHasKey('draftClaimTexts', $context);
@@ -859,6 +885,7 @@ final class DraftPageTest extends FormsTestCase
 
         $link = ['szallas' => 'nem', 'polo' => 'm', 'note' => 'a kvízből', 'name' => 'Teszt Anna'];
         (new DraftHandoff())->handle($this->page(), $link, new AccountActor($user));
+        $this->landing(new AccountActor($user));
 
         $context = $this->context($this->render());
         self::assertSame(3, $context['draftClaimChanges']);
@@ -870,6 +897,7 @@ final class DraftPageTest extends FormsTestCase
         $user = $this->logIn();
         $this->autosave(['name' => 'Teszt Anna', 'note' => 'saját']);
         (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new AccountActor($user));
+        $this->landing(new AccountActor($user));
         self::assertArrayNotHasKey('draftClaimNotice', $this->context($this->render()));
         self::assertSame(200, $this->post('draft/claim', ['choice' => 'merge'])->get_status());
 
@@ -966,6 +994,189 @@ final class DraftPageTest extends FormsTestCase
         self::assertSame(409, $stale->get_status());
         self::assertSame(['note' => 'a kvízből'], $this->storedAnswers());
         self::assertSame(1, $this->context($this->render())['draftClaims']);
+    }
+
+    /**
+     * A guest's typing, saved into their guest draft under the draft cookie; then the quiz's handoff of `$link`,
+     * which as a cross-site POST carries no `Lax` cookie: the draft cookie is taken away for that request and
+     * given back for the 303's load (N1106). Returns the guest's own token.
+     *
+     * @param array<string, mixed> $typed
+     * @param array<string, mixed> $link
+     */
+    private function guestTypesThenAHandoffComes(array $typed, array $link): string
+    {
+        self::assertSame(200, $this->autosave($typed)->get_status());
+        $own = DraftClaim::current();
+        self::assertNotNull($own);
+
+        unset($_COOKIE[DraftClaim::COOKIE]);
+        self::assertTrue((new DraftHandoff())->handle($this->page(), $link, new GuestActor()));
+        $_COOKIE[DraftClaim::COOKIE] = $own;
+        $this->landing(new GuestActor());
+
+        return $own;
+    }
+
+    /** N1106: the quiz's handoff onto a guest draft with typing that it would change asks, with the claim popup. */
+    public function testAHandoffThatChangesAGuestsTypedAnswersWaitsAndThePageCarriesTheClaimRoute(): void
+    {
+        $own = $this->guestTypesThenAHandoffComes(
+            ['name' => 'Gépelt Anna', 'note' => 'gépelt'],
+            ['note' => 'a kvízből', 'size' => 'm']
+        );
+
+        // Both drafts stay, both cookies stay, and nothing of the guest's draft is overwritten.
+        self::assertCount(2, $this->draftRows());
+        self::assertSame($own, DraftClaim::current());
+        self::assertNotNull(DraftClaim::handoff());
+        $context = $this->context($this->render());
+        self::assertStringEndsWith('/forms/' . $this->form . '/draft/claim', (string) $context['draftClaimUrl']);
+        self::assertSame(2, $context['draftClaimChanges']);
+        self::assertSame(0, $context['draftClaims']);
+        self::assertArrayHasKey('draftUrl', $context);
+        self::assertArrayNotHasKey('draftClaimNotice', $context);
+        // The guest's own draft opens, not the link's.
+        self::assertStringContainsString('gépelt', $this->render());
+        // A guest's popup says nothing of a login (T1102, T1103: stand-ins); the other texts are the popup's.
+        self::assertSame('Mentett és bejövő válaszok', $context['draftClaimTexts']['title']);
+        self::assertStringNotContainsString('bejelentkezés', $context['draftClaimTexts']['intro']);
+        self::assertSame('Egyesítés', $context['draftClaimTexts']['merge']);
+        self::assertSame(DraftClaimTexts::popup(2, true), $context['draftClaimTexts']);
+        self::assertTrue(wp_script_is(Module::CLAIM_SCRIPT, 'enqueued'));
+    }
+
+    /** N1106: when the link changes nothing in the guest's draft, it settles silently: no popup, the draft is kept. */
+    public function testAHandoffThatChangesNothingInAGuestsTypedAnswersSettlesSilently(): void
+    {
+        $own = $this->guestTypesThenAHandoffComes(
+            ['name' => 'Gépelt Anna', 'note' => 'ugyanaz'],
+            ['note' => 'ugyanaz']
+        );
+
+        self::assertSame($own, DraftClaim::current());
+        self::assertNull(DraftClaim::handoff());
+        self::assertSame(['name' => 'Gépelt Anna', 'note' => 'ugyanaz'], $this->storedAnswers());
+        $context = $this->context($this->render());
+        self::assertArrayNotHasKey('draftClaimUrl', $context);
+        self::assertArrayNotHasKey('draftClaimNotice', $context);
+        self::assertSame(0, $context['draftClaims']);
+    }
+
+    /** N1106: with no typing yet, the handoff is simply the guest's draft, as before. */
+    public function testAHandoffWithNothingTypedBecomesTheGuestsDraftWithNoChoice(): void
+    {
+        self::assertTrue((new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new GuestActor()));
+        $this->landing(new GuestActor());
+
+        self::assertNull(DraftClaim::handoff());
+        self::assertNotNull(DraftClaim::current());
+        self::assertSame(['note' => 'a kvízből'], $this->storedAnswers());
+        self::assertArrayNotHasKey('draftClaimUrl', $this->context($this->render()));
+    }
+
+    /**
+     * @return iterable<string, array{string, array<string, string>, int}> the choice, the draft after it, and
+     *     the status of a save from the page before it
+     */
+    public static function guestChoices(): iterable
+    {
+        yield 'merge' => ['merge', ['name' => 'Gépelt Anna', 'note' => 'a kvízből', 'size' => 'm'], 409];
+        yield 'keep the draft' => ['keep_draft', ['name' => 'Gépelt Anna', 'note' => 'gépelt'], 200];
+        yield 'keep the link' => ['keep_link', ['note' => 'a kvízből', 'size' => 'm'], 409];
+    }
+
+    /**
+     * @dataProvider guestChoices
+     * @param array<string, string> $expected
+     */
+    public function testEachChoiceOfAGuestSettlesOnTheirOwnDraftAndTheLoadAfterItCarriesTheNoticeOnce(
+        string $choice,
+        array $expected,
+        int $staleStatus
+    ): void {
+        $own = $this->guestTypesThenAHandoffComes(
+            ['name' => 'Gépelt Anna', 'note' => 'gépelt'],
+            ['note' => 'a kvízből', 'size' => 'm']
+        );
+        $before = $this->context($this->render());
+
+        $response = $this->post('draft/claim', ['choice' => $choice]);
+
+        self::assertSame(200, $response->get_status());
+        self::assertSame(['resolved' => true], $response->get_data());
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertSame(DraftClaim::hash($own), $rows[0]['claim_hash']);
+        self::assertNull($rows[0]['user_id']);
+        $answers = $this->storedAnswers();
+        ksort($answers);
+        ksort($expected);
+        self::assertSame($expected, $answers);
+
+        // A save from the page before the choice: refused when the choice changed the draft, as for a person.
+        $stale = $this->autosave(['note' => 'régi lap'], $before['draftClaims']);
+        self::assertSame($staleStatus, $stale->get_status());
+        if ($staleStatus === 409) {
+            self::assertSame('kalaka_version_conflict', $stale->get_data()['code']);
+            self::assertSame($expected, $answers);
+        }
+
+        // The repeat answers the same, another choice is refused.
+        self::assertSame(200, $this->post('draft/claim', ['choice' => $choice])->get_status());
+        $other = $this->post('draft/claim', ['choice' => $choice === 'merge' ? 'keep_link' : 'merge']);
+        self::assertSame(409, $other->get_status());
+        self::assertSame(self::REFUSED, $other->get_data()['message']);
+
+        // The load after the choice: the handoff cookie is cleared, the guest keeps their own, and the page
+        // carries the choice once.
+        $this->landing(new GuestActor());
+        self::assertNull(DraftClaim::handoff());
+        self::assertSame($own, DraftClaim::current());
+        $context = $this->context($this->render());
+        self::assertSame($choice, $context['draftClaimNotice']);
+        self::assertArrayNotHasKey('draftClaimUrl', $context);
+        self::assertSame($staleStatus === 409 ? 1 : 0, $context['draftClaims']);
+        self::assertSame(200, $this->autosave(['note' => 'új'], $context['draftClaims'])->get_status());
+
+        DraftHandoff::forget();
+        $this->landing(new GuestActor());
+        self::assertArrayNotHasKey('draftClaimNotice', $this->context($this->render()));
+    }
+
+    /** A guest's claim route needs both cookies: the draft's and the handoff's. */
+    public function testTheClaimRouteRefusesAGuestWithoutBothCookies(): void
+    {
+        $this->guestTypesThenAHandoffComes(['name' => 'Gépelt Anna', 'note' => 'gépelt'], ['note' => 'a kvízből']);
+        $before = $this->draftRows();
+
+        $handoff = DraftClaim::handoff();
+        unset($_COOKIE[DraftClaim::HANDOFF_COOKIE]);
+        $refused = $this->post('draft/claim', ['choice' => 'keep_link']);
+        self::assertSame(409, $refused->get_status());
+        self::assertSame('kalaka_draft_claim_refused', $refused->get_data()['code']);
+
+        $_COOKIE[DraftClaim::HANDOFF_COOKIE] = (string) $handoff;
+        $own = DraftClaim::current();
+        unset($_COOKIE[DraftClaim::COOKIE]);
+        self::assertSame(409, $this->post('draft/claim', ['choice' => 'keep_link'])->get_status());
+        $_COOKIE[DraftClaim::COOKIE] = (string) $own;
+
+        self::assertSame($before, $this->draftRows());
+    }
+
+    /** A second handoff while the first waits replaces it: one browser holds one. */
+    public function testASecondHandoffReplacesTheWaitingOne(): void
+    {
+        $this->guestTypesThenAHandoffComes(['name' => 'Gépelt Anna', 'note' => 'gépelt'], ['note' => 'első']);
+        $first = DraftClaim::handoff();
+
+        (new DraftHandoff())->handle($this->page(), ['note' => 'második'], new GuestActor());
+
+        self::assertCount(2, $this->draftRows());
+        self::assertNotSame($first, DraftClaim::handoff());
+        $this->landing(new GuestActor());
+        self::assertSame(1, $this->context($this->render())['draftClaimChanges']);
     }
 
     public function testTheAutosaveRouteNeedsTheClaimCount(): void

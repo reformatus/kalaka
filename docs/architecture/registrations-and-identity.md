@@ -143,9 +143,13 @@ erDiagram
   their draft, or, when they have one and the link changes one of its
   values, they choose: merge (the link's answers win), keep the draft, or
   keep the link. A link that changes none of its values leaves their draft
-  as it is. A save from a
-  page opened before a claim that changed the draft is refused, never written
-  over it. The submit deletes the draft in its transaction, and the periodic
+  as it is. A link's or the quiz's answers that meet a guest draft holding
+  the guest's own typing wait in a guest draft of their own, apart from it,
+  until the next page load: with no typing there, or when they change none of
+  its values, they settle at once; otherwise the guest chooses the same three
+  ways, settled on their own guest draft, which keeps its token. A save from a
+  page opened before a claim or a choice that changed the draft is refused,
+  never written over it. The submit deletes the draft in its transaction, and the periodic
   run deletes the drafts of an event whose registration has closed or that
   is archived; a draft has no other expiry.
 - **A registration has one or more submissions.** A registration form's

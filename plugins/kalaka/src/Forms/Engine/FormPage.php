@@ -296,7 +296,7 @@ final class FormPage
             // How many fields the link's answers would change (pass 2): the merge choice's line.
             $data['draftClaimChanges'] = $draft->linkChanges;
             // The popup's texts (`Blocks/form/claim.js`), the count in merge's line.
-            $data['draftClaimTexts'] = DraftClaimTexts::popup($draft->linkChanges);
+            $data['draftClaimTexts'] = DraftClaimTexts::popup($draft->linkChanges, $draft->guestChoice);
         }
         if ($draft->claimNotice !== null) {
             // The choice that settled the claim, on the load after it, and its one-line notice, shown once

@@ -91,16 +91,7 @@ final class ResolveDraftClaim implements PortalUseCase
 
             return null;
         }
-        if ($choice !== DraftClaimChoice::KeepDraft) {
-            $own->answers = $choice === DraftClaimChoice::Merge
-                ? $own->answers->overwrittenBy($guest->answers)
-                : $guest->answers;
-            $own->formVersion = max($own->formVersion, $guest->formVersion);
-            $own->updatedAt = $now;
-            ++$own->claims;
-        }
-        $own->resolvedClaim = $hash;
-        $own->resolvedChoice = $choice->value;
+        DraftChoice::apply($own, $guest, $choice, $hash, $now);
         $this->drafts->upsert($own, $context);
         $this->drafts->delete($guest, $context);
 

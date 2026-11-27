@@ -13,10 +13,18 @@ namespace Kalaka\Registrations\Api;
  * The cookie follows the registrant cookie policy (`RegistrantCookie`), like the active registration's: `Lax`
  * is what lets it travel on the 303 that answers the quiz's cross-site POST and back through WordPress's login
  * and sign-up.
+ *
+ * A link's or the quiz's answers (the handoff) wait under a second token in their own cookie
+ * (`HANDOFF_COOKIE`, same policy and lifetime) until the next page load settles them against the draft the
+ * first cookie names (N1106). The quiz's cross-site POST carries no `Lax` cookie, so it cannot know that
+ * draft, and it never touches the first cookie.
  */
 final class DraftClaim
 {
     public const COOKIE = 'kalaka_draft';
+
+    /** The cookie of a handoff that waits to be settled against the draft `COOKIE` names. */
+    public const HANDOFF_COOKIE = 'kalaka_handoff';
 
     public const PATTERN = '^[A-Za-z0-9_-]{22}$';
 
@@ -39,10 +47,13 @@ final class DraftClaim
     /** The token of the current request's cookie, or null when there is none or it is malformed. */
     public static function current(): ?string
     {
-        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- checked against the pattern
-        $token = isset($_COOKIE[self::COOKIE]) ? wp_unslash($_COOKIE[self::COOKIE]) : null;
+        return self::read(self::COOKIE);
+    }
 
-        return is_string($token) && self::isValid($token) ? $token : null;
+    /** The token of the handoff that waits in the current request's cookie, or null. */
+    public static function handoff(): ?string
+    {
+        return self::read(self::HANDOFF_COOKIE);
     }
 
     /**
@@ -51,13 +62,32 @@ final class DraftClaim
      */
     public static function setCookie(?string $token, ?\DateTimeImmutable $expires = null): void
     {
+        self::write(self::COOKIE, $token, $expires);
+    }
+
+    /** Sets the handoff's cookie as `setCookie()` sets the draft's, or clears it with null. */
+    public static function setHandoffCookie(?string $token, ?\DateTimeImmutable $expires = null): void
+    {
+        self::write(self::HANDOFF_COOKIE, $token, $expires);
+    }
+
+    private static function read(string $name): ?string
+    {
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- checked against the pattern
+        $token = isset($_COOKIE[$name]) ? wp_unslash($_COOKIE[$name]) : null;
+
+        return is_string($token) && self::isValid($token) ? $token : null;
+    }
+
+    private static function write(string $name, ?string $token, ?\DateTimeImmutable $expires): void
+    {
         if ($token === null) {
-            unset($_COOKIE[self::COOKIE]);
+            unset($_COOKIE[$name]);
         } else {
-            $_COOKIE[self::COOKIE] = $token;
+            $_COOKIE[$name] = $token;
         }
         RegistrantCookie::set(
-            self::COOKIE,
+            $name,
             $token ?? '',
             $token === null || $expires === null ? -1 : $expires->getTimestamp(),
         );

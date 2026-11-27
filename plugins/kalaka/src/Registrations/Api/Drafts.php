@@ -18,7 +18,9 @@ use Kalaka\Registrations\Draft\Draft;
 use Kalaka\Registrations\Draft\DraftRepository;
 use Kalaka\Registrations\Draft\HandOverPrefill;
 use Kalaka\Registrations\Draft\ResolveDraftClaim;
+use Kalaka\Registrations\Draft\ResolveGuestHandoff;
 use Kalaka\Registrations\Draft\SaveDraft;
+use Kalaka\Registrations\Draft\SettleHandoff;
 
 /**
  * Drafts of registration forms (S74, owner ruling 2026-11-14), for the event form's host and the handoff:
@@ -43,20 +45,34 @@ final class Drafts
      * for a guest then `$guestStart`: their first answer gets the cookie.
      *
      * The guest draft waits for the person's choice (`claimConflict`) only when it sets a value their draft
-     * does not hold (`linkChanges()`); the `wp` request's claim settles it otherwise, before the render.
+     * does not hold (`linkChanges()`); the `wp` request's claim settles it otherwise, before the render. A
+     * guest's draft is met in the same way by the handoff that waits in the handoff cookie (N1106): the
+     * guest's own draft opens, and `claimConflict` says the handoff would change it.
      * `claims` is the draft's claim count, which the autosave carries back (`SaveDraft`).
      *
      * @param ?string $claimToken the token of the request's cookie
+     * @param ?string $handoffToken the token of the request's handoff cookie
      */
-    public function opening(int $eventId, int $formId, ?int $userId, ?string $claimToken): FormDraft
-    {
+    public function opening(
+        int $eventId,
+        int $formId,
+        ?int $userId,
+        ?string $claimToken,
+        ?string $handoffToken = null
+    ): FormDraft {
         $guest = $claimToken === null ? null : $this->guest($formId, $claimToken);
         if ($userId === null) {
+            $waiting = $guest === null || $handoffToken === null ? null : $this->guest($formId, $handoffToken);
+            $changes = $waiting === null ? 0 : count($this->changedKeys($formId, $guest, $waiting));
+
             return new FormDraft(
                 $guest === null ? new AnswerSet() : $guest->answers,
                 true,
-                false,
-                guestStart: $guest === null
+                $changes > 0,
+                $guest === null ? 0 : $guest->claims,
+                $changes,
+                guestStart: $guest === null,
+                guestChoice: $changes > 0
             );
         }
         $own = $this->drafts->ofUser($eventId, $formId, $userId);
@@ -106,6 +122,21 @@ final class Drafts
         return $own->resolvedChoice === null ? null : DraftClaimChoice::tryFrom($own->resolvedChoice);
     }
 
+    /**
+     * The choice that settled the handoff under `$handoffToken` into the guest's draft under `$claimToken`
+     * (`resolveGuest()`); null when there is none. A plain read, for the notice on the page that loads after
+     * the choice (N1106).
+     */
+    public function settledGuestChoice(int $formId, string $claimToken, string $handoffToken): ?DraftClaimChoice
+    {
+        $own = $this->guest($formId, $claimToken);
+        if ($own === null || $own->resolvedClaim !== DraftClaim::hash($handoffToken)) {
+            return null;
+        }
+
+        return $own->resolvedChoice === null ? null : DraftClaimChoice::tryFrom($own->resolvedChoice);
+    }
+
     /** The guest draft of the form under the token: not claimed; a plain read. */
     private function guest(int $formId, string $claimToken): ?Draft
     {
@@ -145,7 +176,7 @@ final class Drafts
      * found again only by the token's hash, which is never stored: a guest with no draft of this form under
      * their token gets a new token (the cookie's other-form draft, if any, is deleted: one browser holds one).
      *
-     * @param int $claims the draft's claim count the page opened with (`FormDraft::$claims`); a guest's is 0
+     * @param int $claims the draft's claim count the page opened with (`FormDraft::$claims`)
      * @param ?string $claimToken the token of the request's cookie
      * @return ?string the claim token for the cookie when the actor is a guest; null for a logged-in person
      * @throws PermissionDenied for any other actor
@@ -196,12 +227,13 @@ final class Drafts
     }
 
     /**
-     * Keeps a link's or the quiz's answers as a guest draft under a new claim token, in place of the earlier
-     * one of the same browser (of the same form: its typed answers are kept on the keys the link does not
-     * carry; [UNAPPROVED N1106]), and returns the token for the cookie. The draft has no expiry of its own: it
-     * lives until the form is sent or the registration has closed (owner ruling 2026-11-26).
+     * Keeps a link's or the quiz's answers as a guest draft under a new claim token, and returns the token for
+     * the handoff cookie. It waits there for the next page load to settle it against the draft the browser
+     * already holds (`settleHandoff()`; N1106): the draft cookie's draft is never read or changed here, since
+     * the quiz's cross-site POST does not carry that cookie. The draft has no expiry of its own: it lives until
+     * the form is sent or the registration has closed (owner ruling 2026-11-26).
      *
-     * @param ?string $earlierToken the token of the request's cookie
+     * @param ?string $earlierToken the token of the request's handoff cookie: a handoff left waiting is replaced
      * @return string the claim token
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
@@ -226,6 +258,54 @@ final class Drafts
         $this->runner()->run(new HandOverPrefill($answers), $input, $actor);
 
         return $token;
+    }
+
+    /**
+     * The page load after a handoff (N1106): the handoff that waits under `$handoffToken` meets the guest draft
+     * under `$claimToken`, if any. `Claimed`: it is the browser's draft now, to be moved into the draft cookie;
+     * `Settled`: the link changes none of the guest's values, so it is dropped (keep_draft); `Conflict`: it
+     * would change one, and waits for the choice (`resolveGuest()`); `Gone` and `OtherForm` as `claim()`.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function settleHandoff(
+        int $formId,
+        string $handoffToken,
+        ?string $claimToken,
+        Actor $actor
+    ): DraftClaimOutcome {
+        // The form is read before the run (`Forms` reads posts, never inside a transaction).
+        $form = $this->forms()->form($formId);
+        $definition = $form === null ? null : $this->forms()->definition($form);
+        $input = ['form_id' => $formId, 'handoff_hash' => DraftClaim::hash($handoffToken)];
+        if ($claimToken !== null) {
+            $input['claim_hash'] = DraftClaim::hash($claimToken);
+        }
+        $outcome = $this->runner()->run(new SettleHandoff($definition, $this->forms()), $input, $actor);
+
+        return $outcome instanceof DraftClaimOutcome ? $outcome : DraftClaimOutcome::Gone;
+    }
+
+    /**
+     * The guest's choice between the handoff under `$handoffToken` and their own draft under `$claimToken`
+     * (N1106): settled on their draft, which keeps its token. Safe to repeat as `resolve()` is.
+     *
+     * @throws DraftClaimRefused the handoff or the draft is gone or of another form, or settled with another choice
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function resolveGuest(
+        int $formId,
+        string $claimToken,
+        string $handoffToken,
+        DraftClaimChoice $choice,
+        GuestActor $actor
+    ): void {
+        $this->runner()->run(new ResolveGuestHandoff(), [
+            'form_id' => $formId,
+            'handoff_hash' => DraftClaim::hash($handoffToken),
+            'claim_hash' => DraftClaim::hash($claimToken),
+            'choice' => $choice->value,
+        ], $actor);
     }
 
     /**
