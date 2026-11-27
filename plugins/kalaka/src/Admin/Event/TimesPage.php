@@ -8,12 +8,9 @@ use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Admin\Grid\GridPage;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
-use Kalaka\Events\UpdateEvent;
-use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
-use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Forms\Api\DateText;
 
 /**
@@ -147,11 +144,18 @@ final class TimesPage
      * stay. The other values are read back from the record, so the form never posts them.
      *
      * @internal used by `save()` and the integration test
-     * @throws \Throwable what `UpdateEvent` refuses
+     * It runs the registered ability `kalaka/update-event` as the current user (Admin may not reach the Events
+     * use case itself), so the ability's own permission check applies too.
+     *
+     * @throws \RuntimeException carrying the ability's error code when it refuses
      */
     public static function apply(Event $event, ?string $starts, ?string $ends, int $version): void
     {
-        Runner::current()->run(new UpdateEvent(), [
+        $ability = wp_get_ability('kalaka/update-event');
+        if ($ability === null) {
+            throw new \RuntimeException('kalaka/update-event is not registered');
+        }
+        $result = $ability->execute([
             'id' => $event->id,
             'version' => $version,
             'name' => $event->name,
@@ -168,7 +172,10 @@ final class TimesPage
                 ],
                 $event->customPoints
             ),
-        ], new UserActor(get_current_user_id()));
+        ]);
+        if (is_wp_error($result)) {
+            throw new \RuntimeException($result->get_error_code() . ': ' . $result->get_error_message());
+        }
     }
 
     /** The posted `datetime-local`, `YYYY-MM-DD HH:MM`, null when empty, false when malformed. */
@@ -205,7 +212,9 @@ final class TimesPage
             return '–';
         }
 
-        return DateText::of(wp_date('Y-m-d', $at->getTimestamp())) . ' ' . wp_date('H:i', $at->getTimestamp());
+        $local = $at->setTimezone(wp_timezone());
+
+        return DateText::of($local->format('Y-m-d')) . ' ' . $local->format('H:i');
     }
 
     /** @return never */
