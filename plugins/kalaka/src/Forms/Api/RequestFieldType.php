@@ -7,10 +7,11 @@ namespace Kalaka\Forms\Api;
 /**
  * A field type whose field can hold an assignment set's requests (modules-and-extensions.md, "Assignment sets", request
  * mode), such as the module ranking: its block names the set, and its options are the set's (S44-1). The engine fills
- * the field's `options` attribute from the host (`FormHost::requestOptions()`), each `{value, label}` and its
- * `condition` when it has one, so the field type reads its options from its attributes as a choice does, and offers
- * only those whose condition holds (S76). The field the block declares becomes the set's one request field: a second,
- * different field naming the same set is refused on save.
+ * the field's `options` attribute from the host (`FormHost::requestOptions()`), each `{value, label}`, with the
+ * block's own `optionConditions` (option key → condition) as the options' conditions, so the field type reads its
+ * options from its attributes as a choice does, and offers only those whose condition holds (S76). The field the
+ * block declares becomes the set's one request field: a second, different field naming the same set is refused on
+ * save.
  *
  * A block that names no set holds its own options instead (its type is then also an `OptionsFieldType`) and is no
  * request field: the block's set attribute decides the mode, block by block (the owner's ruling, 2026-11-18).

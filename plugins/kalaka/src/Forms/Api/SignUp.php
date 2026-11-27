@@ -15,7 +15,8 @@ namespace Kalaka\Forms\Api;
  *   page as `redirect_to`; `registerUrl()` is the registration page with the same two;
  * - `returnUrl()`: the return page (`wp-login.php?action=kalaka_account`), where a login or sign-up from the
  *   form's window lands. It tells the form's page it opened from (`postMessage`, same origin only) and closes
- *   itself; with no such page left, it goes to the form's page;
+ *   itself; with no such page left, it goes to the form's page. With the popup marker (`POPUP`) it never
+ *   goes anywhere: if the window stays open it offers a button that closes it;
  * - `page()`: the form's page, resolved on the server from the form's ID alone (OP1, OP5). Every way back
  *   Kaláka builds from a marker is this, never an address taken from the request.
  */
@@ -47,22 +48,36 @@ final class SignUp
     /** The subject's name, for a condition editor that names subjects (none names any yet). */
     public const LOGGED_IN_LABEL = 'Bejelentkezve';
 
+    /**
+     * The popup marker (`popup=1`): the form block adds it to the login address it opens in a window of its
+     * own. It is carried through every way to the return page, which then never redirects (it closes the
+     * window or offers a button). Any other value counts as absent (`isPopup()`).
+     */
+    public const POPUP = 'popup';
+
     /** The return page's `action` on `wp-login.php` (`returnUrl()`). */
     public const RETURN_ACTION = 'kalaka_account';
 
-    /** WordPress's login page for the form, returning through the return page to `$page` (the form's page). */
-    public static function url(int $formId, string $page): string
+    /**
+     * WordPress's login page for the form, returning through the return page to `$page` (the form's page). With
+     * `$popup`, the login page and the return page carry `popup=1` (`POPUP`).
+     */
+    public static function url(int $formId, string $page, bool $popup = false): string
     {
-        return add_query_arg(self::MARKER, $formId, wp_login_url(self::returnUrl($formId, $page)));
+        $url = add_query_arg(self::MARKER, $formId, wp_login_url(self::returnUrl($formId, $page, $popup)));
+
+        return $popup ? add_query_arg(self::POPUP, '1', $url) : $url;
     }
 
-    /** WordPress's registration page for the form, returning through the return page to `$page`. */
-    public static function registerUrl(int $formId, string $page): string
+    /** WordPress's registration page for the form, returning through the return page to `$page`; see `url()`. */
+    public static function registerUrl(int $formId, string $page, bool $popup = false): string
     {
-        return add_query_arg(
-            [self::MARKER => $formId, 'redirect_to' => rawurlencode(self::returnUrl($formId, $page))],
-            wp_registration_url()
-        );
+        $args = [
+            self::MARKER => $formId,
+            'redirect_to' => rawurlencode(self::returnUrl($formId, $page, $popup)),
+        ];
+
+        return add_query_arg($popup ? $args + [self::POPUP => '1'] : $args, wp_registration_url());
     }
 
     /**
@@ -71,12 +86,17 @@ final class SignUp
      * `wp-login.php` address, as `wp_login_url()` starts from, without that function's filter: Kaláka's
      * `login_url` filter builds this address itself.
      */
-    public static function returnUrl(int $formId, string $page): string
+    public static function returnUrl(int $formId, string $page, bool $popup = false): string
     {
-        return add_query_arg(
-            ['action' => self::RETURN_ACTION, self::MARKER => $formId, 'redirect_to' => rawurlencode($page)],
-            site_url('wp-login.php', 'login')
-        );
+        $args = ['action' => self::RETURN_ACTION, self::MARKER => $formId, 'redirect_to' => rawurlencode($page)];
+
+        return add_query_arg($popup ? $args + [self::POPUP => '1'] : $args, site_url('wp-login.php', 'login'));
+    }
+
+    /** Whether a request value is the popup marker: exactly the string `1`, nothing else. */
+    public static function isPopup(mixed $value): bool
+    {
+        return $value === '1';
     }
 
     /**
