@@ -72,7 +72,7 @@ flowchart LR
 | Forms | forms, the registration slot, field types, field definitions, values and conditions, prefill, form links |
 | ParticipantFields | the event's participant fields: the list, its sources, titles and option labels, retired fields |
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
-| Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
+| Registrations | registrations, field values, submissions, presets, statuses, waitlist, seats, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
 | Extras | extra charges and the donation: generic per-event charges, each declaring the participant field with its key for forms to join, and the donation, the number field with the key `adomany`, declared by the same save |
 | Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
@@ -96,6 +96,16 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 - **A registration holds at most one option per set,** stored as an
   assignment fact with its source and state (proposed or confirmed),
   audited (computed meal turns excepted, below).
+- **A `registered` registration holds a seat in the pool of each option it
+  is confirmed into,** under the one seat rule
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)): taken
+  under the lock on the option row, freed by withdrawal, removal or a placing
+  elsewhere in the set. The confirmed assignment stays as the record, and
+  holds no seat while its registration is not `registered`. An admission or a
+  restore takes its seats again, over the limit where an option is full, with
+  the "full" warning. A proposed
+  assignment holds none until it is confirmed. The option's capacity is the
+  pool's limit.
 - **Access modes:**
   - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
     field writes a confirmed assignment; capacity is checked
@@ -295,7 +305,7 @@ never our prefix.
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · slot requirement"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · slot requirement · seat claim source"]
   REG --> DECL["Declarations<br/>payer kind · block host"]
 ```
 
@@ -312,7 +322,7 @@ flowchart LR
     decision, action-mail act, assignment proposer): fires no WordPress
     hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter, slot requirement). A field type's value type
+    view column, filterable fact, theme adapter, slot requirement, seat claim source). A field type's value type
     and its reading of a stored answer as a value fire no WordPress hooks
     and write nothing (they may read, e.g. a congregation's name), so the
     evaluation reads a registration's field values with them inside the
@@ -337,6 +347,11 @@ flowchart LR
   check-in) that can cause an action mail, keyed by the act's record
   ([Mail](mail.md#five-kinds-of-mail)). It is built with the check-in
   extension.
+- **A seat claim source** is an outside point: a submit's validated answers
+  in, the seat claims of the limited choices made in them out (the field and
+  the pool of each). It locks, counts and writes nothing; the submit locks the
+  pools and takes the seats when the registration becomes `registered`
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **A theme adapter** is an outside point that fits participant-side markup
   to a theme which styles its own components instead of WordPress's
   ([Engineering](engineering.md#wordpress-surfaces)). It says whether it
