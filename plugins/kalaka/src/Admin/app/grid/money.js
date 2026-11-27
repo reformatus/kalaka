@@ -3,8 +3,7 @@
  * „−5 000 Ft”, the site time zone's day, and the recording dialogs' checks. Every line is on one of two sides
  * (topic 10): owed-side lines show in „Fizetendő”, paid-side lines in „Befizetett”, and in each column a
  * positive amount means what the column's name says and a real minus the opposite; no „+” is ever shown.
- * „Tartozás” is Fizetendő − Befizetett. No WordPress imports, so Jest runs it as it is. [UNAPPROVED N5]
- * [UNAPPROVED N42] [UNAPPROVED N8]
+ * „Tartozás” is Fizetendő − Befizetett. No WordPress imports, so Jest runs it as it is.
  */
 import { MONEY } from './texts';
 
@@ -40,14 +39,14 @@ export function formatMinor( minor, currency ) {
 
 /**
  * An amount of the read as „30 000 Ft”, signed: a minus means the opposite of the column's name („Fizetendő”: a
- * discount; „Befizetett”: money paid back). [UNAPPROVED N42]
+ * discount; „Befizetett”: money paid back).
  */
 export const formatMoney = ( value, currency ) => formatMinor( toMinor( value ) ?? 0, currency );
 
 /**
  * „Tartozás” in minor units as the panel shows it: positive is still owed, zero is settled, and a negative value
  * is „−5 000 Ft (túlfizetés)”, the word lowercase in brackets (owner, topic 10). Only the „Tartozás” cells and
- * the dialogs' preview use it, never „Fizetendő” or „Befizetett”. [UNAPPROVED N6]
+ * the dialogs' preview use it, never „Fizetendő” or „Befizetett”.
  */
 export const formatBalanceMinor = ( minor, currency ) =>
 	formatMinor( minor, currency ) + ( minor < 0 ? ` (${ MONEY.overpaid })` : '' );
@@ -70,7 +69,7 @@ export const lineSide = ( line ) => line.side;
  * A stored amount as the panel shows it, in minor units: an owed-side line as stored (a charge positive, a
  * discount negative), a paid-side line flipped from the ledger's stored sign (payments are stored negative, refunds
  * positive) so that money in is positive and money paid back negative. A correction is a payment fact too: it is
- * positive when it raises „Befizetett” and negative when it lowers it. [UNAPPROVED N5] [UNAPPROVED N42]
+ * positive when it raises „Befizetett” and negative when it lowers it.
  */
 const shownMinor = ( value, side ) => ( side === 'paid' ? -( toMinor( value ) ?? 0 ) : toMinor( value ) ?? 0 );
 
@@ -310,7 +309,7 @@ export function today( zone, now = new Date() ) {
  * The recording dialog's checks, the server's rules ahead of the request: an object of messages by field
  * (`payer`, `type`, `direction`, `amount`, `title`, `value_date`, `method`, `note`), empty when the entry may be
  * sent. The „Tétel rögzítése” dialog has a type (`kind`: `payment`, `refund`, `charge` or `discount`, empty until
- * picked); the correction a direction and a required reason, no method and no date. A payment and a refund
+ * picked); the correction a direction and an optional reason, no method and no date. A payment and a refund
  * have a method and a date and an optional note; a charge and a discount a required title (the participant sees
  * it) and no method or date, unless they are saved „completed immediately”, which adds the paid-side line's
  * method and date.
@@ -341,9 +340,7 @@ export function validateEntry( entry, day ) {
 		errors.amount = MONEY.amountBad;
 	}
 	if ( correction ) {
-		if ( String( entry.note ).trim() === '' ) {
-			errors.note = MONEY.noteRequired;
-		}
+		// The reason is never required (owner 2026-11-26); the server keeps its 500-character limit. [UNAPPROVED N1204]
 		return errors;
 	}
 	if ( owedSide ) {
@@ -364,4 +361,14 @@ export function validateEntry( entry, day ) {
 		errors.method = MONEY.methodEmpty;
 	}
 	return errors;
+}
+
+/**
+ * The payer column (Fizető) is shown only when the registration has more than one payer row; with one the column
+ * says nothing and is hidden, in the summary table and the entries alike (owner 2026-11-19, 4.3). [UNAPPROVED N1203]
+ *
+ * @param {Object} money the read's money part
+ */
+export function showsPayerColumn( money ) {
+	return money.payers.length > 1;
 }

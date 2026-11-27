@@ -120,7 +120,7 @@ export const fetchDetail = ( config, code ) =>
 
 /**
  * What a failed read means: an unknown code is a 404 ('missing'), a known code outside the holder's views a 403
- * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'. [UNAPPROVED T16]
+ * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'.
  */
 export function detailProblem( error ) {
 	if ( error && error.code === 'kalaka_registration_not_in_view' ) {

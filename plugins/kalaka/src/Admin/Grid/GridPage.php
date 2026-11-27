@@ -174,7 +174,7 @@ final class GridPage
             'current' => $current,
             'perPages' => self::PER_PAGE,
             'maxLimit' => ViewQuery::MAX_LIMIT,
-            // The panel shows dates and today in the site time zone, as a name or an offset (S38). [UNAPPROVED N23]
+            // The panel shows dates and today in the site time zone, as a name or an offset (S38).
             'timezone' => wp_timezone_string(),
             'rest' => '/' . GridRoutes::NAMESPACE . '/events/' . $eventId,
         ];

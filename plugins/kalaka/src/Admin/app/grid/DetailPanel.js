@@ -2,19 +2,24 @@
  * The registration detail panel (S38): a non-modal side panel over the grid, with the identifying header and
  * the tabs. It reads `GET kalaka-admin/v1/events/{event}/registrations/{code}`, which already cuts every part to
  * the user's views and grants: a header field the views do not list is absent and leaves no gap, and the money
- * tab shows only with `can.view_money`. [UNAPPROVED N2] [UNAPPROVED N4] [UNAPPROVED N12]
+ * tab shows only with `can.view_money`. [UNAPPROVED N1200]
+ * N4 reboxed: the header is the name, then code and e-mail, then the status row and the confirmation row with a
+ * slot each, then the tabs (N1200). N12 reboxed: every tab always shown and the last-clicked one remembered
+ * (N1201). T3 struck: the disabled „Hamarosan…” tab is gone.
  *
- * S20: next to the status, the confirmation decision's state, only when the read has it, and under the header
- * the manual confirmation block. When the re-read after a save fails twice, the state and the block are not
- * shown (the old ones would look current); the load-error message says so. [UNAPPROVED N30] [UNAPPROVED N37]
+ * S20: the confirmation state is the confirmation row's, under the status acts, and under it the manual
+ * confirmation's button(s); the block's own lines (who set the flag, when and why) stay between the header and
+ * the tabs. When the re-read after a save fails twice, the state and the block are not shown (the old ones
+ * would look current); the load-error message says so. [UNAPPROVED N30] [UNAPPROVED N37]
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
-import { confirmationOf, markOf, warningOf } from './confirmation';
+import { warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
-import StatusMark from './StatusMark';
+import { ConfirmationRow, StatusRow } from './PanelRows';
+import { rememberedTab, rememberTab } from './panel';
 import { PANEL } from './texts';
 
 /**
@@ -29,6 +34,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	const [ detail, setDetail ] = useState( null );
 	const [ problem, setProblem ] = useState( null ); // 'missing' (404) or 'failed'
 	const root = useRef();
+	const closeRef = useRef();
 	const shown = useRef( code );
 	shown.current = code;
 
@@ -81,9 +87,13 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 		// Only a new activation of the row tries again.
 	}, [ again ] );
 
+	// Every tab is always shown, an empty one with its own empty text, and the last-clicked tab is kept for the
+	// browser session, so it stays open when another registration is selected; a tab the branch lacks falls
+	// back to the first. A tab the viewer has no right to is left out, as the code already did. [UNAPPROVED N1201]
+	const tabs = [ { name: 'money', title: PANEL.tabMoney } ];
 	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
 	// After a failed re-read the money data is stale: the tab list is hidden and the money tab shows nothing but
-	// its snackbar, so only the load-failure message remains. [UNAPPROVED N24]
+	// its snackbar, so only the load-failure message remains.
 	const showsTabs = !! ( detail && detail.can && detail.can.view_money && detail.money );
 	const stale = !! problem;
 	useEffect( () => {
@@ -95,9 +105,6 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	}, [ showsTabs, stale ] );
 
 	const registration = ( detail && detail.registration ) || {};
-	// While the last read failed the state on screen may be old: it is left out.
-	const confirmation = problem ? null : confirmationOf( registration );
-	const [ confirmIcon, confirmTone ] = confirmation ? markOf( confirmation.state ) : [ '', '' ];
 	return (
 		<aside
 			className="kg-panel"
@@ -111,25 +118,31 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				{ detail && (
 					<div className="kg-panel-id">
 						{ registration.name && <h2 className="kg-panel-name">{ registration.name }</h2> }
-						{ ( registration.code || registration.status_label || confirmation || registration.email ) && (
+						{ ( registration.code || registration.email ) && (
 							<p className="kg-panel-meta">
 								{ registration.code && <span className="kg-code">{ registration.code }</span> }
-								{ registration.status_label && (
-									<StatusMark status={ registration.status } text={ registration.status_label } />
-								) }
-								{ confirmation && (
-									<span className="kg-mark">
-										<span className={ `dashicons ${ confirmIcon } ${ confirmTone }` } aria-hidden="true" />
-										<span className="screen-reader-text">{ confirmation.label }: </span>
-										{ confirmation.state_label }
-									</span>
-								) }
 								{ registration.email && <span className="kg-panel-email">{ registration.email }</span> }
 							</p>
 						) }
+						{ /* The two state rows; their slots stay empty here, a branch above adds children. [UNAPPROVED N1200] */ }
+						{ registration.status_label && (
+							<StatusRow status={ registration.status } text={ registration.status_label } />
+						) }
+						{ typeof registration.confirmed === 'boolean' && (
+							<ConfirmationRow
+								confirmed={ registration.confirmed }
+								text={ registration.confirmed ? PANEL.confirmed : PANEL.unconfirmed }
+							/>
+						) }
 					</div>
 				) }
-				<Button icon="no-alt" label={ PANEL.close } onClick={ onClose } className="kg-panel-close" />
+				<Button
+					icon="no-alt"
+					label={ PANEL.close }
+					onClick={ onClose }
+					className="kg-panel-close"
+					ref={ closeRef }
+				/>
 			</div>
 			{ problem && (
 				<p className="kg-load-fail" role="alert">
@@ -156,11 +169,9 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 			{ showsTabs && (
 				<TabPanel
 					className="kg-tabs-money"
-					tabs={ [
-						{ name: 'money', title: PANEL.tabMoney },
-						{ name: 'soon', title: PANEL.tabSoon, disabled: true },
-					] }
-					initialTabName="money"
+					tabs={ tabs }
+					initialTabName={ rememberedTab( tabs.map( ( t ) => t.name ) ) }
+					onSelect={ rememberTab }
 					orientation="horizontal"
 				>
 					{ () => (
@@ -172,6 +183,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 							can={ detail.can }
 							reload={ reload }
 							onSaved={ onSaved }
+							closeRef={ closeRef }
 						/>
 					) }
 				</TabPanel>
