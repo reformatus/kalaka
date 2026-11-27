@@ -166,7 +166,7 @@ final class SubmitRegistration implements PublicUseCase
             throw new FormRefused($refusals);
         }
 
-        $values = $this->declaredValues();
+        $values = self::declared($this->answers->stored(), $this->fieldTypes, $this->participantFields);
 
         if ($event->capacity === null) {
             $error = new SystemFailure(null, new \LogicException('A published event without a capacity.'));
@@ -285,18 +285,24 @@ final class SubmitRegistration implements PublicUseCase
      * means the form and the event's list disagree (a declaration that has not caught up): a
      * `SystemFailure`, never a partial write.
      *
+     * The additional form's submit (`SubmitAdditionalForm`) checks its answers the same way.
+     *
+     * @param array<string, string> $stored field key → the value to store
+     * @param array<string, string> $fieldTypes field key → the field block's name, of the form's definition
+     * @param list<ParticipantField> $participantFields
      * @return array<string, string> field key → the value to store
      * @throws SystemFailure
      */
-    private function declaredValues(): array
+    public static function declared(array $stored, array $fieldTypes, array $participantFields): array
     {
         $declared = [];
-        foreach ($this->participantFields as $field) {
+        foreach ($participantFields as $field) {
             $declared[$field->key] = $field;
         }
-        foreach (array_keys($this->answers->stored()) as $fieldKey) {
+        foreach (array_keys($stored) as $fieldKey) {
+            $fieldKey = (string) $fieldKey;
             $field = $declared[$fieldKey] ?? null;
-            $type = $this->fieldTypes[$fieldKey] ?? null;
+            $type = $fieldTypes[$fieldKey] ?? null;
             if ($field === null || ($type !== null && $field->type !== $type)) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
                 throw new SystemFailure('undeclared_field_key ' . $fieldKey);
@@ -308,7 +314,7 @@ final class SubmitRegistration implements PublicUseCase
             }
         }
 
-        return $this->answers->stored();
+        return $stored;
     }
 
     /**

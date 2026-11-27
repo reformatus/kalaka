@@ -38,6 +38,17 @@ final class Events
     }
 
     /**
+     * The events that are not archived, by start (events without one last), then by id, in one statement:
+     * for the admin menu.
+     *
+     * @return list<Event>
+     */
+    public function notArchived(): array
+    {
+        return $this->query->notArchived();
+    }
+
+    /**
      * Every event in any state, ascending by id, in one statement.
      *
      * @return list<Event>

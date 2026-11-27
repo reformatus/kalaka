@@ -35,7 +35,8 @@ It holds the ranking field type now and the ranking proposer later (S77).
 - A stored ranking opens in its order (`RankingFieldType::prefill()`, the
   field-type contract, rendered from `FieldMarkup::prefilled()`): unknown
   keys and repeats are dropped silently, the rest kept in order, then the
-  first `max`; too few stay, and the submit asks for more.
+  first `max`; too few stay, and the submit asks for more. An
+  additional form opens with the stored ranking ranked in its order.
 - The `set` attribute decides where the options come from, block by block
   (S44-1, the owner's ruling 2026-11-18). A block with a `set` holds no
   options of its own: core fills `options` from the set

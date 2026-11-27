@@ -39,9 +39,6 @@ removed here.
 | Post-camp settlement extension | later |
 | A view of the frozen submission | later, low priority |
 | How the form editor edits conditions with pickers and value chips (conditions are written as JSON until then) | in the form-editor changes |
-| Whether an additional form's submit triggers an action mail | building additional forms |
-| Whether an additional form may hold the contact email or the display name (a "change my email" form) | building additional forms |
-| Whether the explicit markings (contact email, display name) move to the participant-field list | building additional forms |
 | Which key a form field copied from a field definition takes | building field definitions |
 | Copying answers to another event's registration (e.g. "register for the other camp too") by matching keys | building that link |
 | View columns taken from the participant-field list rather than from forms | building views |

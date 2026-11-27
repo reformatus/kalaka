@@ -58,8 +58,21 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `Admin\Api\ViewQuery`, which reads only through a `HeldView` that `Access`
   hands out, or through full access. Only `ViewQuery` names a registration
   table (`RegistrationTablesTest`); it never selects the secret.
-- The abilities' permission callback lets through only full access or a
-  grant holder; the runner's coarse check still decides each call.
+- The abilities' permission callback, and the gate of the grid's
+  `kalaka-admin/v1` routes, let through only full access or a grant holder;
+  the runner's coarse check still decides each call.
+- The master view's counted members live in the event's master row of
+  `kalaka_views` (`master` 1): at most one per event (the unique key on
+  `master_event`), written only through `ViewRepository`, by `CopyViews`
+  (nothing in the grid writes it). Its name, filter and columns are stored
+  empty and never read. It is never listed, edited or deleted as a view. A
+  grant on the master view keeps `view_id` null and never points at the master
+  row.
+- The counted members of a view (`counts`) are stored only by full access, and
+  each is one of its column's members. Any holder of a view, full access
+  included, may send an ad hoc `counts` override with the sums read: it is
+  validated against the held view's listed columns and their members, applies
+  to that request only, and is never stored and never widens the view.
 - The fine check of a field change (`Access::mayWrite()`) runs inside
   `execute`, on a registration the run holds locked.
 - Staff correct a field value only through `kalaka/edit-field-value` (`FieldEdit\EditFieldValue`): a field change with

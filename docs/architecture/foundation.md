@@ -142,6 +142,17 @@ flowchart LR
   deadlock, a lock-wait timeout, a version conflict hit by a system run, a
   reconnect detected inside a run) are retried, about three times, each
   attempt from scratch.
+- **An act's retry key.** A staff act outside the ledger takes an optional or
+  required `idempotency_key`, so a repeat of the same call (a double click, a
+  retry after a lost response) changes nothing. Inside the transaction, with
+  the registration locked, the use case asks `Api\ActKeys` first: a key held
+  with the same input returns the stored result and the act does nothing more;
+  a key held with other input is an `IdempotencyConflict` (409,
+  `kalaka_idempotency_conflict`, the generic refusal text); a key not held lets
+  the act run, and it stores its result under the key. The key is one
+  registration's (`kalaka_act_keys`, unique on event, registration and key),
+  and the input hash leaves out the key and `preview`: a preview never stores.
+  The ledger's manual entries keep their own key columns.
 - **Nested use cases** join the outer transaction and write their own audit
   entry, linked to the parent. Effects are released after the outermost
   commit.

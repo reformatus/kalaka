@@ -481,14 +481,18 @@ final class FormBlockTest extends FormsTestCase
         );
     }
 
-    public function testAnAdditionalFormIsNotBoundToTheWindow(): void
+    public function testAnAdditionalFormIsNotBoundToTheRegistrationWindowButNeedsAnActiveRegistration(): void
     {
         $id = $this->insertForm(
             $this->field('text', 'note'),
             ['kalaka_event_id' => $this->eventWithWindow(-15, -5), 'kalaka_placement' => 'additional']
         );
 
-        self::assertStringContainsString('<form novalidate ', $this->render($id));
+        // No active registration: the registrant's link opens it (S60). The registration window plays no part.
+        self::assertStringContainsString(
+            'Az űrlap kitöltéséhez nyisd meg a jelentkezés után kapott e-mailben lévő linket.',
+            $this->render($id)
+        );
     }
 
     public function testAFormWithAPasswordShowsWordPressesPasswordFormUntilThereIsTheCookie(): void
