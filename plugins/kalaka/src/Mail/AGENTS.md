@@ -111,8 +111,11 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   gracefully (a published body keeps its content, another stays unpublished),
   tells the saving user in an admin notice, writes a log line and, on
   WP-CLI, warns and fails the command.
-- The catalogue lists every `ActionMail` case, whether or not a use case produces
-  it yet (no hand-kept "has a producer" list); it has five action mails; admission from the waitlist sends
+- The catalogue lists every `ActionMail` case, whether or not an act on this
+  line queues it yet; `ActionMail::isWired()` is the one declared list of the
+  points that work, the list the screen shows (a point that is not wired can be
+  set up and switched on, but nothing sends it), and the PR that adds a producer
+  keeps it current. [UNAPPROVED R334] It has five action mails; admission from the waitlist sends
   "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.
