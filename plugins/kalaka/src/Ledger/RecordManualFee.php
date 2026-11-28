@@ -19,9 +19,9 @@ use Kalaka\Ledger\Api\ManualFee;
 use Kalaka\Ledger\Api\ManualFeeType;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\Api\Payer;
-use Kalaka\Ledger\Api\PayerKind;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
+use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -46,6 +46,7 @@ abstract class RecordManualFee implements AdminUseCase
         private readonly Events $events = new Events(),
         private readonly Registrations $registrations = new Registrations(),
         private readonly PayerKinds $payerKinds = new PayerKinds(),
+        private readonly ActionMails $mails = new ActionMails(),
     ) {
     }
 
@@ -111,10 +112,6 @@ abstract class RecordManualFee implements AdminUseCase
             throw new InvalidInput();
         }
         $payer = isset($input['payer']) ? (string) $input['payer'] : Payer::PARTICIPANT;
-        $declared = array_map(static fn (PayerKind $kind): string => $kind->id, $this->payerKinds->of($event->id));
-        if (!in_array($payer, $declared, true)) {
-            throw new InvalidInput();
-        }
         $title = trim((string) $input['title']);
         if ($title === '' || mb_strlen($title, 'UTF-8') > self::TITLE_MAX) {
             throw new InvalidInput();
@@ -136,6 +133,11 @@ abstract class RecordManualFee implements AdminUseCase
 
         if (!$this->registrations->lock($key, $context)) {
             throw new NotFound();
+        }
+        // The one payer rule of the money tab, under the registration's lock: the payer's kind applies or it has
+        // lines on this registration.
+        if (!$this->payerKinds->mayRecordFor($key, $payer)) {
+            throw new InvalidInput();
         }
         $type = $this->type();
         $userId = ManualEntryParts::userIdOf($context->actor());
@@ -174,7 +176,8 @@ abstract class RecordManualFee implements AdminUseCase
         }
 
         $recorded = $this->ledger->recordManualFee($fee, $context);
-        $line = $paid === null ? null : $this->ledger->record($paid, $context)->line;
+        $recordedPaid = $paid === null ? null : $this->ledger->record($paid, $context);
+        $line = $recordedPaid?->line;
         // What was recorded, never the title or the comment: free text does not belong in an audit that
         // outlives erasure.
         if ($line !== null) {
@@ -192,6 +195,12 @@ abstract class RecordManualFee implements AdminUseCase
                     'correction' => false,
                 ]
             );
+        }
+
+        if ($recordedPaid !== null) {
+            // The paid entry is a full payment (or refund) like any other: it decides the "payment recorded" mail
+            // by the same rule, keyed by its line. [UNAPPROVED N1165]
+            $this->mails->lineRecorded($context, $recordedPaid);
         }
 
         return ['id' => $recorded->fee->id] + ($line === null ? [] : ['line' => $line->id]);

@@ -5,7 +5,7 @@
  * On opening it asks the server who the send would reach (`POST …/mail/manual/preview`, checked against the user's
  * grant like the send): the codes that would get the mail, the ones that would be skipped with the reason, the codes
  * that do not exist (full access only), and the event's published bodies, which are the choice. Nothing is chosen
- * for the user. The send is the ability `kalaka/send-manual-mail` with a request key: the same body, layout and
+ * for the user. The send is the ability `kalaka/send-manual-mail` with a request key: the same body and
  * codes always carry the same key, so a retry after a lost answer or a double click is the same request and queues
  * nothing twice (`createKeys`); while a send runs a second submit is ignored. The answer is shown in the dialog
  * (queued, skipped, a repeat, `paused`, `held`) and the dialog then only closes. A refusal shows the server's own
@@ -13,36 +13,37 @@
  * sentence. [UNAPPROVED N291]
  */
 import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
-import { Button, CheckboxControl, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
+import { Button, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
 import * as api from './api';
 import { isTooMany, pageKeys, stateReads } from './manual';
+import { selectionSignature } from '../grid/selection';
 import { bodyLabel, problemText } from './format';
 import { fmt } from '../grid/format';
+import Skipped from './Skipped';
 import { COMMON, MANUAL, RESULT } from './texts';
-
-const reasonWord = ( reason ) => MANUAL[ 'reason_' + reason ] || reason;
 
 /**
  * @param {Object}   props
  * @param {number}   props.event       the event
  * @param {string}   props.previewPath the preview route, after the site's REST root
- * @param {string[]} props.codes       the registrations' codes
+ * @param {Object}   props.selection   `{ codes }` of the ticked rows, or the grid's view with its filters and search
+ *                                   (`grid/selection.js`): the server resolves the latter itself
  * @param {Function} props.onClose     closes the dialog
  * @param {Function} props.onSent      called with the answer once a send is made
  * @param {Function} [props.keys]    the page's request keys (`createKeys()`), so reopening the dialog with the same
  *                                   rows and body is the same request
  */
-export function ManualMailForm( { event, previewPath, codes, onClose, onSent, keys } ) {
+export function ManualMailForm( { event, previewPath, selection, onClose, onSent, keys } ) {
 	const [ plan, setPlan ] = useState( null );
 	const [ planError, setPlanError ] = useState( null );
 	const [ bodyId, setBodyId ] = useState( '' );
-	const [ layout, setLayout ] = useState( true );
 	const [ noBody, setNoBody ] = useState( false );
 	const [ failed, setFailed ] = useState( null );
 	const [ busy, setBusy ] = useState( false );
 	const [ result, setResult ] = useState( null );
 	const sending = useRef( false );
 	const keyFor = useRef( null );
+	const bodyRef = useRef( null );
 	if ( ! keyFor.current ) {
 		keyFor.current = keys || pageKeys( event );
 	}
@@ -67,7 +68,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 
 	useEffect( () => {
 		let live = true;
-		api.previewManual( previewPath, codes ).then(
+		api.previewManual( previewPath, selection ).then(
 			( data ) => live && setPlan( data ),
 			( error ) =>
 				live &&
@@ -76,7 +77,20 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 		return () => {
 			live = false;
 		};
-	}, [ previewPath, codes.join( ',' ) ] );
+	}, [ previewPath, selectionSignature( selection ) ] );
+
+	// The dialog's first focus is the template field once the read answers, not the primary „Küldés” button, which is
+	// the only focusable element while the preview is still loading.
+	const focusedBody = useRef( false );
+	useEffect( () => {
+		if ( plan && plan.bodies.length > 0 && ! focusedBody.current ) {
+			focusedBody.current = true;
+			const select = bodyRef.current && bodyRef.current.querySelector( 'select' );
+			if ( select ) {
+				select.focus();
+			}
+		}
+	}, [ plan ] );
 
 	const submit = async ( submitted ) => {
 		submitted.preventDefault();
@@ -93,13 +107,13 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 		setBusy( true );
 		try {
 			const id = parseInt( bodyId, 10 );
-			const answer = await api.sendManual( event, id, codes, layout, keyFor.current( id, layout, codes ) );
+			const answer = await api.sendManual( event, id, selection, keyFor.current( id, selection ) );
 			setResult( answer );
 			if ( onSent ) {
 				onSent( answer );
 			}
 		} catch ( error ) {
-			// The same body, layout and codes keep their key, so pressing Küldés again is a retry, not a second send.
+			// The same body and codes keep their key, so pressing Küldés again is a retry, not a second send.
 			setFailed( problemText( error, COMMON.actFail ) );
 		}
 		sending.current = false;
@@ -110,6 +124,10 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 		() => ( plan ? plan.bodies.find( ( b ) => String( b.id ) === bodyId ) : null ),
 		[ plan, bodyId ]
 	);
+
+	// The preview gives the names as one map by code (`names`); the send's answer lists only codes, so both lists
+	// take the name from that map; a code without an entry shows no name.
+	const nameOf = ( code ) => ( plan && plan.names && plan.names[ code ] ) || null;
 
 	if ( result ) {
 		return (
@@ -123,18 +141,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 						<strong>{ fmt( RESULT.queued, result.queued ) }</strong>
 					</p>
 				) }
-				{ result.skipped.length > 0 && (
-					<Fragment>
-						<p>{ fmt( RESULT.skipped, result.skipped.length ) }</p>
-						<ul className="km-members">
-							{ result.skipped.map( ( s ) => (
-								<li key={ s.code }>
-									<span className="km-code-text">{ s.code }</span> – { reasonWord( s.reason ) }
-								</li>
-							) ) }
-						</ul>
-					</Fragment>
-				) }
+				<Skipped skipped={ result.skipped } nameOf={ nameOf } />
 				{ result.paused && <Notice status="warning" isDismissible={ false }>{ RESULT.paused }</Notice> }
 				{ result.held && <Notice status="warning" isDismissible={ false }>{ RESULT.held }</Notice> }
 				<div className="km-actions">
@@ -160,23 +167,15 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 			) }
 			{ plan && (
 				<Fragment>
+					{ /* A view selection that matches nothing gives no recipient (the server refuses a send to it): the line says so and the
+					   send is disabled, as for an empty queue. The scope („all matching” or „the filter's”) is no line of the dialog: the
+					   action bar's count prefix says it. */ }
 					<p role="status">
 						<strong>
 							{ plan.queue.length ? fmt( MANUAL.toQueue, plan.queue.length ) : MANUAL.toQueueNone }
 						</strong>
 					</p>
-					{ plan.skipped.length > 0 && (
-						<Fragment>
-							<p>{ MANUAL.skipped }</p>
-							<ul className="km-members">
-								{ plan.skipped.map( ( s ) => (
-									<li key={ s.code }>
-										<span className="km-code-text">{ s.code }</span> – { reasonWord( s.reason ) }
-									</li>
-								) ) }
-							</ul>
-						</Fragment>
-					) }
+					<Skipped skipped={ plan.skipped } nameOf={ nameOf } />
 					{ plan.unknown.length > 0 && (
 						<p>
 							{ MANUAL.unknown } <span className="km-code-text">{ plan.unknown.join( ', ' ) }</span>
@@ -185,22 +184,23 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 					{ plan.bodies.length === 0 ? (
 						<p>{ MANUAL.noBodies }</p>
 					) : (
-						<SelectControl
-							label={ MANUAL.body }
-							value={ bodyId }
-							options={ [
-								{ value: '', label: MANUAL.pick },
-								...plan.bodies.map( ( b ) => ( { value: String( b.id ), label: bodyLabel( b, plan.bodies ) } ) ),
-							] }
-							onChange={ ( value ) => {
-								setBodyId( value );
-								setNoBody( false );
-							} }
-							help={ noBody ? <span className="km-err">{ MANUAL.noBody }</span> : undefined }
-							__nextHasNoMarginBottom
-						/>
+						<div ref={ bodyRef }>
+							<SelectControl
+								label={ MANUAL.body }
+								value={ bodyId }
+								options={ [
+									{ value: '', label: MANUAL.pick },
+									...plan.bodies.map( ( b ) => ( { value: String( b.id ), label: bodyLabel( b, plan.bodies ) } ) ),
+								] }
+								onChange={ ( value ) => {
+									setBodyId( value );
+									setNoBody( false );
+								} }
+								help={ noBody ? <span className="km-err">{ MANUAL.noBody }</span> : undefined }
+								__nextHasNoMarginBottom
+							/>
+						</div>
 					) }
-					<CheckboxControl label={ MANUAL.layout } checked={ layout } onChange={ setLayout } __nextHasNoMarginBottom />
 				</Fragment>
 			) }
 			{ standing.paused && <Notice status="warning" isDismissible={ false }>{ RESULT.paused }</Notice> }
@@ -231,13 +231,13 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 }
 
 /** The form in a modal of its own (the failed deliveries' follow-up). */
-export default function ManualMailDialog( { config, codes, onClose, onSent, keys } ) {
+export default function ManualMailDialog( { config, selection, onClose, onSent, keys } ) {
 	return (
 		<Modal title={ MANUAL.title } onRequestClose={ onClose } size="medium" shouldCloseOnClickOutside={ false }>
 			<ManualMailForm
 				event={ config.event }
 				previewPath={ `${ config.rest }/events/${ config.event }/mail/manual/preview` }
-				codes={ codes }
+				selection={ selection }
 				onClose={ onClose }
 				onSent={ onSent }
 				keys={ keys }

@@ -78,6 +78,10 @@ final class MailRoutesTest extends MailAdminTestCase
         $other = $this->published();
         $this->document($other, $this->paragraph('x'), 'Másik eseményé');
         $this->switchOn($event, 'registered', $body);
+        // A draft may be held by a point that is off; its row says why switching it on is unavailable, and the
+        // levélkeret is the template's own choice (false here, true when the meta was never set).
+        $this->usesFrame($draft, false);
+        $this->updateMail(['event_id' => $event, 'mail' => 'confirmed', 'body_id' => $draft]);
         $this->queue($event, '00A0');
         $this->as($this->admin->userId);
 
@@ -91,21 +95,21 @@ final class MailRoutesTest extends MailAdminTestCase
         );
         self::assertSame([$event, false, '{{content}}'], [$data['event_id'], $data['held'], $data['layout_html']]);
         self::assertSame(
-            ['registered', 'waitlisted', 'payment_recorded', 'confirmed', 'link_regenerated'],
+            ['registered', 'waitlisted', 'payment_recorded', 'confirmed', 'answered'],
             array_column($data['mails'], 'mail')
         );
         $registered = $data['mails'][0];
         self::assertSame(
-            ['mail', 'label', 'enabled', 'body_id', 'layout', 'can', 'refusals'],
+            ['mail', 'label', 'enabled', 'body_id', 'can', 'refusals', 'enable_unavailable', 'template', 'wired'],
             array_keys($registered)
         );
         self::assertSame('Jelentkezés rögzítve', $registered['label']);
-        self::assertSame([true, $body, true], [$registered['enabled'], $registered['body_id'], $registered['layout']]);
-        self::assertSame(['switch_on' => false, 'switch_off' => true], $registered['can']);
+        self::assertSame([true, $body], [$registered['enabled'], $registered['body_id']]);
+        self::assertSame(['enable' => false, 'switch_off' => true], $registered['can']);
         self::assertSame(['switch_on' => null, 'switch_off' => null], $registered['refusals']);
         // Without a body a mail cannot be switched on, and the use case's own code and text say why.
         $waitlisted = $data['mails'][1];
-        self::assertSame(['switch_on' => false, 'switch_off' => false], $waitlisted['can']);
+        self::assertSame(['enable' => false, 'switch_off' => false], $waitlisted['can']);
         self::assertSame(
             [
                 'code' => 'kalaka_mail_no_body',
@@ -117,17 +121,39 @@ final class MailRoutesTest extends MailAdminTestCase
         // The event's own bodies by title, the trashed one and another event's left out.
         self::assertSame(['Sikeres jelentkezés', 'Vázlat'], array_column($data['bodies'], 'subject'));
         self::assertSame(
-            ['id', 'subject', 'status', 'used_by', 'modified', 'edit_url'],
+            ['id', 'subject', 'status', 'used_by', 'modified', 'uses_frame', 'edit_url'],
             array_keys($data['bodies'][0])
         );
         self::assertSame([$body, 'publish', 'registered'], [
             $data['bodies'][0]['id'], $data['bodies'][0]['status'], $data['bodies'][0]['used_by'],
         ]);
-        self::assertSame([$draft, 'draft', null], [
+        self::assertSame([$draft, 'draft', 'confirmed'], [
             $data['bodies'][1]['id'], $data['bodies'][1]['status'], $data['bodies'][1]['used_by'],
         ]);
         self::assertMatchesRegularExpression('/\A\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\z/', $data['bodies'][0]['modified']);
         self::assertStringEndsWith('post.php?post=' . $body . '&action=edit', $data['bodies'][0]['edit_url']);
+        // The levélkeret is the template's: true when the meta was never set, false when it was.
+        self::assertSame([true, false], [$data['bodies'][0]['uses_frame'], $data['bodies'][1]['uses_frame']]);
+
+        // What each point holds and why it cannot be switched on: null when it is on, no_template, template_draft.
+        self::assertSame(
+            ['id', 'status', 'title', 'subject', 'modified', 'uses_frame', 'edit_url'],
+            array_keys($registered['template'])
+        );
+        self::assertSame([$body, 'Sikeres jelentkezés', true], [
+            $registered['template']['id'], $registered['template']['subject'], $registered['template']['uses_frame'],
+        ]);
+        self::assertNull($registered['enable_unavailable']);
+        self::assertNull($waitlisted['template']);
+        self::assertSame('no_template', $waitlisted['enable_unavailable']);
+        $confirmed = $data['mails'][3];
+        self::assertSame('template_draft', $confirmed['enable_unavailable']);
+        self::assertSame([$draft, 'Vázlat', false], [
+            $confirmed['template']['id'], $confirmed['template']['subject'], $confirmed['template']['uses_frame'],
+        ]);
+        // The template's times are the body list's own (null for a draft that was never saved).
+        self::assertSame($data['bodies'][1]['modified'], $confirmed['template']['modified']);
+        self::assertSame($data['bodies'][0]['modified'], $registered['template']['modified']);
         self::assertSame(
             ['queued' => 1, 'sent' => 0, 'failed' => 0, 'with_error' => 0, 'stuck_sending' => 0],
             $data['stats']
@@ -205,8 +231,8 @@ final class MailRoutesTest extends MailAdminTestCase
         self::assertSame(200, $response->get_status());
         $waitlisted = $response->get_data()['mails'][1];
         self::assertSame($body, $waitlisted['body_id']);
-        self::assertFalse($waitlisted['can']['switch_on']);
-        self::assertSame('kalaka_mail_body_unpublished', $waitlisted['refusals']['switch_on']['code']);
+        self::assertFalse($waitlisted['can']['enable']);
+        self::assertSame('kalaka_point_template_unpublished', $waitlisted['refusals']['switch_on']['code']);
     }
 
     public function testTheAccountRulesComeAsTheirTypedRefusals(): void
@@ -226,7 +252,7 @@ final class MailRoutesTest extends MailAdminTestCase
 
         self::assertFalse($registered['can']['switch_off']);
         self::assertSame('kalaka_mail_registered_stays_on', $registered['refusals']['switch_off']['code']);
-        self::assertSame(['switch_on' => false, 'switch_off' => false], $registered['can']);
+        self::assertSame(['enable' => false, 'switch_off' => false], $registered['can']);
     }
 
     public function testTheSenderStateCarriesThePauseTheErrorTheBudgetAndEachEventsCounts(): void
@@ -361,7 +387,6 @@ final class MailRoutesTest extends MailAdminTestCase
         self::assertCount(1, $list);
         self::assertSame([
             'id' => $sent['batch_id'], 'body_id' => $body, 'subject' => 'Sikeres jelentkezés', 'body_gone' => false,
-            'layout' => true,
             'created_at' => '2026-11-30T09:00:30Z',
             'created_by' => ['id' => $this->admin->userId, 'name' => get_userdata($this->admin->userId)->display_name],
             'queued' => 2, 'skipped' => 1,

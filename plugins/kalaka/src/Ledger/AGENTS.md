@@ -37,8 +37,9 @@ corrections
   Payment facts are the lines of the paid side: kinds `payment`, `refund`,
   `manual_payment` and `manual_refund`; `charge` lines are owed, not payment
   facts. Rules never read charge lines: the Ledger `Api` gives them
-  payment facts, read from payment lines only. `Ledger::summaryOf()` reads
-  every line for display (the participant blocks); no rule calls it.
+  payment facts, read from payment lines only. `Ledger::summaryOf()` (every line)
+  and `Ledger::statementOf()` (one payer's lines with their notes) are display
+  reads; no rule calls either.
   `chargeTotalsOf()` is the materializer's read of its own lines, and only
   `Pricing\Api\Materializer` calls it (a test checks this).
 - A payment-fact line carries exactly one time, a UTC instant: `paid_at` on
@@ -47,6 +48,15 @@ corrections
   time zone at recording; a correction (a manual row flagged `correction`,
   the owner's ruling 2026-11-19, with no method) has no entered date and
   stores the time it is recorded. A `charge` carries neither.
+- The payer kinds are the participant and the kinds modules declare through a `PayerKindSource`
+  (`Contributions::payerKindSource()`; `PayerKinds` reads them): a source gives a kind (an ID and a label) and
+  says per event whether it applies (`appliesTo(PayerKindInput)`), a plain read that runs inside the record use
+  cases, in the admin detail read and in the participant status read (a throw rolls the use case back; in a read it is contained: the kind is
+  treated as not applying and logged, as `ThemeAdapters` does), and runs no other code. What the dialog shows is what the server accepts, by one rule (`PayerKinds::payersOf()` lists a
+  registration's payers, `mayRecordFor()` tests membership): the participant, the event's applying kinds, and every
+  payer that has lines on the registration. A payment, refund, correction, Díj or Kedvezmény is accepted for
+  exactly those, judged under the registration's lock, so a payer shown with lines after its kind stops applying
+  can still be refunded, corrected, charged and discounted.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
 - A manual charge or discount is a fact in `kalaka_manual_fees`: inserted
@@ -59,6 +69,11 @@ corrections
   and marked as completed it writes the fact and the paid entry in one run
   under one audit row; the paid entry is never a correction and nothing links
   the two.
+- Recording a manual payment or refund, and the paid entry of a „Díj” or
+  „Kedvezmény” ticked „Azonnal befizetve”, decides the "payment recorded" mail in
+  the same run (`Mail\Api\ActionMails::lineRecorded()`); a correction, a replay, a
+  line of a payer other than the participant and every other use case decide
+  none.
 - One grant action, `kalaka_record_money`, carries every manual money use
   case: payment, refund, correction, charge and discount.
 - `record()` refuses unless the run holds the registration's lock

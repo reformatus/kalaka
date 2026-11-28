@@ -32,9 +32,13 @@ use Kalaka\Mail\Api\ManualMails;
  */
 final class GridPage
 {
-    private const SLUG = 'kalaka-event-%d-registrations';
+    /** The page slug; the event's other screens hang under it as submenus. */
+    public const SLUG = 'kalaka-event-%d-registrations';
     private const HANDLE = 'kalaka-admin-grid';
     private const PER_PAGE = [25, 50, 100, 500];
+
+    /** @var array<string, string> the event items' icons by menu slug, filled by `menu()` for `menuStyle()` */
+    private static array $icons = [];
 
     /** `admin_menu` */
     public static function menu(): void
@@ -61,10 +65,31 @@ final class GridPage
                 'read',
                 $slug,
                 [self::class, 'render'],
-                '',
+                'none',
                 4 + ++$position / 100
             );
+            self::$icons[$slug] = MenuIcon::uri($event->name);
             add_submenu_page($slug, Texts::REGISTRANTS, Texts::REGISTRANTS, 'read', $slug, [self::class, 'render']);
+        }
+    }
+
+    /**
+     * `admin_head`: each event item's derived icon as a mask filled with the menu's own icon colour, so it follows the
+     * colour scheme, hover and current states with no repaint.
+     */
+    public static function menuStyle(): void
+    {
+        $css = '';
+        foreach (self::$icons as $slug => $icon) {
+            $url = 'url("' . esc_attr($icon) . '") center / 20px 20px no-repeat';
+            $css .= '#toplevel_page_' . $slug . ' div.wp-menu-image::before { content: ""; display: block; '
+                . 'width: 20px; height: 20px; margin: 7px auto 0; padding: 0; '
+                . 'background-color: currentColor; -webkit-mask: ' . $url
+                . '; mask: ' . $url . '; }';
+        }
+        if ($css !== '') {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- generated slugs, escaped URIs
+            echo '<style>' . $css . '</style>';
         }
     }
 
@@ -185,7 +210,7 @@ final class GridPage
             'current' => $current,
             'perPages' => self::PER_PAGE,
             'maxLimit' => ViewQuery::MAX_LIMIT,
-            // The panel shows dates and today in the site time zone, as a name or an offset (S38). [UNAPPROVED N23]
+            // The panel shows dates and today in the site time zone, as a name or an offset (S38).
             'timezone' => wp_timezone_string(),
             'rest' => '/' . GridRoutes::NAMESPACE . '/events/' . $eventId,
         ];

@@ -110,7 +110,9 @@ final class ManualMailSelectionTest extends GrantTestCase
         $plan = $this->preview(['codes' => ['00A0', '00A5', '00A3']]);
 
         self::assertSame(3, $plan['count']);
-        self::assertSame(['00A0', '00A5'], $plan['queue']);
+        // 7.1: a waitlisted registration is skipped and listed, not sent to.
+        self::assertSame(['00A0'], $plan['queue']);
+        self::assertSame([['code' => '00A5', 'reason' => 'waitlisted']], $plan['skipped']);
         self::assertSame(['00A3'], $plan['unknown']);
     }
 
@@ -119,7 +121,8 @@ final class ManualMailSelectionTest extends GrantTestCase
         $plan = $this->preview(['view' => 0]);
 
         self::assertSame(4, $plan['count']);
-        self::assertSame(['00A0', '00A2', '00A5', '00A8'], self::sorted($plan['queue']));
+        self::assertSame(['00A0', '00A2', '00A8'], self::sorted($plan['queue']));
+        self::assertSame([['code' => '00A5', 'reason' => 'waitlisted']], $plan['skipped']);
         self::assertSame(4, $this->preview(['view' => 0, 'grant' => null, 'filters' => [], 'search' => ''])['count']);
     }
 
@@ -170,13 +173,14 @@ final class ManualMailSelectionTest extends GrantTestCase
         $holder = new UserActor($this->user);
 
         $plan = $this->preview(['view' => $view, 'grant' => $grant], $holder);
-        self::assertSame(['00A0', '00A5', '00A8'], self::sorted($plan['queue']));
+        self::assertSame(['00A0', '00A8'], self::sorted($plan['queue']));
         self::assertSame(3, $plan['count']);
         // A search for a row of another module finds nothing: the bound value stays in force.
         self::assertSame(0, $this->preview(['view' => $view, 'grant' => $grant, 'search' => '00A2'], $holder)['count']);
 
         $result = $this->send(['view' => $view, 'grant' => $grant], $holder);
-        self::assertSame(3, $result['queued']);
+        self::assertSame(2, $result['queued']);
+        self::assertSame([['code' => '00A5', 'reason' => 'waitlisted']], $result['skipped']);
     }
 
     public function testAGrantHolderCannotNameAViewOrGrantTheyDoNotHold(): void
@@ -245,7 +249,9 @@ final class ManualMailSelectionTest extends GrantTestCase
         ]);
         self::assertIsInt($view);
 
-        self::assertSame(['00A5'], $this->preview(['view' => $view])['queue']);
+        $waitlisted = $this->preview(['view' => $view]);
+        self::assertSame([], $waitlisted['queue']);
+        self::assertSame([['code' => '00A5', 'reason' => 'waitlisted']], $waitlisted['skipped']);
 
         $other = $this->createEvent('Másik');
         $this->expectException(NotFound::class);
@@ -289,7 +295,8 @@ final class ManualMailSelectionTest extends GrantTestCase
         self::assertSame($total, $this->preview(['view' => 0])['count']);
 
         $result = $this->send(['view' => 0]);
-        // One of the registrations is waitlisted, and a waitlisted one is sent to.
-        self::assertSame($total, $result['queued']);
+        // One of the registrations is waitlisted, and a waitlisted one is skipped (7.1).
+        self::assertSame($total - 1, $result['queued']);
+        self::assertSame([['code' => '00A5', 'reason' => 'waitlisted']], $result['skipped']);
     }
 }

@@ -163,7 +163,9 @@ final class RecordPaymentTest extends ManualEntryTestCase
 
         $this->exec(new RecordPayment(), $this->paymentInput(['code' => '00A2']));
 
-        self::assertCount(1, $this->lines());
+        // A registration that left keeps what was paid: its retention line follows the payment.
+        $left = $status === 'withdrawn' || $status === 'removed';
+        self::assertCount($left ? 2 : 1, $this->lines());
     }
 
     public function testThereIsNoCapAtTheBalance(): void

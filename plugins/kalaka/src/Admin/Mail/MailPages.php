@@ -55,12 +55,11 @@ final class MailPages
         if (!Access::mayReachAdmin($userId) || !(new Access())->isFull(new UserActor($userId))) {
             return;
         }
-        // A new top-level item with one submenu item, the page the banner names. Its icon is the Kaláka logo, as the
-        // owner's menu ruling has it (a plain „K” until the logo exists, as in the menu mock), drawn as a CSS mask
-        // (`menuStyle()`). Its place is the mock's: right after core's separator and right before the events, which
-        // the grid page puts at 4.01 and up (the approved menu code, #204, keeps the events there). WordPress shows a
-        // submenu only when it has a second item, so „Levelezés” stays out of the sidebar until the ruling's
-        // „Irányítópult” exists. [UNAPPROVED N271]
+        // A new top-level item with its own submenu: the item lands on the „Levelezés” page and its submenu holds
+        // just „Levelezés”, because there is no dashboard yet (owner ruling 8.14; no „Irányítópult” entry). Its icon
+        // is the Kaláka logo, as the owner's menu ruling has it (a plain „K” until the logo exists, as in the menu
+        // mock), drawn as a CSS mask (`menuStyle()`). Its place is the mock's: right after core's separator and
+        // right before the events, which the grid page puts at 4.01 and up. [UNAPPROVED N271]
         add_menu_page(
             Texts::SITE_PAGE,
             Texts::SITE_MENU,
@@ -120,19 +119,25 @@ final class MailPages
         echo '<style>' . $css . '</style>';
     }
 
-    /** `admin_enqueue_scripts`: the app's script and styles on the two mail pages only. */
+    /**
+     * `admin_enqueue_scripts`: the site page's app, and the event page's PHP page with its small script for the
+     * dynamic parts (the switch, the choose dialog, the X, the group-mail details, the clear and the layout save).
+     * [UNAPPROVED N1285]
+     */
     public static function enqueue(): void
     {
-        if (self::page() === null) {
+        $page = self::page();
+        if ($page === null) {
             return;
         }
         $built = dirname(KALAKA_FILE) . '/build/Admin/app/';
-        if (!is_file($built . 'mail.asset.php')) {
+        $entry = $page === 0 ? 'mail' : 'mail-event';
+        if (!is_file($built . $entry . '.asset.php')) {
             return;
         }
         /** @var array{dependencies: list<non-empty-string>, version: string} $asset */
-        $asset = require $built . 'mail.asset.php';
-        $src = plugins_url('build/Admin/app/mail.js', KALAKA_FILE);
+        $asset = require $built . $entry . '.asset.php';
+        $src = plugins_url('build/Admin/app/' . $entry . '.js', KALAKA_FILE);
         if ($src === '') {
             return;
         }
@@ -143,17 +148,21 @@ final class MailPages
             $asset['version'],
             true
         );
-        // DataViews' stylesheet is one shared chunk, named after the first entry that imports it (the grid's).
-        wp_register_style(
-            self::HANDLE . '-dataviews',
-            plugins_url('build/Admin/app/style-grid.css', KALAKA_FILE),
-            ['wp-components'],
-            $asset['version']
-        );
+        if ($page === 0) {
+            // DataViews' stylesheet is one shared chunk, named after the first entry that imports it (the grid's).
+            wp_register_style(
+                self::HANDLE . '-dataviews',
+                plugins_url('build/Admin/app/style-grid.css', KALAKA_FILE),
+                ['wp-components'],
+                $asset['version']
+            );
+        }
+        // The event page's own thin stylesheet needs only the components' (the toggle, the icon button, the
+        // windows); no DataViews. [UNAPPROVED N1294]
         wp_enqueue_style(
             self::HANDLE,
-            plugins_url('build/Admin/app/mail.css', KALAKA_FILE),
-            [self::HANDLE . '-dataviews'],
+            plugins_url('build/Admin/app/' . $entry . '.css', KALAKA_FILE),
+            [$page === 0 ? self::HANDLE . '-dataviews' : 'wp-components'],
             $asset['version']
         );
         Translations::load(self::HANDLE);
@@ -193,23 +202,24 @@ final class MailPages
             ], (new Events())->notArchived());
             // The placement of the settings form and its notices is these two lines: the form after the status mount
             // (a, built), above it (b) or on its own page under „Beállítások” (c) would move only them.
+            // [UNAPPROVED N1332]
             $head = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html(Texts::SITE_PAGE) . '</h1>'
                 . self::settingsNotices();
-            $tail = self::settingsForm();
-        } else {
-            $event = (new Events())->find($page) ?? throw new NotFound();
-            $config['kind'] = 'event';
-            $config['event'] = $event->id;
-            $config['eventName'] = $event->name;
-            $config['registrantsUrl'] = admin_url('admin.php?page=' . GridPage::slug($event));
-            $config['senderUrl'] = admin_url('admin.php?page=' . self::SITE_SLUG);
-            $head = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html($event->name) . '</h1>';
-            $tail = '';
+            wp_add_inline_script(self::HANDLE, 'window.kalakaMail = ' . wp_json_encode($config) . ';', 'before');
+            wp_enqueue_script(self::HANDLE);
+
+            return $head . '<div id="kalaka-mail"></div>' . self::settingsForm() . '</div>';
         }
-        wp_add_inline_script(self::HANDLE, 'window.kalakaMail = ' . wp_json_encode($config) . ';', 'before');
+        // The event's page is PHP's (`EventPage`); only its dynamic parts reach the client. [UNAPPROVED N1280]
+        $event = (new Events())->find($page) ?? throw new NotFound();
+        wp_add_inline_script(
+            self::HANDLE,
+            'window.kalakaMailPage = ' . wp_json_encode(EventPage::config($event)) . ';',
+            'before'
+        );
         wp_enqueue_script(self::HANDLE);
 
-        return $head . '<div id="kalaka-mail"></div>' . $tail . '</div>';
+        return EventPage::render($event);
     }
 
     /**
@@ -272,6 +282,33 @@ final class MailPages
         }
 
         return preg_match('/^kalaka-event-([1-9][0-9]*)-mail$/', $page, $m) === 1 ? (int) $m[1] : null;
+    }
+
+    /**
+     * The address of the event's „Levelek” page on the bodies tab, or the site's „Levelezés” page without an event;
+     * the page an archived or unknown event has no menu item for falls back to the site's.
+     */
+    public static function url(?int $eventId): string
+    {
+        foreach ($eventId === null ? [] : (new Events())->notArchived() as $event) {
+            if ($event->id === $eventId) {
+                return admin_url('admin.php?page=' . self::slug($event) . '&tab=bodies');
+            }
+        }
+
+        return admin_url('admin.php?page=' . self::SITE_SLUG);
+    }
+
+    /** The event's own page slug, for other classes that link to it. */
+    public static function slugOf(Event|int $event): string
+    {
+        return self::slug($event);
+    }
+
+    /** The site page's slug (the top-level item's own page). */
+    public static function siteSlug(): string
+    {
+        return self::SITE_SLUG;
     }
 
     private static function slug(Event|int $event): string

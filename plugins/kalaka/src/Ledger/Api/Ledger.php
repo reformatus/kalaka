@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Ledger\Api;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\BalanceQuery;
@@ -15,6 +16,7 @@ use Kalaka\Ledger\ManualFeeRepository;
 use Kalaka\Ledger\PaymentNote;
 use Kalaka\Ledger\PaymentNoteRepository;
 use Kalaka\Ledger\PaymentFactQuery;
+use Kalaka\Ledger\StatementQuery;
 use Kalaka\Ledger\SummaryQuery;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -42,6 +44,7 @@ final class Ledger
         private readonly PaymentNoteRepository $notes = new PaymentNoteRepository(),
         private readonly LineListQuery $listing = new LineListQuery(),
         private readonly ManualFeeRepository $fees = new ManualFeeRepository(),
+        private readonly StatementQuery $statements = new StatementQuery(),
     ) {
     }
 
@@ -186,6 +189,16 @@ final class Ledger
     }
 
     /**
+     * Whether the registration holds a ledger line whose idempotency key starts with the prefix, matched
+     * literally: for a reader that knows a key's front part and not the rest (a provider's request, whose items
+     * name the end). A plain read.
+     */
+    public function holdsLineKeyStartingWith(RegistrationKey $registration, string $prefix): bool
+    {
+        return $this->lines->existsWithKeyPrefix($registration, $prefix);
+    }
+
+    /**
      * The registration's manual fees, oldest first: a fact read, never a line read, for the `manual` fee
      * component. A plain read, without a lock.
      *
@@ -316,6 +329,16 @@ final class Ledger
     }
 
     /**
+     * A plain read, without a lock, for display (the participant blocks' money table): one payer's owed lines
+     * and money movements with their notes, and its totals, from one statement. Empty and zero in `$currency`,
+     * the event's, when the payer has no lines. Rules never read it.
+     */
+    public function statementOf(RegistrationKey $registration, string $payer, Currency $currency): PayerStatement
+    {
+        return $this->statements->of($registration, $payer, $currency);
+    }
+
+    /**
      * The registration's `charge` lines summed per source and payer: the materializer's read of what it
      * has recorded. Only `Pricing\Api\Materializer` calls it (a test checks this); rules never read charge
      * lines. A plain read, without a lock: the materializer runs under the registration's row lock.
@@ -340,7 +363,6 @@ final class Ledger
             $line->method !== null && !$line->kind->carriesMethod() => 'The kind has no method.',
             $line->correction && !$line->kind->carriesMethod() => 'Only a manual payment or refund is a correction.',
             $line->correction && $line->method !== null => 'A correction has no method.',
-            $line->correction && self::noteText($line) === null => 'A correction needs its reason.',
             $line->note !== null && !$line->kind->mayHaveNote() => 'The kind has no note.',
             !self::noteFits(self::noteText($line)) => 'The note is not 1 to 500 characters.',
             default => null,

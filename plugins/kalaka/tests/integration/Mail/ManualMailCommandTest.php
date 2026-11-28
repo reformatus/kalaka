@@ -112,7 +112,7 @@ final class ManualMailCommandTest extends MailBodyTestCase
         ]);
 
         self::assertSame([
-            '1 to queue, 1 skipped (withdrawn/removed): 00A2 (withdrawn), unknown: 00A5',
+            '1 to queue, 1 skipped (withdrawn/removed/waitlisted): 00A2 (withdrawn), unknown: 00A5',
             'Dry run: nothing was queued.',
         ], $this->lines());
         self::assertSame([], $this->asked);
@@ -136,7 +136,7 @@ final class ManualMailCommandTest extends MailBodyTestCase
         );
 
         $lines = $this->lines();
-        self::assertSame('2 to queue, 0 skipped (withdrawn/removed), unknown: none', $lines[0]);
+        self::assertSame('2 to queue, 0 skipped (withdrawn/removed/waitlisted), unknown: none', $lines[0]);
         self::assertStringStartsWith('Batch ', $lines[1]);
         self::assertStringEndsWith(' queued. Queued: 2, skipped: 0.', $lines[1]);
         self::assertCount(2, $this->deliveries());
@@ -161,10 +161,10 @@ final class ManualMailCommandTest extends MailBodyTestCase
         self::assertCount(2, $this->deliveries());
     }
 
-    public function testNoLayoutAndAKeyAreKeptOnTheBatchAndARerunWithTheKeyQueuesNothing(): void
+    public function testAKeyIsKeptOnTheBatchAndARerunWithTheKeyQueuesNothing(): void
     {
         [$event, $body] = $this->ready();
-        $args = ['body' => (string) $body, 'codes' => '00A0', 'layout' => false, 'key' => 'rerun-key-1', 'yes' => true];
+        $args = ['body' => (string) $body, 'codes' => '00A0', 'key' => 'rerun-key-1', 'yes' => true];
 
         $this->command()->__invoke([(string) $event], $args);
         \WP_CLI::reset();
@@ -172,8 +172,6 @@ final class ManualMailCommandTest extends MailBodyTestCase
 
         self::assertStringContainsString('same key was used before', $this->lines()[1]);
         self::assertCount(1, $this->deliveries());
-        $this->batchesCommand()->__invoke([(string) $event], []);
-        self::assertSame('no', $this->printed[0][1][0]['layout']);
     }
 
     public function testAnUnknownCodeRefusesBeforeAskingAndABadCodeIsNamed(): void
@@ -295,7 +293,7 @@ final class ManualMailCommandTest extends MailBodyTestCase
 
         [$format, $rows, $fields] = $this->printed[0];
         self::assertSame('json', $format);
-        self::assertSame(['batch', 'created_at_utc', 'by', 'body', 'layout', 'queued', 'skipped'], $fields);
+        self::assertSame(['batch', 'created_at_utc', 'by', 'body', 'queued', 'skipped'], $fields);
         self::assertSame([1, 1], [$rows[0]['queued'], $rows[0]['skipped']]);
         self::assertSame($body . ' Tájékoztató', $rows[0]['body']);
         self::assertStringContainsString('(user ' . $user . ')', $rows[0]['by']);

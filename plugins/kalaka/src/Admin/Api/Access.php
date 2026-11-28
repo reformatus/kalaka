@@ -15,6 +15,7 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -39,6 +40,28 @@ final class Access
     public function isFull(Actor $actor): bool
     {
         return AdminAccess::isFull($actor);
+    }
+
+    /**
+     * The one money-view read: whether the actor may see the money of the registration. Full access, or a held view
+     * that contains it and whose grant carries money-view or money-write (the owner's ruling 2026-11-18: money-write
+     * includes money-view). The detail read and the status-act preview both ask it.
+     */
+    public function mayViewMoney(Actor $actor, RegistrationKey $key): bool
+    {
+        if ($this->isFull($actor)) {
+            return true;
+        }
+        foreach ($this->holding($actor, $key) as $held) {
+            if (
+                in_array(Ledger::VIEW_MONEY, $held['actions'], true)
+                || in_array(Ledger::RECORD_MONEY, $held['actions'], true)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -207,32 +230,53 @@ final class Access
     }
 
     /**
-     * The fine check of a field change, run inside `execute`: whether the actor may write the column
-     * (`field:<key>`) of the registration, which the run must already hold locked, so the view's filter is
-     * read as it is under the lock. Full access may; otherwise a held view must list the column read-write
-     * and contain the registration.
+     * Whether the actor may write the column (`field:<key>`) of the registration: full access may; otherwise a
+     * held view must list the column read-write and contain the registration. The fine check of a field change
+     * passes the run's `Context`, and the registration must already be locked there, so the view's filter is read
+     * as it is under the lock. Without a context it is a plain read, for a caller that must decide before the run
+     * starts or only displays; the act re-checks under the lock.
      *
-     * @throws SystemFailure when the run does not hold the registration's row lock
+     * @throws SystemFailure when a context is given and the run does not hold the registration's row lock
      */
-    public function mayWrite(Actor $actor, RegistrationKey $key, string $column, Context $context): bool
+    public function mayWrite(Actor $actor, RegistrationKey $key, string $column, ?Context $context = null): bool
     {
-        if (!$context->holdsRegistration($key)) {
+        return $this->writer($actor, $key, $context)($column);
+    }
+
+    /**
+     * `mayWrite()` for many columns of one registration: the held views that contain it are read once, and the
+     * returned test answers for each column (`field:<key>`) by the same rule. For a screen that shows which
+     * fields are editable; the act re-checks under the lock.
+     *
+     * @return \Closure(string): bool
+     * @throws SystemFailure when a context is given and the run does not hold the registration's row lock
+     */
+    public function writer(Actor $actor, RegistrationKey $key, ?Context $context = null): \Closure
+    {
+        if ($context !== null && !$context->holdsRegistration($key)) {
             $error = new SystemFailure(null, new \LogicException('The fine check needs the registration locked.'));
             throw $error;
         }
         if ($this->isFull($actor)) {
-            return true;
+            return static fn (string $column): bool => true;
         }
 
+        $shapes = [];
         foreach ($this->heldViews($actor, $key->eventId) as $view) {
-            $shape = $view->shape();
-            $writes = $shape === null ? str_starts_with($column, 'field:') : $shape->writes($column);
-            if ($writes && $this->views->contains($view, [$key])) {
-                return true;
+            if ($this->views->contains($view, [$key])) {
+                $shapes[] = $view->shape();
             }
         }
 
-        return false;
+        return static function (string $column) use ($shapes): bool {
+            foreach ($shapes as $shape) {
+                if ($shape === null ? str_starts_with($column, 'field:') : $shape->writes($column)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
     }
 
     private static function userIdOf(Actor $actor): ?int

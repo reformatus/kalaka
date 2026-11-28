@@ -8,6 +8,7 @@ use Kalaka\Admin\Api\Abilities;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Pricing\Api\ManualConfirmations;
+use Kalaka\Pricing\Cli\MoneySettingsCommand;
 
 final class Module extends AbstractModule
 {
@@ -61,6 +62,20 @@ CREATE TABLE {prefix}kalaka_unconfirmations (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * money.md, "Withdrawal, removal and substitution": the event's retention rule, the ID of a
+     * `RetentionRule` (`nothing` or `everything_paid` in core); no row means the default, everything paid.
+     * Read as it is now.
+     */
+    private const RETENTION = <<<'SQL'
+CREATE TABLE {prefix}kalaka_retention (
+  event_id bigint(20) unsigned NOT NULL,
+  version int(10) unsigned NOT NULL,
+  rule varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  PRIMARY KEY  (event_id)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'pricing';
@@ -73,7 +88,11 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(3, [self::FIXED_PRICES, self::MANUAL_CONFIRMATIONS, self::UNCONFIRMATIONS]);
+        // 5: one version above main's 4 and this branch's 4 (the status acts' retention table).
+        return new Schema(
+            5,
+            [self::FIXED_PRICES, self::MANUAL_CONFIRMATIONS, self::UNCONFIRMATIONS, self::RETENTION]
+        );
     }
 
     /** The per-event actions grants may carry (foundation.md, "Views and grants"). [UNAPPROVED N6] */
@@ -84,16 +103,21 @@ SQL;
 
     public function boot(): void
     {
+        if (defined('WP_CLI') && WP_CLI) {
+            MoneySettingsCommand::register();
+        }
         // The labels and descriptions of the abilities. [UNAPPROVED T4]
+        // replaces ticked T2: the description without the reason.
+        // replaces ticked T4: the description without the reason.
         Abilities::register(
             new SetManualConfirmation(),
             'Visszaigazolás befizetés nélkül',
-            'Egy jelentkező visszaigazolása befizetés nélkül, indoklással.'
+            'Egy jelentkező visszaigazolása befizetés nélkül.'
         );
         Abilities::register(
             new Unconfirm(),
             'Visszaigazolás visszavonása',
-            'Egy jelentkező visszaigazolásának visszavonása indoklással, '
+            'Egy jelentkező visszaigazolásának visszavonása, '
                 . 'a befizetés nélküli visszaigazolást is beleértve.'
         );
     }

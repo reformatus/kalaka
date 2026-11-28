@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail\Body;
 
+use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Mail\Delivery;
 use Kalaka\Mail\MailComposer;
 use Kalaka\Mail\MailMessage;
@@ -26,9 +27,19 @@ final class ActionMailComposer implements MailComposer
         return $this->values->recipient($delivery->registration);
     }
 
-    public function compose(Delivery $delivery, string $to): MailMessage
+    public function compose(Delivery $delivery, string $to, \DateTimeImmutable $now): MailMessage
     {
-        $mail = $this->renderer->render($delivery->registration->eventId, $delivery->mail, $delivery->registration);
+        // A "payment recorded" mail is caused by a ledger line: its key is the line's ID.
+        $line = $delivery->causeType === ActionMails::LINE_CAUSE && ctype_digit($delivery->causeKey)
+            ? (int) $delivery->causeKey
+            : null;
+        $mail = $this->renderer->render(
+            $delivery->registration->eventId,
+            $delivery->mail,
+            $delivery->registration,
+            $now,
+            $line
+        );
 
         return new MailMessage($mail->subject, $mail->html, ['Content-Type: text/html; charset=UTF-8'], $mail->version);
     }

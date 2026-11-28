@@ -1,0 +1,252 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Registrations\Api;
+
+use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Registrations\Answer\AnswerRepository;
+use Kalaka\Registrations\FieldValue\FieldValueRepository;
+
+/**
+ * The reads behind "answer a request" (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions
+ * and computed values"): a registration's requests with their latest answers, and the computed "awaits an
+ * answer". Nothing is stored for the latter: a registration awaits an answer while it has a request its source
+ * says is not answered, read from the source's own answer field (its `AwaitingRule`, the one definition), whatever
+ * the answer says ("no", or an award of 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record
+ * the act (who, when, the note, the mail's key) and decide nothing else. Only a `registered` registration awaits
+ * an answer: a waitlisted, withdrawn or removed one awaits nothing, and a waitlisted one awaits again by itself
+ * at admission, when its request becomes answerable. [UNAPPROVED N690]
+ *
+ * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
+ * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field
+ * values); the grid asks in SQL instead (`awaitingCondition()`).
+ */
+final class Requests
+{
+    /** The per-event action that lets a grant holder answer a request; full access implies it. */
+    public const ANSWER = 'kalaka_answer_request';
+
+    /** @var ?list<RequestSource> */
+    private readonly ?array $sources;
+
+    /** @param ?list<RequestSource> $sources null: the sources modules contributed at boot */
+    public function __construct(
+        ?array $sources = null,
+        private readonly FieldValueRepository $values = new FieldValueRepository(),
+        private readonly AnswerRepository $answers = new AnswerRepository(),
+    ) {
+        $this->sources = $sources;
+    }
+
+    /**
+     * The registration's requests that need an answer now, each with whether its source says it is answered and
+     * its latest answer record. A plain read.
+     *
+     * @return list<RequestState>
+     */
+    public function states(RegistrationKey $registration): array
+    {
+        [$owned, $rows, $values] = $this->read($registration);
+        $latest = [];
+        foreach ($rows as $answer) {
+            $latest[$answer->request] = $answer;
+        }
+        $states = [];
+        foreach ($owned as $id => [$request, $source]) {
+            $states[] = new RequestState(
+                $request,
+                $source,
+                $source->isAnswered($request, $values),
+                $latest[$id] ?? null,
+                $values
+            );
+        }
+
+        return $states;
+    }
+
+    /**
+     * The requests the registration has now, keyed by id with their source, every answer row of it in the order
+     * they were given, and its field values. With no source, or no request, nothing more is read.
+     *
+     * @return array{
+     *     0: array<string, array{0: Request, 1: RequestSource}>,
+     *     1: list<AnswerRead>,
+     *     2: array<string, string>
+     * }
+     */
+    private function read(RegistrationKey $registration): array
+    {
+        $sources = $this->sources ?? Contributions::current()->requestSources();
+        if ($sources === []) {
+            return [[], [], []];
+        }
+
+        $values = [];
+        foreach ($this->values->forRegistration($registration) as $value) {
+            $values[$value->fieldKey] = $value->value;
+        }
+        $owned = $this->requestsOf($registration, $values, $sources);
+        if ($owned === []) {
+            return [[], [], $values];
+        }
+
+        return [$owned, $this->answers->forRegistration($registration), $values];
+    }
+
+    /**
+     * Whether the registration awaits an answer, in three values: null (N/A) unless it is `registered`; otherwise
+     * true when some source's `AwaitingRule` holds over its field values, evaluated in PHP with
+     * `AwaitingRule::matches()`, else false. N/A is not "no": a waitlisted, withdrawn or removed registration has
+     * no request state at all (owner 2026-11-27, walkthrough 6.2 b, 6.3, 6.6). The rule is the one definition
+     * `awaitingCondition()` compiles to SQL, with the same `registered` gate, so the fact, the grid column and the
+     * detail panel mean one thing; the panel's `states()` read the sources' `requestsOf()` and `isAnswered()`,
+     * which the rule must mean exactly. A waitlisted registration awaits nothing and awaits again by itself at
+     * admission. One statement (the field values, which hold every answer); none with no source or for a
+     * registration that is not registered. [UNAPPROVED N690]
+     */
+    public function awaits(RegistrationKey $registration, RegistrationStatus $status): ?bool
+    {
+        if ($status !== RegistrationStatus::Registered) {
+            return null;
+        }
+        $sources = $this->sources ?? Contributions::current()->requestSources();
+        if ($sources === []) {
+            return false;
+        }
+
+        $values = [];
+        foreach ($this->values->forRegistration($registration) as $value) {
+            $values[$value->fieldKey] = $value->value;
+        }
+        foreach ($sources as $source) {
+            if ($source->awaitingRule($registration->eventId)?->matches($values) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * "Awaits an answer" as an expression on the registration row `r`, for the admin grid's column (filter, sort and
+     * count in SQL, over the whole view, never one page), in three values: for a `registered` registration 1 when
+     * some source's `AwaitingRule` holds (`RequestSource::awaitingRule()`) and 0 otherwise (0 with no rule); NULL
+     * (N/A) for every other status, so a waitlisted registration is neither yes nor no (it waits until admission).
+     * SQL's NULL does the rest: `NOT` of it is NULL, so a filter on "no" never matches it, and a sum skips it.
+     * Core alone writes the SQL:
+     * each test is an `EXISTS` or `NOT EXISTS` over the field values table, every value a placeholder argument.
+     * The rule is the one `awaits()` evaluates in PHP, for a `registered` registration. No statement is run.
+     * (Access) any view may list the column; it tells that something awaits, not what.
+     * (Shapes) a core-derived grid column over the sources' declarative rules.
+     *
+     * @param string $fieldValues the participant field values table
+     * @return array{0: literal-string, 1: list<string|int>} the condition and its placeholder arguments
+     */
+    public function awaitingCondition(int $eventId, string $fieldValues): array
+    {
+        $sources = $this->sources ?? Contributions::current()->requestSources();
+        /** @var list<literal-string> $parts */
+        $parts = [];
+        $args = [];
+        foreach ($sources as $source) {
+            $rule = $source->awaitingRule($eventId);
+            if ($rule === null) {
+                continue;
+            }
+            $groups = [];
+            foreach ($rule->groups as $group) {
+                $tests = [];
+                foreach ($group as $test) {
+                    [$sql, $testArgs] = self::compile($test, $fieldValues);
+                    $tests[] = $sql;
+                    array_push($args, ...$testArgs);
+                }
+                $groups[] = '(' . implode(' AND ', $tests) . ')';
+            }
+            $parts[] = '(' . implode(' OR ', $groups) . ')';
+        }
+        if ($parts === []) {
+            return ["CASE WHEN r.status = 'registered' THEN 0 END", []];
+        }
+
+        return ["CASE WHEN r.status = 'registered' THEN (" . implode(' OR ', $parts) . ') END', $args];
+    }
+
+    /**
+     * One field test as an `EXISTS` or `NOT EXISTS` over the field values table, in MariaDB 10.3 SQL. The value is
+     * compared byte for byte (`BINARY`, no collation, no trailing-space padding) and "filled" is a length above zero,
+     * so the SQL means what `FieldTest::matches()` means: case, accents and spaces all count.
+     *
+     * @return array{0: literal-string, 1: list<string>}
+     */
+    private static function compile(FieldTest $test, string $fieldValues): array
+    {
+        $exists = 'EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
+            . ' AND f.field_key = %s AND ';
+        $base = [$fieldValues, $test->key];
+        $in = implode(', ', array_fill(0, count($test->values), '%s'));
+
+        return match ($test->kind) {
+            FieldTestKind::Filled => [$exists . 'LENGTH(f.value) > 0)', $base],
+            FieldTestKind::Empty => ['NOT ' . $exists . 'LENGTH(f.value) > 0)', $base],
+            FieldTestKind::OneOf => [
+                $exists . 'BINARY f.value IN (' . $in . '))',
+                [...$base, ...$test->values],
+            ],
+            FieldTestKind::NoneOf => [
+                'NOT ' . $exists . 'BINARY f.value IN (' . $in . '))',
+                [...$base, ...$test->values],
+            ],
+        };
+    }
+
+    /**
+     * The requests the sources name for a registration, by request ID (the first source to name one owns it).
+     *
+     * @param array<string, string> $values
+     * @param list<RequestSource> $sources
+     * @return array<string, array{Request, RequestSource}>
+     */
+    private function requestsOf(RegistrationKey $registration, array $values, array $sources): array
+    {
+        $owned = [];
+        foreach ($sources as $source) {
+            foreach ($source->requestsOf($registration, $values) as $request) {
+                $owned[$request->id] ??= [$request, $source];
+            }
+        }
+
+        return $owned;
+    }
+
+    /**
+     * When the registration was last answered (of the requests it has now): the time the due clock counts from
+     * beside the moment it last became `registered`; null when none is answered. Only an answer whose yes or no,
+     * or amount, differs from the request's answer before it counts; a note added alone is an answer too (it
+     * mails) but does not move the due date. [UNAPPROVED N84]
+     */
+    public function lastAnsweredAt(RegistrationKey $registration): ?\DateTimeImmutable
+    {
+        [$owned, $rows] = $this->read($registration);
+        $last = null;
+        $before = [];
+        foreach ($rows as $answer) {
+            if (!isset($owned[$answer->request])) {
+                continue;
+            }
+            $previous = $before[$answer->request] ?? null;
+            $before[$answer->request] = $answer;
+            $changed = $previous === null || $previous->approved !== $answer->approved
+                || ($previous->amount === null || $answer->amount === null
+                    ? $previous->amount !== $answer->amount
+                    : !$previous->amount->isEqualTo($answer->amount));
+            if ($changed && ($last === null || $answer->answeredAt > $last)) {
+                $last = $answer->answeredAt;
+            }
+        }
+
+        return $last;
+    }
+}

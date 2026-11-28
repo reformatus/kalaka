@@ -8,6 +8,7 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
+use Kalaka\Registrations\Api\RegisteredBy;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
@@ -48,6 +49,7 @@ final class RegistrationRepository extends EntityRepository
             'secret' => $entity->secret,
             'created_at' => self::stored($entity->createdAt),
             'registered_at' => $entity->registeredAt === null ? null : self::stored($entity->registeredAt),
+            'registered_by' => $entity->registeredBy?->value,
             'owner_user_id' => $entity->ownerUserId,
         ];
     }
@@ -62,6 +64,7 @@ final class RegistrationRepository extends EntityRepository
             $row['registered_at'] === null ? null : self::instant($row['registered_at']),
             (int) $row['version'],
             isset($row['owner_user_id']) ? (int) $row['owner_user_id'] : null,
+            isset($row['registered_by']) ? RegisteredBy::from((string) $row['registered_by']) : null,
         );
     }
 

@@ -43,7 +43,7 @@ final class ViewQueryTest extends AdminTestCase
         // Another event's data never shows.
         $this->addRegistration(self::EVENT + 1, '00A0');
         $this->addValue(self::EVENT + 1, '00A0', 'c_key', 'elsewhere');
-        $this->addDecision(self::EVENT + 1, '00A0', 'payment_hold', 'held');
+        $this->addDecision(self::EVENT + 1, '00A0', 'sample_kind', 'held');
     }
 
     /** @param list<array{column: string, write: bool}> $columns @return list<string> */
@@ -94,34 +94,51 @@ final class ViewQueryTest extends AdminTestCase
         $master = $this->query->columns($this->held(null));
 
         self::assertSame(
-            ['code', 'status', 'serial', 'field:a_key', 'field:b_key', 'decision:confirmation'],
+            [
+                ...ViewShape::CORE_COLUMNS,
+                'field:a_key', 'field:b_key', 'decision:confirmation',
+                ...ViewShape::COMPUTED_COLUMNS,
+            ],
             $this->columnIds($master)
         );
-        self::assertSame([false, false, false, true, true, false], array_column($master, 'write'));
+        self::assertSame(
+            [...array_fill(0, count(ViewShape::CORE_COLUMNS), false), true, true, false, false],
+            array_column($master, 'write')
+        );
 
         $rows = $this->viewRows($this->held(null));
 
         self::assertSame(['00A0', '00A2', '00A5', '00A8', '00B0'], $this->codes($rows));
+        // The times and the awaits column are listed too (every core column); this checks the others.
+        $core = static fn (array $values): array => array_diff_key(
+            $values,
+            array_flip(['registered_at', 'submitted_at', 'awaits_answer'])
+        );
         self::assertSame(
             [
                 'code' => '00A0', 'status' => 'registered', 'serial' => 1,
                 'field:a_key' => 'y', 'field:b_key' => 'x', 'decision:confirmation' => 'confirmed',
             ],
-            $rows[0]['values']
+            $core($rows[0]['values'])
         );
         self::assertSame(
             [
                 'code' => '00A2', 'status' => 'waitlisted', 'serial' => 1,
                 'field:a_key' => null, 'field:b_key' => null, 'decision:confirmation' => null,
             ],
-            $rows[1]['values']
+            $core($rows[1]['values'])
         );
         self::assertSame(
             [
                 'code' => '00A5', 'status' => 'registered', 'serial' => 2,
                 'field:a_key' => 'z', 'field:b_key' => null, 'decision:confirmation' => 'unconfirmed',
             ],
-            $rows[2]['values']
+            $core($rows[2]['values'])
+        );
+        // Awaits an answer: no request source here, so a registered registration is no and any other is N/A.
+        self::assertSame(
+            ['0', null, '0', null, null],
+            array_map(static fn (array $row): ?string => $row['values']['awaits_answer'], $rows)
         );
         self::assertSame(['withdrawn', null], [$rows[3]['values']['status'], $rows[3]['values']['serial']]);
         self::assertSame(['removed', null], [$rows[4]['values']['status'], $rows[4]['values']['serial']]);
@@ -134,7 +151,7 @@ final class ViewQueryTest extends AdminTestCase
     public function testTheMasterViewOfAnEventWithNoDataHasTheBuiltInColumnsAndConfirmation(): void
     {
         self::assertSame(
-            ['code', 'status', 'serial', 'decision:confirmation'],
+            [...ViewShape::CORE_COLUMNS, 'decision:confirmation', ...ViewShape::COMPUTED_COLUMNS],
             $this->columnIds($this->query->columns($this->held(null)))
         );
         self::assertSame([], $this->viewRows($this->held(null)));
@@ -179,7 +196,7 @@ final class ViewQueryTest extends AdminTestCase
         $this->addDecision(self::EVENT, '00A0', 'room_hold', 'pending');
         $this->addDecision(self::EVENT, '00A2', 'room_hold', 'pending');
         $this->addDecision(self::EVENT, '00A2', 'room_hold', 'confirmed');
-        $this->addDecision(self::EVENT, '00A5', 'payment_hold', 'confirmed');
+        $this->addDecision(self::EVENT, '00A5', 'sample_kind', 'confirmed');
         $columns = [['column' => 'code', 'write' => false], ['column' => 'decision:room_hold', 'write' => false]];
 
         $rows = $this->viewRows($this->held(

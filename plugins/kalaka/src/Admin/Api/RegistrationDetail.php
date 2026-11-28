@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\Admin\Api;
 
+use Kalaka\Admin\FieldEdit\FieldEditInput;
 use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\FieldEditing;
+use Kalaka\Forms\Api\FieldKind;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Decision\Decisions;
@@ -19,22 +22,29 @@ use Kalaka\Ledger\Api\LedgerEntry;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Ledger\Api\Side;
-use Kalaka\Mail\Api\ActionMail;
-use Kalaka\Mail\Api\ActionMails;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
+use Kalaka\Registrations\Api\FieldCorrections;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RequestKind;
+use Kalaka\Registrations\Api\RequestState;
+use Kalaka\Registrations\Api\Requests;
+use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\StatusAct;
+use Kalaka\Registrations\Api\StatusActs;
 
 /**
  * The admin detail read of one registration (the data of `GET kalaka-admin/v1/events/{event}/registrations/{code}`).
  * Everything in it goes through views and grants: the registration data is read through `ViewQuery` for the
  * views that hold the registration (`Access::holding()`), or full access, so it shows only what their columns
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
- * The manual confirmation flag shows behind the same gate as the money. [UNAPPROVED Access] [UNAPPROVED N11]
+ * The manual confirmation flag shows behind the same gate as the money. The requests (and whether they are
+ * answered) show only to a holder of the answer action of a grant whose view holds the registration.
+ * [UNAPPROVED Access]
  */
 final class RegistrationDetail
 {
@@ -48,8 +58,12 @@ final class RegistrationDetail
         private readonly PayerKinds $payerKinds = new PayerKinds(),
         private readonly LineNames $lineNames = new LineNames(),
         private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
-        private readonly ActionMails $actionMails = new ActionMails(),
         private readonly Confirmations $confirmations = new Confirmations(),
+        private readonly Requests $requests = new Requests(),
+        private readonly Seats $seats = new Seats(),
+        private readonly StatusActs $statusActs = new StatusActs(),
+        private readonly FieldEditing $editing = new FieldEditing(),
+        private readonly FieldCorrections $corrections = new FieldCorrections(),
     ) {
     }
 
@@ -101,7 +115,7 @@ final class RegistrationDetail
         };
         // The owner's ruling 2026-11-18: money-write includes money-view.
         $record = $carried(Ledger::RECORD_MONEY);
-        $viewMoney = $carried(Ledger::VIEW_MONEY) || $record;
+        $viewMoney = $this->access->mayViewMoney($actor, $key);
         // [UNAPPROVED A1] one money-write action carries a payment, a refund, a correction, a manual charge
         // and a manual discount.
         // The owner's topic 1 ruling, H3: confirmation applies only to a registered registration.
@@ -114,7 +128,7 @@ final class RegistrationDetail
 
         $read = [
             'registration' => $this->registrationPart($registration),
-            'fields' => $this->fieldsPart($registration),
+            'fields' => $this->fieldsPart($registration, $this->access->writer($actor, $key)),
         ];
         $read['registration']['confirmed'] = $confirmed;
         if ($canUnconfirm) {
@@ -127,7 +141,16 @@ final class RegistrationDetail
             $read['registration']['manual_confirmation'] = $this->manualConfirmationPart($key);
             $read['money'] = $this->moneyPart($key, $event->currency->value);
         }
+        $answer = $carried(Requests::ANSWER);
+        if ($answer) {
+            $read['requests'] = $this->requestsPart($key, $event->currency->value, $registered, $viewMoney);
+        }
+        // The status acts: the grant carries the act's action and the status allows it now (the server decides, the
+        // panel keeps no status logic).
+        $statusActs = $this->statusActs->allowedFor($key);
         $read['can'] = [
+            // A request is answerable only while the registration is registered, as the grid column says (N655).
+            'answer_request' => $answer && $registered,
             'view_money' => $viewMoney,
             'record_money' => $record,
             // A manual charge or discount is offered only while the registration is registered ([UNAPPROVED]).
@@ -136,6 +159,12 @@ final class RegistrationDetail
             'confirm_manually' => $confirmable,
             'unconfirm' => $canUnconfirm,
         ];
+        foreach (StatusAct::cases() as $act) {
+            // A restore carries no grant action: full access only.
+            $action = $act->action();
+            $held = $action === null ? $full : $carried($action);
+            $read['can'][$act->value] = $held && in_array($act, $statusActs, true);
+        }
 
         return $read;
     }
@@ -215,6 +244,84 @@ final class RegistrationDetail
     }
 
     /**
+     * The registration's requests with their latest answers, for the answer act's block: `state` is `awaiting`
+     * while the source's answer field holds none (the field is the truth) and the registration is registered,
+     * `inactive` for such an unanswered request on a registration that is not registered (waitlisted, withdrawn,
+     * removed: the grid column's meaning, N655), else the act's record says
+     * `approved` or `refused`; `amount` is the aid award as text (0 for a refused aid request), null for an offer
+     * and before an answer; `seat_full` is true for a refused offer whose pool is full now, the warning before a
+     * "yes" that would go over the limit (B1). An aid item also carries `aid`, the money context (`aidTerms()`).
+     * No hold is read: awaiting is
+     * computed.
+     *
+     * The money figures — the item's `amount` and an aid item's `aid` — follow the read's money gate (owner
+     * 2026-11-27, the access sweep): a holder of the answer action whose view and grant give no money fields reads
+     * the requests without them, so no figure reaches a holder the view/grant does not give the money fields.
+     *
+     * @return array{currency: string, items: list<array<string, mixed>>}
+     */
+    private function requestsPart(RegistrationKey $key, string $currency, bool $registered, bool $viewMoney): array
+    {
+        $items = [];
+        foreach ($this->requests->states($key) as $state) {
+            $answer = $state->answer;
+            $pool = $state->source->seatPool($key, $state->request);
+            $item = [
+                'id' => $state->request->id,
+                'kind' => $state->request->kind->value,
+                'label' => $state->request->label,
+                'fields' => ['ask' => $state->request->askFields, 'answer' => $state->request->answerField],
+                'state' => $state->awaits()
+                    ? ($registered ? 'awaiting' : 'inactive')
+                    : ($answer?->approved === true ? 'approved' : 'refused'),
+                'amount' => $viewMoney ? $answer?->amount?->amount() : null,
+                'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
+                'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
+                    && $pool !== null && $this->seats->wouldOverfill($pool, $key),
+            ];
+            if ($state->request->kind === RequestKind::Aid && $viewMoney) {
+                $item['aid'] = $this->aidTerms($key, $state);
+            }
+            $items[] = $item;
+        }
+
+        return ['currency' => $currency, 'items' => $items];
+    }
+
+    /**
+     * The aid request's money context, from the source's `terms()`: `full_price` (what the participant has to pay
+     * before the aid), `can_pay` (what they stated, null when none) and `asked` (the difference, never below
+     * zero) and `max_award` (the most an award can be: the full price today, named apart so the rule can change),
+     * money amounts as text in the read's currency, formatted as the item's `amount`; the dialog computes nothing:
+     * it hints `asked` and warns above `max_award`, which the act refuses. The part follows the read's money gate,
+     * as the item's `amount` does (`requestsPart()`): answering sets a money amount, but the figures are only for a
+     * holder whose view/grant gives the money fields. Null when the source gives no terms or a fee component
+     * fails.
+     *
+     * @return ?array{full_price: string, can_pay: ?string, asked: ?string, max_award: string}
+     */
+    private function aidTerms(RegistrationKey $key, RequestState $state): ?array
+    {
+        try {
+            $terms = $state->source->terms(
+                $key,
+                $state->request,
+                $state->values,
+                Runner::current()->clock()->now()
+            );
+        } catch (FeeComponentFailed) {
+            return null;
+        }
+
+        return $terms === null ? null : [
+            'full_price' => $terms->fullPrice->amount(),
+            'can_pay' => $terms->canPay?->amount(),
+            'asked' => $terms->asked()?->amount(),
+            'max_award' => $terms->maxAmount()->amount(),
+        ];
+    }
+
+    /**
      * Whether the unconfirm would confirm the registration again at once, and why: `'payments'`, `'nothing_due'`
      * or null (also when a fee component fails: the act itself would fail then, too). The caller has read that
      * the registration is confirmed.
@@ -234,9 +341,8 @@ final class RegistrationDetail
      * The warning to show before staff's unconfirm: the text when confirmation would decide `confirmed` again
      * at once, null otherwise. A holder with money-view gets the reason, payments or nothing due; a holder
      * without it gets one text that names neither a reason nor money, so the read never tells them what the
-     * payments are. While the event's confirmed mail is on, one sentence is appended: the registrant gets that
-     * mail again (the owner's ruling 2026-11-23, topic 15, Q4). It reads and writes nothing else.
-     * [UNAPPROVED N11, Q4, T5a, T5b, T5c, T6]
+     * payments are. It says nothing of the mail that may follow (owner 2026-11-27: T6 is not part of the
+     * warning). It reads and writes nothing else. [UNAPPROVED N11, Q4, T5a, T5b, T5c]
      */
     private function unconfirmWarning(RegistrationKey $key, bool $viewMoney, ?string $reconfirms): ?string
     {
@@ -254,9 +360,7 @@ final class RegistrationDetail
             $text = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
         }
 
-        return $this->actionMails->isOn($key->eventId, ActionMail::Confirmed)
-            ? $text . ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.' // [UNAPPROVED T6]
-            : $text;
+        return $text;
     }
 
     /**
@@ -280,8 +384,21 @@ final class RegistrationDetail
         return ['set_at' => self::instant($flag->setAt), 'reason' => $flag->reason, 'set_by' => $by];
     }
 
-    /** @return list<array<string, mixed>> */
-    private function fieldsPart(ViewRegistration $registration): array
+    /**
+     * The fields the views list. Each says `writable`: staff may edit the field (a field staff edit at all, whose
+     * type is installed) and the actor's held view lists its column read-write while holding the registration
+     * (`Access::writer()`: a plain read for display, the act re-checks under the lock). A writable field carries
+     * what the edit control needs, `edit`: `answer` (`kind`, the field type's block name, and `value`, its
+     * `prefill()` of the stored answer), `expected` (the stored answer exactly as the act compares it, null for
+     * none; sent back unchanged), `options` for a type with options (each `{value, label, full}`) and `full` for a
+     * consent. `full` is true when taking that choice's seat would put its pool over the limit for this
+     * registration (`FieldCorrections::fullValues()`): the "full" warning before a save, only for a registered
+     * registration. Staff placing is never stopped by it.
+     *
+     * @param \Closure(string): bool $writes
+     * @return list<array<string, mixed>>
+     */
+    private function fieldsPart(ViewRegistration $registration, \Closure $writes): array
     {
         $stored = [];
         foreach ($registration->fields as $key => $value) {
@@ -300,16 +417,58 @@ final class RegistrationDetail
                 continue;
             }
             // The value's data and text are the field type's own: the formatter the grid and the mails use.
-            $fields[] = [
+            $item = [
                 'key' => $field->key,
                 'label' => $field->title,
                 'type' => $field->type,
                 'value' => $pair['value']->data ?? $answer,
                 'text' => $pair['value']->text !== '' ? $pair['value']->text : ($answer ?? ''),
             ];
+            $edit = FieldEditInput::editable($field) && $writes('field:' . $field->key)
+                ? $this->editPart($registration->key, $field, $answer)
+                : null;
+            $item['writable'] = $edit !== null;
+            if ($edit !== null) {
+                $item['edit'] = $edit;
+            }
+            $fields[] = $item;
         }
 
         return $fields;
+    }
+
+    /**
+     * The edit control's data of one writable field; null when the field's type is not installed (nothing to edit
+     * it with).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function editPart(RegistrationKey $key, ParticipantField $field, ?string $stored): ?array
+    {
+        $editor = $this->editing->editor($key->eventId, $field, $stored);
+        if ($editor === null) {
+            return null;
+        }
+        $edit = [
+            'answer' => ['kind' => $editor->kind, 'value' => $editor->answer],
+            'expected' => $stored,
+            'control' => $editor->control,
+        ];
+        if ($editor->kind === FieldKind::CHOICE) {
+            $edit['multiple'] = $editor->multiple;
+        }
+        if ($editor->options !== null) {
+            $full = $this->corrections->fullValues($key, $field->key, array_column($editor->options, 'value'));
+            $edit['options'] = array_map(
+                static fn (array $option): array => $option + ['full' => in_array($option['value'], $full, true)],
+                $editor->options
+            );
+        }
+        if ($editor->kind === FieldKind::CONSENT) {
+            $edit['full'] = $this->corrections->fullValues($key, $field->key, ['1']) !== [];
+        }
+
+        return $edit;
     }
 
     /**
@@ -327,16 +486,11 @@ final class RegistrationDetail
         $money = Currency::from($currency);
         $zero = Money::zero($money);
 
-        // The participant first, then the event's other payer kinds (with or without lines), then payers that
-        // have lines but no declared kind, in the order the lines are shown. Each payer's totals are the
-        // Ledger's, never recomputed here.
-        $order = [];
-        foreach ($this->payerKinds->of($key->eventId) as $kind) {
-            $order[$kind->id] = $kind->label;
-        }
-        foreach ($entries as $entry) {
-            $order[$entry->payer] ??= null;
-        }
+        // The participant first, then the event's applying payer kinds (with or without lines), then payers that
+        // have lines but no applying kind (a kind that stopped applying, or none), in the order the lines are
+        // shown. A throwing kind source is contained here: that kind is skipped and logged. Each payer's totals
+        // are the Ledger's, never recomputed here.
+        $order = $this->payerKinds->payersOf($key, $entries, contained: true);
 
         $payers = [];
         $charged = $zero;

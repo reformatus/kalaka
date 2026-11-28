@@ -2,6 +2,8 @@
  * The manual mail dialog's pure logic: the repeat guard's keys and the words of a result. No WordPress imports.
  */
 
+import { selectionSignature } from '../grid/selection';
+
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 /** A fresh request key: `[A-Za-z0-9_-]{8,64}`, 24 characters. */
@@ -14,16 +16,16 @@ export function newRequestKey( random = Math.random ) {
 }
 
 /**
- * The keys of one page (the dialog is opened and closed on it as often as the admin likes): the same body, layout and
- * codes always give the same key, so a retry after a lost answer, a second click or a closed and reopened dialog is
- * the same request and the server answers the first batch; another body, layout or codes is another request and gets
- * its own key. (The server compares the body and the codes of a repeat, never the layout,
- * which is why the layout is part of the key here.)
+ * The keys of one page (the dialog is opened and closed on it as often as the admin likes): the same body and
+ * selection (the codes, or the view with its filters and search) always give the same key, so a retry after a lost
+ * answer, a second click or a closed and reopened dialog is the same request and the server answers the first batch;
+ * another body or selection is another request and gets its own key. The levélkeret is the template's own property
+ * (walkthrough 8), so it is no input of the send and no part of the key.
  */
 export function createKeys( make = newRequestKey ) {
 	const keys = new Map();
-	return ( bodyId, layout, codes ) => {
-		const signature = [ bodyId, layout ? 1 : 0, [ ...codes ].sort().join( ',' ) ].join( '|' );
+	return ( bodyId, selection ) => {
+		const signature = [ bodyId, selectionSignature( selection ) ].join( '|' );
 		if ( ! keys.has( signature ) ) {
 			keys.set( signature, make() );
 		}

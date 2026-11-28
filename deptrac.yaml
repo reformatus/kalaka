@@ -5,6 +5,10 @@ deptrac:
     - plugins/kalaka-divi4/src
     - plugins/kalaka-ranking/src
     - plugins/kalaka-woocommerce/src
+    - plugins/kalaka-price-ladder/src
+    - plugins/kalaka-aid/src
+    - plugins/kalaka-share/src
+    - plugins/kalaka-deposits/src
   layers:
     - name: Foundation
       collectors:
@@ -46,7 +50,7 @@ deptrac:
     - name: Forms Api
       collectors:
         - type: classLike
-          value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit)$'
+          value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit|FieldEditing)$'
     # The form engine (Forms\Engine) and its contract: every other Forms\Api type, at its FQCN.
     - name: Forms Engine
       collectors:
@@ -60,7 +64,7 @@ deptrac:
               value: '^Kalaka\\Forms\\Api\\'
           must_not:
             - type: classLike
-              value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit)$'
+              value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit|FieldEditing)$'
     - name: ParticipantFields
       collectors:
         - type: classLike
@@ -199,6 +203,42 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\WooCommerce\\Api\\'
+    - name: Extras
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Extras\\(?!Api\\)'
+    - name: Extras Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Extras\\Api\\'
+    - name: PriceLadder
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\PriceLadder\\(?!Api\\)'
+    - name: PriceLadder Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\PriceLadder\\Api\\'
+    - name: Aid
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Aid\\(?!Api\\)'
+    - name: Aid Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Aid\\Api\\'
+    - name: Share
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Share\\(?!Api\\)'
+    - name: Share Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Share\\Api\\'
+    - name: Deposits
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Deposits\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -207,6 +247,10 @@ deptrac:
       collectors:
         - type: classLike
           value: '^(WP_|wpdb$)'
+    - name: WooCommerce classes
+      collectors:
+        - type: classLike
+          value: '^(WC_|Automattic\\WooCommerce\\)'
   ruleset:
     Foundation:
       - WordPress
@@ -494,6 +538,7 @@ deptrac:
       - View query
     WooCommerce:
       - WordPress
+      - WooCommerce classes
       - WooCommerce Api
       - Foundation Api
       - Foundation Api Money
@@ -511,6 +556,50 @@ deptrac:
       - Portal Api
       - Admin Api
       - View query
+    Extras:
+      - WordPress
+      - Extras Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+      - View query
+    PriceLadder:
+      - WordPress
+      - PriceLadder Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Deposits:
+      - WordPress
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Pricing Api
+      - Registrations Api
     Foundation Api:
       - WordPress
       - Foundation
@@ -573,6 +662,7 @@ deptrac:
     ParticipantFields Api:
       - WordPress
       - ParticipantFields
+      - Forms Engine Api
       - Foundation Api
       - Foundation Api Money
       - Events Api
@@ -863,6 +953,78 @@ deptrac:
       - Portal Api
       - Admin Api
       - View query
+    Extras Api:
+      - WordPress
+      - Extras
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+      - View query
+    PriceLadder Api:
+      - WordPress
+      - PriceLadder
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Aid:
+      - WordPress
+      - Aid Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - ParticipantFields Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+    Aid Api:
+      - WordPress
+      - Aid
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Pricing Api
+    Share:
+      - WordPress
+      - Share Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - ParticipantFields Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+    Share Api:
+      - WordPress
+      - Share
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - ParticipantFields Api
+      - Pricing Api
     Decision tables: []
 
 # A base class in a module's Api may use its own module (S3's D16).

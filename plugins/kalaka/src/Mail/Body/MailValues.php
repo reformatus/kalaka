@@ -6,6 +6,7 @@ namespace Kalaka\Mail\Body;
 
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\DateText;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\Forms;
@@ -14,9 +15,14 @@ use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\Values;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Mail\RecipientUnavailable;
+use Kalaka\Portal\Api\MailMoney;
+use Kalaka\Portal\Api\MovementType;
 use Kalaka\Registrations\Api\Accounts;
+use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegisteredBy;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SecretLinks;
@@ -60,10 +66,30 @@ final class MailValues
 
     /**
      * Whether the registration was admitted from the waitlist: a choice of `yes` or `no`, with no display text,
-     * for a condition in the "registered" mail, which admission sends too (owner 2026-11-16). No admission act
-     * exists yet, so it reads `no`; the admission slice gives Registrations the fact and this reads it.
+     * for a condition in the "registered" mail, which admission sends too (owner 2026-11-16): `yes` while the
+     * registration last became `registered` by a staff admission (`RegisteredBy::Admission`), else `no`.
      */
     public const FROM_WAITLIST = 'registration.from_waitlist';
+
+    /**
+     * Whether a request of the registration awaits an answer now: a choice of `yes` or `no`, with no display
+     * text, like `from_waitlist`, for a condition in the "answered" mail (a body can tell an answer that
+     * settles every request from one that leaves another open). The same key and value as the form's fact
+     * (`RegistrationFacts::AWAITS_ANSWER`), read at send time. [UNAPPROVED N86]
+     */
+    public const AWAITS_ANSWER = RegistrationFacts::AWAITS_ANSWER;
+
+    /**
+     * The money movement behind a "payment recorded" mail, read from its cause, the ledger line (owner topic 15, Q7).
+     * `payment.amount` is the amount without a sign; `payment.direction` a choice of `in` or `out`, with the text
+     * „Befizetés” or „Visszafizetés”; `payment.method` a choice, the method's word („Átutalás”, „Készpénz”,
+     * „Bankkártya” or „Online”); `payment.date` the value day, as the date sentences of a page read.
+     * They are declared in every mail and none outside "payment recorded". [UNAPPROVED T6]
+     */
+    public const PAYMENT_AMOUNT = 'payment.amount';
+    public const PAYMENT_DIRECTION = 'payment.direction';
+    public const PAYMENT_METHOD = 'payment.method';
+    public const PAYMENT_DATE = 'payment.date';
 
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
@@ -71,6 +97,7 @@ final class MailValues
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
         private readonly Accounts $accounts = new Accounts(),
+        private readonly MailMoney $money = new MailMoney(),
     ) {
     }
 
@@ -124,8 +151,13 @@ final class MailValues
             self::STATUS => ValueType::Choice,
             self::LINK => ValueType::Text,
             self::FROM_WAITLIST => ValueType::Choice,
+            self::AWAITS_ANSWER => ValueType::Choice,
             self::ACCOUNT_UNVERIFIED => ValueType::Choice,
             self::ACCOUNT_PASSWORD_LINK => ValueType::Text,
+            self::PAYMENT_AMOUNT => ValueType::Number,
+            self::PAYMENT_DIRECTION => ValueType::Choice,
+            self::PAYMENT_METHOD => ValueType::Choice,
+            self::PAYMENT_DATE => ValueType::Date,
             ...array_fill_keys(
                 array_map(
                     static fn (int $page): string => 'page_' . $page . '.link',
@@ -175,13 +207,20 @@ final class MailValues
     }
 
     /**
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @param bool $passwordLink whether the body reads `account.password_link`: only then is a link made
      * @param list<int> $pages the pages whose link the body places (`pageLinks()`): only those links are made
+     * @param ?int $lineId the ledger line that caused a "payment recorded" mail: the `payment.*` keys read it
      * @throws SystemFailure no such registration (`no_registration`) or event (`no_event`), a slot form that
      *         is not usable now, or a field of a type no longer contributed
      */
-    public function context(RegistrationKey $key, bool $passwordLink = false, array $pages = []): ValueContext
-    {
+    public function context(
+        RegistrationKey $key,
+        \DateTimeImmutable $now,
+        bool $passwordLink = false,
+        array $pages = [],
+        ?int $lineId = null,
+    ): ValueContext {
         $record = $this->read($key);
         $link = $this->links->url($key, home_url('/'));
         if ($record === null || $link === null) {
@@ -193,11 +232,19 @@ final class MailValues
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
             throw new SystemFailure('no_event ' . $key->eventId);
         }
+        // The registration's own facts (code, status and its word, awaits_answer) come from the one builder.
+        $facts = $this->registrations->factsOf($key, $event, $now);
+        if ($facts === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+            throw new SystemFailure('no_registration ' . $key->eventId . ' ' . $key->code);
+        }
         $definition = $this->definition($record);
         $email = $this->marked($definition, true);
         $name = $this->marked($definition, false);
         $recipient = $email === null ? '' : ($record['values'][$email] ?? '');
-        $owner = $this->registrations->find($key)?->ownerUserId;
+        $read = $this->registrations->find($key);
+        $owner = $read?->ownerUserId;
+        $fromWaitlist = $read?->registeredBy === RegisteredBy::Admission;
         // True, false and null stay apart (owner ruling 2026-11-18): none unless the event has an account step (mode
         // not `off`: no account step, no account facts), the registration has an owner and the recipient is the
         // owner's own address, then yes (unverified) or no (verified).
@@ -220,17 +267,52 @@ final class MailValues
             ...$pageLinks,
             ...$this->forms->participantValues($key->eventId, $record['values']),
             ...EventValues::of($event),
+            ...EventValues::now($now),
             self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record['values'][$email] ?? '')),
             self::RECIPIENT_NAME => self::text($name === null ? '' : ($record['values'][$name] ?? '')),
-            self::CODE => self::text($key->code),
-            self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
+            self::CODE => $facts->get(RegistrationFacts::CODE),
+            self::STATUS => $facts->get(RegistrationFacts::STATUS),
             self::LINK => self::text($link),
-            self::FROM_WAITLIST => Value::choice(['no'], ''),
+            self::FROM_WAITLIST => Value::choice([$fromWaitlist ? 'yes' : 'no'], ''),
+            self::AWAITS_ANSWER => $facts->get(RegistrationFacts::AWAITS_ANSWER),
             self::ACCOUNT_UNVERIFIED => $unverified === null
                 ? Value::none(ValueType::Choice)
                 : EventValues::yesNo($unverified),
             self::ACCOUNT_PASSWORD_LINK => self::text($setPassword ?? ''),
+            ...$this->payment($key, $lineId),
         ]);
+    }
+
+    /**
+     * The `payment.*` values of the movement a "payment recorded" mail is about: all four, none when the mail has
+     * no line (any other mail) or the line is not a movement.
+     *
+     * @return array<string, Value>
+     */
+    private function payment(RegistrationKey $key, ?int $lineId): array
+    {
+        $read = $lineId === null ? null : $this->money->movement($key, $lineId);
+        if ($read === null) {
+            return [
+                self::PAYMENT_AMOUNT => Value::none(ValueType::Number),
+                self::PAYMENT_DIRECTION => Value::none(ValueType::Choice),
+                self::PAYMENT_METHOD => Value::none(ValueType::Choice),
+                self::PAYMENT_DATE => Value::none(ValueType::Date),
+            ];
+        }
+        $movement = $read->row;
+        $amount = $movement->amount->isNegative() ? $movement->amount->negated() : $movement->amount;
+        $out = $movement->type === MovementType::Refund;
+        $method = $read->methodId;
+
+        return [
+            self::PAYMENT_AMOUNT => Value::number($amount->amount(), MoneyText::of($amount)),
+            self::PAYMENT_DIRECTION => Value::choice([$out ? 'out' : 'in'], MailMoney::typeWord($movement->type)),
+            self::PAYMENT_METHOD => $method === null
+                ? Value::none(ValueType::Choice)
+                : Value::choice([$method], (string) $movement->methodLabel),
+            self::PAYMENT_DATE => Value::date($movement->valueDay, DateText::of($movement->valueDay)),
+        ];
     }
 
     /**

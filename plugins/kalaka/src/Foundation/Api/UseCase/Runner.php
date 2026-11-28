@@ -269,9 +269,18 @@ final class Runner
             $context = $this->context($useCase, $actor, $now, $state, $entry);
             $result = $useCase->execute($input, $context);
             self::throwRecorded($state);
-            $this->evaluation->run($context);
-            self::throwRecorded($state);
-            $entryId = $this->audit->write($entry);
+            // A preview writes nothing, so it is neither evaluated nor audited: the one rule for every
+            // preview.
+            $preview = $useCase instanceof PreviewableUseCase && $useCase->isPreview($input);
+            if ($preview && $context->touchedRegistrations() !== []) {
+                $error = new SystemFailure(null, new \LogicException($useCase::name() . ' wrote in a preview.'));
+                throw $error;
+            }
+            if (!$preview) {
+                $this->evaluation->run($context);
+                self::throwRecorded($state);
+                $entryId = $this->audit->write($entry);
+            }
             if ($this->insideOpenTransaction) {
                 $this->statements->releaseSavepoint('kalaka_run');
             } else {

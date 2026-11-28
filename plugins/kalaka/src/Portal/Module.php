@@ -8,10 +8,35 @@ use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
 final class Module extends AbstractModule
 {
+    /**
+     * The parked PWA scope: one row per registration and device, keyed by (event ID, code, endpoint hash),
+     * so a device subscribes once per registration. `endpoint` is the push service's URL, too long for a
+     * unique index, so `endpoint_hash` (the SHA-256 hex of it) is the key part; both are `utf8mb4_nopad_bin`,
+     * compared exactly. `key_p256dh` and `key_auth` are the subscription's keys: secret columns, which a
+     * repository over this table lists in `secretColumns()`, so the audit masks them like a registration's
+     * `secret`. `KEY endpoint_hash` serves the delete by a push service's rejection of one endpoint. No
+     * last-seen column: a dead subscription is found from that rejection. Nothing writes the table yet. A row
+     * is deleted on unsubscribe, on the registration's withdrawal and when the event ends.
+     */
+    private const PUSH_SUBSCRIPTIONS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_push_subscriptions (
+  event_id bigint(20) unsigned NOT NULL,
+  code varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  endpoint_hash varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  endpoint longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  key_p256dh varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  key_auth varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  created_at datetime(6) NOT NULL,
+  PRIMARY KEY  (event_id,code,endpoint_hash),
+  KEY endpoint_hash (endpoint_hash)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'portal';
@@ -22,15 +47,28 @@ final class Module extends AbstractModule
         return '>=' . KALAKA_VERSION;
     }
 
+    public function schema(): Schema
+    {
+        return new Schema(1, [self::PUSH_SUBSCRIPTIONS]);
+    }
+
     public function boot(): void
     {
         // Before any output or third-party asset, so the secret link's token never reaches a `Referer`.
         add_action('init', [$this, 'resolveActiveRegistration'], 0);
         add_action('wp_logout', [$this, 'logout']);
         add_action('init', [$this, 'register']);
+        add_action('rest_api_init', [new Rest\CardPaymentRoute(), 'register']);
+        add_action('rest_api_init', [new Rest\WithdrawRoute(), 'register']);
+        // After `redirect_canonical` (10): a request it redirects never reaches this, so the cookie is read and
+        // expired only on the request that renders the page.
+        add_action('template_redirect', [$this, 'readCardRefusal'], 11);
+        add_action('template_redirect', [$this, 'readWithdrawRefusal'], 11);
         add_action('template_redirect', [$this, 'preventCaching']);
         add_shortcode(ParticipantBlocks::STATUS_SHORTCODE, [ParticipantBlocks::class, 'status']);
         add_shortcode(ParticipantBlocks::TRANSFER_SHORTCODE, [ParticipantBlocks::class, 'transfer']);
+        add_shortcode(ParticipantBlocks::LEAVE_SHORTCODE, [ParticipantBlocks::class, 'leave']);
+        add_action('rest_api_init', [new LeaveRoute(), 'register']);
     }
 
     /** @internal the `init` callback (priority 0): the secret link and the active-registration cookie */
@@ -53,13 +91,22 @@ final class Module extends AbstractModule
         });
     }
 
+    /** @internal the `template_redirect` callback (priority 11, after canonical redirection, before any output): the withdrawal refusal's flash cookie */
+    public function readWithdrawRefusal(): void
+    {
+        Boundary::background('withdrawal refusal', static function (): void {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only a known refusal code is ever kept
+            WithdrawRefusalCookie::read(wp_unslash($_COOKIE), new HttpResponse());
+        });
+    }
+
     /** @internal the `wp_logout` callback */
     public function logout(): void
     {
         (new LinkHandler())->logout();
     }
 
-    /** @internal the `init` callback: the stylesheet and the two blocks, from `build/` */
+    /** @internal the `init` callback: the stylesheet and the three blocks, from `build/` */
     public function register(): void
     {
         // Plain CSS, which the build does not copy, so it is served from `src/` (the zip carries `src/`).
@@ -73,6 +120,7 @@ final class Module extends AbstractModule
         $renders = [
             'status' => [ParticipantBlocks::STATUS_BLOCK, [ParticipantBlocks::class, 'status']],
             'transfer' => [ParticipantBlocks::TRANSFER_BLOCK, [ParticipantBlocks::class, 'transfer']],
+            'leave' => [ParticipantBlocks::LEAVE_BLOCK, [ParticipantBlocks::class, 'leave']],
         ];
         foreach ($renders as $folder => [$name, $render]) {
             if (is_file($built . $folder . '/block.json')) {
@@ -82,6 +130,15 @@ final class Module extends AbstractModule
                 register_block_type($name, ['render_callback' => static fn (): string => $render()]);
             }
         }
+    }
+
+    /** @internal the `template_redirect` callback (priority 11, after canonical redirection, before any output): the card refusal's flash cookie */
+    public function readCardRefusal(): void
+    {
+        Boundary::background('card payment refusal', static function (): void {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only a known refusal code is ever kept
+            CardRefusalCookie::read(wp_unslash($_COOKIE), new HttpResponse());
+        });
     }
 
     /**

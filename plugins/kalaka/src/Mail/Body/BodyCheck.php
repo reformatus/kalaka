@@ -57,7 +57,12 @@ final class BodyCheck
         }
         try {
             $values = new MailValues();
-            (new Values())->check($content, $values->types($eventId, $content), $values->paths($eventId));
+            // The two typed money keys stand for their blocks (`MailBlocks::expand()`).
+            (new Values())->check(
+                MailBlocks::expand($content),
+                $values->types($eventId, $content),
+                $values->paths($eventId)
+            );
         } catch (SystemFailure $e) {
             return BodyUnusable::of($e)->problem;
         }
@@ -77,7 +82,10 @@ final class BodyCheck
         }
         try {
             $values = new MailValues();
-            $keys = (new Values())->unknownPlaceholders($content, $values->types($eventId, $content));
+            $keys = (new Values())->unknownPlaceholders(
+                MailBlocks::expand($content),
+                $values->types($eventId, $content)
+            );
         } catch (SystemFailure) {
             // Another problem of the body: `problem()` names it.
             return null;

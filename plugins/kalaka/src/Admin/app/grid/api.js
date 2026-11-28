@@ -4,6 +4,7 @@
  */
 import apiFetch from '@wordpress/api-fetch';
 import { buildCall } from './money';
+import { abilityOf, inputOf } from './statusActs';
 
 /** The query parameters of the grid's filters and search; none when nothing narrows. */
 function narrowing( params, narrow ) {
@@ -48,13 +49,19 @@ export async function fetchPage(
 	return {
 		rows,
 		total: parseInt( response.headers.get( 'X-WP-Total' ) || '0', 10 ),
+		totalPages: parseInt( response.headers.get( 'X-WP-TotalPages' ) || '1', 10 ),
 	};
 }
 
-/** Every row the filters and search leave, in pages of the most one page may hold, in the given order. */
+/**
+ * Every row the filters and search leave: the grid's own rows read, page after page at the most one page may hold,
+ * with the same grant, filters, search and order, until the `X-WP-TotalPages` header says the last page is read. A
+ * failed page rejects the whole read (nothing partial is returned).
+ */
 export async function fetchAll( config, tab, sort = null, desc = false, narrow = null ) {
 	const rows = [];
-	for ( let page = 1; ; page++ ) {
+	let totalPages = 1;
+	for ( let page = 1; page <= totalPages; page++ ) {
 		const result = await fetchPage( config, tab, {
 			sort,
 			desc,
@@ -63,10 +70,9 @@ export async function fetchAll( config, tab, sort = null, desc = false, narrow =
 			narrow,
 		} );
 		rows.push( ...result.rows );
-		if ( ! result.rows.length || rows.length >= result.total ) {
-			return rows;
-		}
+		totalPages = result.totalPages;
 	}
+	return rows;
 }
 
 /**
@@ -120,7 +126,7 @@ export const fetchDetail = ( config, code ) =>
 
 /**
  * What a failed read means: an unknown code is a 404 ('missing'), a known code outside the holder's views a 403
- * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'. [UNAPPROVED T16]
+ * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'.
  */
 export function detailProblem( error ) {
 	if ( error && error.code === 'kalaka_registration_not_in_view' ) {
@@ -149,11 +155,11 @@ export const recordEntry = ( config, entry, can ) => {
 /**
  * Sets the manual confirmation flag (`kalaka/set-manual-confirmation`) or runs the one unconfirm
  * (`kalaka/unconfirm`: it revokes the flag if it is set and records unconfirmed with the reason; the rules then
- * decide again). The reason is required (at most 500 characters). Both answer `{ changed }`: `false` means
+ * decide again). The reason is optional (at most 500 characters). Both answer `{ changed }`: `false` means
  * nothing was written (the registration was not confirmed, or the flag was already set). Only the set is
  * idempotent. A retry of the unconfirm is a new act: on a registration the rules confirmed again at once it
  * unconfirms and re-confirms a second time, with its own records and audit entry, and there is no idempotency
- * key. So the dialog sends it once and never retries it by itself. The unconfirm has no refusal.
+ * key yet (the server is to add one, N74 reboxed). So the dialog sends it once and never retries it by itself. The unconfirm has no refusal.
  *
  * @param {Object}  config    window.kalakaGrid
  * @param {string}  code      the registration's code
@@ -166,3 +172,35 @@ export const setManualConfirmation = ( config, code, reason, unconfirm ) =>
 		code,
 		reason,
 	} );
+
+/**
+ * Answers a request (`kalaka/answer-request`): the same act for staff and for a partner, for an offer and for aid.
+ * `input` is `buildAnswer`'s (requests.js). The answer is `{ changed, answer, over_limit }`; an identical repeat
+ * answers `{ changed: false }`, so a retry is safe.
+ *
+ * @param {Object} input see `buildAnswer`
+ */
+export const answerRequest = ( input ) => runAbility( 'kalaka/answer-request', input );
+
+/**
+ * Runs one status act (`kalaka/admit-registration`, `-withdraw-`, `-remove-`, `-restore-`; #247), or with
+ * `preview` asks what it would do (no reason, nothing written, no audit row). Answers `{ changed, status,
+ * over_capacity, seats, warnings }`; a preview adds `money`, `money_hidden` and `retention` (#247). An act is not idempotent by key: a repeat answers `{ changed: false }`.
+ *
+ * @param {Object}  config  window.kalakaGrid
+ * @param {string}  act     `admit`, `withdraw`, `remove` or `restore`
+ * @param {string}  code    the registration's code
+ * @param {string}  reason  the reason, '' for none
+ * @param {boolean} preview ask only
+ */
+export const runStatusAct = ( config, act, code, reason, preview = false ) =>
+	runAbility( abilityOf( act ), inputOf( config.event, code, reason, preview ) );
+
+/**
+ * Changes one field's value by staff (`kalaka/edit-field-value`, #249). Answers `{ changed, over_limit }`: a
+ * value equal to the stored one answers `{ changed: false }`; a stored value other than `expected` is a 409
+ * `kalaka_version_conflict`. `input` is `inputOf`'s (fieldEdit.js).
+ *
+ * @param {Object} input see `inputOf`
+ */
+export const editFieldValue = ( input ) => runAbility( 'kalaka/edit-field-value', input );

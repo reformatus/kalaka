@@ -19,16 +19,16 @@ describe( 'request keys', () => {
 		expect( n ).toBe( 1 );
 	} );
 
-	test( 'another body, layout or codes is another request with its own key', () => {
+	test( 'another body or codes is another request with its own key', () => {
+		// The levélkeret is the template's own property (walkthrough 8), so it is no input and no part of the key.
 		let n = 0;
 		const keyFor = createKeys( () => 'key' + String( ++n ).padStart( 6, '0' ) );
 		const keys = new Set( [
-			keyFor( 5, true, [ 'A' ] ),
-			keyFor( 6, true, [ 'A' ] ),
-			keyFor( 5, false, [ 'A' ] ),
-			keyFor( 5, true, [ 'A', 'B' ] ),
+			keyFor( 5, [ 'A' ] ),
+			keyFor( 6, [ 'A' ] ),
+			keyFor( 5, [ 'A', 'B' ] ),
 		] );
-		expect( keys.size ).toBe( 4 );
+		expect( keys.size ).toBe( 3 );
 	} );
 } );
 

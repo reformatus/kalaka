@@ -49,7 +49,6 @@ final class MailSchemaTest extends WP_UnitTestCase
         'version' => 'int(10) unsigned',
         'enabled' => 'tinyint(1) unsigned',
         'body_id' => 'bigint(20) unsigned null',
-        'layout' => 'tinyint(1) unsigned',
     ];
 
     private const LAYOUTS = [
@@ -63,7 +62,6 @@ final class MailSchemaTest extends WP_UnitTestCase
         'event_id' => 'bigint(20) unsigned',
         'version' => 'int(10) unsigned',
         'body_id' => 'bigint(20) unsigned',
-        'layout' => 'tinyint(1) unsigned',
         'request_key' => 'varchar(64) null',
         'created_at' => 'datetime(6)',
         'created_by' => 'bigint(20) unsigned null',

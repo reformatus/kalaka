@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Registrations\Api;
+
+/**
+ * A request of a registration, whether its source says it is answered (read from the source's answer field: the
+ * field is the truth), and the latest answer record of the act, if any: who, when, the note. A request not
+ * answered awaits one; an answer of 0 Ft or "no" is an answer.
+ */
+final readonly class RequestState
+{
+    public function __construct(
+        public Request $request,
+        public RequestSource $source,
+        public bool $answered,
+        public ?AnswerRead $answer,
+        /** @var array<string, string> the registration's field values the source read, key → stored value */
+        public array $values = [],
+    ) {
+    }
+
+    public function awaits(): bool
+    {
+        return !$this->answered;
+    }
+}

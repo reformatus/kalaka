@@ -13,7 +13,9 @@ namespace Kalaka\ParticipantFields\Api;
  * title's inline HTML), `source` one of `form`, `staff`, `extension` and
  * `system`, `formWritable` whether a form may hold its key, and `forms` the forms of the event that hold it
  * now (trashed ones not): `ParticipantFields::of()` names none, `Forms::participantFields()` adds them
- * (`withForms()`).
+ * (`withForms()`). `moneyRelevant` is whether its value is locked after the first write (declared by an extension
+ * for its field, or by the block type for a form field). `declaredBy` is the slug of the extension that declared
+ * an `extension` field (null for any other source, or a row stored before the slug existed).
  */
 final readonly class ParticipantField
 {
@@ -25,6 +27,8 @@ final readonly class ParticipantField
     /**
      * @param list<array{value: string, label: string, retired: bool}> $options empty for a field without options
      * @param list<array{form_id: int, title: string}> $forms
+     * @param array<string, mixed> $settings the type's settings that outlive the form (the number field's bounds,
+     *     decimals and affixes)
      */
     public function __construct(
         public string $key,
@@ -36,6 +40,9 @@ final readonly class ParticipantField
         public string $typeLabel = '',
         public bool $formWritable = true,
         public array $forms = [],
+        public array $settings = [],
+        public bool $moneyRelevant = false,
+        public ?string $declaredBy = null,
     ) {
     }
 
@@ -56,6 +63,9 @@ final readonly class ParticipantField
             $this->typeLabel,
             $this->formWritable,
             $forms,
+            $this->settings,
+            $this->moneyRelevant,
+            $this->declaredBy,
         );
     }
 
@@ -70,6 +80,7 @@ final readonly class ParticipantField
      *     form_writable: bool,
      *     retired: bool,
      *     forms: list<array{form_id: int, title: string}>,
+     *     settings: array<string, mixed>,
      * }
      */
     public function toArray(): array
@@ -84,6 +95,7 @@ final readonly class ParticipantField
             'form_writable' => $this->formWritable,
             'retired' => $this->retired,
             'forms' => $this->forms,
+            'settings' => $this->settings,
         ];
     }
 }

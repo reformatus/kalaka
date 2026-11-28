@@ -80,7 +80,6 @@ final class LineDetailsTest extends LedgerTestCase
         return [
             'a method on a charge' => [LineKind::Charge, '500', false, null],
             'a correction on a charge' => [LineKind::Charge, '500', true, 'reason'],
-            'a correction without a reason' => [LineKind::ManualRefund, '500', true, null],
             'a note on a charge' => [LineKind::Charge, '500', false, 'x'],
             'a note over 500 characters' => [LineKind::ManualPayment, '-500', false, 'x'],
         ];
@@ -116,6 +115,16 @@ final class LineDetailsTest extends LedgerTestCase
         } catch (SystemFailure) {
             self::assertSame(0, $this->lineCount());
         }
+    }
+
+    /** The owner's rulings #217 N1204 and #218 N1222: a correction's reason is optional. */
+    public function testACorrectionWithoutAReasonIsRecordedWithNoNote(): void
+    {
+        $this->registration();
+        $stored = $this->record($this->manual(LineKind::ManualRefund, '500', 'c9', null, true, null))[0];
+
+        self::assertTrue($stored->correction);
+        self::assertSame(1, $this->lineCount());
     }
 
     public function testACorrectionWithAMethodIsASystemFailure(): void
