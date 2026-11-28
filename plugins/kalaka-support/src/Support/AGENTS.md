@@ -74,7 +74,7 @@ It holds the directory, the congregation picker and the support offers.
   is also an item key, `support:<key>`), an unknown node, a label outside 1 to 191 characters, an amount that is
   not positive, a limit under 0 (a limit of 0 is a full offer), more than 50 offers and any unknown property. It
   also refuses to remove an offer, or to flip its "must be requested" flag, while an open registration has
-  selected it (`OfferChangeGuard`, through the shared `Registrations::openHolds()`): in the preview (`Api\Offers::propose()`) and before any save of an
+  selected it (`OfferChangeGuard`, which calls `Registrations::refuseRemovingChosen()`; the refusal is core's `ItemChosen`, `kalaka_item_chosen`, and the guard throws nothing of its own [UNAPPROVED N699]): in the preview (`Api\Offers::propose()`) and before any save of an
   apply, so an apply never half-saves; the use case checks again as a guard.
 - The save declares the offer's fields in the same transaction, through core's `declareExtensionField()` as
   declarer `support` (the module's ID, `SetSupportOffers::DECLARER`), money relevant: the selection, a consent field whose key is the offer's key
@@ -93,12 +93,17 @@ It holds the directory, the congregation picker and the support offers.
 - An offer's seats are `Seats` under the pool `offer.<key>`, at the quota lock level (`OfferSeatPool`, the row
   of the offer), for every offer, limited or not (a chosen offer always holds its seat row): `OfferClaims` gives
   a submit's claims and `pools()` the pools of the form variable; the answer act frees and takes the seat through
-  core's `SeatOfferSeats` (over `Seats::retake()`, like admission and restore). This module takes and frees a seat nowhere else, and writes nothing of
+  core's `Seats` (`release()`; `retake()` with `SeatAct::Answer`, like admission and restore) for the pool
+  `OfferRequests::seatPool()` hands it. This module takes and frees a seat nowhere else, and writes nothing of
   `kalaka_seats`.
-- A selection is written only by a submit (which takes the seat) and by the answer act. An additional form that
-  would write an offer key is refused (CF4); staff placing into an offer is not built (N104).
+- A selection is written only by a submit (which takes the seat) and by the answer act. An additional form may
+  write an offer key too: CF4 takes the offer's seat first under its pool's lock and releases a dropped one.
 - `OfferRequests` is the request source of the offers that must be requested: a selected offer is the request
   `offer:<key>` until somebody answers it. A limited one is a request only while the registration holds its
   seat or has an answer (so a refused offer, which gave its seat back, can be answered "yes" again).
+  `awaitingRule()` is the same question as a declarative `AwaitingRule` for the admin grid's awaiting column (core
+  compiles it to SQL; the source writes none): an offer that needs a request, chosen (`1`), its `<key>_answer`
+  neither `approved` nor `refused`; one group per such offer, none (null) when no offer needs one. It reads no seat: a registered registration holds the seat of each chosen offer
+  until the offer is answered (D2), so the grid's `registered` condition already holds the seat test.
 - Only this module writes `kalaka_support_offers`. Offers are settings, so an offer left out is deleted; the
   directory's nodes are never deleted.

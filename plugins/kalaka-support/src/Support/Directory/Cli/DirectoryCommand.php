@@ -57,7 +57,7 @@ final class DirectoryCommand
      */
     private static function runImport(array $args, array $assoc): void
     {
-        $actor = new CliActor(get_current_user_id() ?: null);
+        $actor = CliActor::current();
         $report = (new DirectoryImport(Runner::current()))->run($args[0], $assoc['delimiter'] ?? ',', $actor);
 
         // an implied ancestor counts only when it was created or failed

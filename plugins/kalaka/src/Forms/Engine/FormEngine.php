@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine;
 
+use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Forms\Api\Facts;
+use Kalaka\Forms\Api\FieldType;
+use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormOutdated;
 use Kalaka\Forms\Api\FormTerminal;
@@ -69,7 +73,13 @@ final class FormEngine
     {
         $version ??= $form->version;
         $content = $this->posts->content($form, $version);
-        $definition = $this->parser->parse($form, $version, $content, Contributions::current(), $this->host);
+        $definition = $this->parser->parse(
+            $form,
+            $version,
+            $this->filled($form, $content),
+            Contributions::current(),
+            $this->host
+        );
         if ($version === $form->version) {
             $problem = $this->host->keyProblem($form, $content);
             if ($problem !== null) {
@@ -118,7 +128,8 @@ final class FormEngine
     public function blocks(Form $form, ?int $version = null, ?FormAvailability $availability = null): array
     {
         $version ??= $form->version;
-        $marked = ChainMarks::mark(array_values(parse_blocks($this->posts->content($form, $version))));
+        $content = $this->filled($form, $this->posts->content($form, $version));
+        $marked = ChainMarks::mark(array_values(parse_blocks($content)));
         $definition = $this->definition($form, $version);
         $withheld = [];
         foreach ($definition->withheldChains() as $number) {
@@ -133,9 +144,32 @@ final class FormEngine
     }
 
     /**
+     * The content with each field block's empty label (and each choice option's) filled from the host's
+     * participant-field texts (`FormHost::labelFallbacks()`), so the page, the definition and the answers' texts
+     * all read the same labels. The host is asked only when a field block has an empty label; otherwise the
+     * content is returned as it is. A label the form wrote is never replaced.
+     */
+    private function filled(Form $form, string $content): string
+    {
+        $blocks = array_values(parse_blocks($content));
+        $types = array_keys(Contributions::current()->fieldTypes());
+        $keys = LabelFallback::keys($blocks, $types);
+        if ($keys === []) {
+            return $content;
+        }
+        /** @var list<array<string, mixed>> $blocks */
+        $filled = LabelFallback::fill($blocks, $types, $this->host->labelFallbacks($form));
+        if ($filled === $blocks) {
+            return $content;
+        }
+
+        /** @var array<array{blockName: string|null, attrs: array<string, mixed>, innerBlocks: array<array<string, mixed>>, innerHTML: string, innerContent: array<string|null>}> $filled */
+        return serialize_blocks($filled);
+    }
+
+    /**
      * The blocks with each request field's attributes as its definition has them (its set's options in
-     * `options`, S44); a request field whose set's choice window is closed becomes an empty block (it does
-     * not show, and the inner content keeps its places).
+     * `options`, S44).
      *
      * @param list<array<string, mixed>> $blocks
      * @return list<array<string, mixed>>
@@ -148,9 +182,7 @@ final class FormEngine
             $key = $block['attrs']['key'] ?? null;
             $field = is_string($key) ? $definition->field($key) : null;
             if (is_string($name) && ($types[$name] ?? null) instanceof RequestFieldType && $field !== null) {
-                $blocks[$index] = $field->closed
-                    ? ['blockName' => null, 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => '', 'innerContent' => []]
-                    : ['attrs' => $field->attributes] + $block;
+                $blocks[$index] = ['attrs' => $field->attributes] + $block;
                 continue;
             }
             if (is_array($block['innerBlocks'] ?? null) && $block['innerBlocks'] !== []) {
@@ -214,6 +246,148 @@ final class FormEngine
     public function validate(FormDefinition $definition, array $answers, Facts $facts): ValidatedAnswers
     {
         return $this->validator->validate($definition, $answers, Contributions::current(), $facts);
+    }
+
+    /**
+     * The answers its fields' types accept, each checked alone: an answer to a key the form does not hold,
+     * one of the wrong JSON type, one its type finds an error in or makes nothing of is dropped, silently.
+     * Conditions are not walked here: what does not show is dropped by the walk of whoever reads the answers.
+     * For answers no person typed into this form: a draft kept from an earlier version, or a link's or the
+     * quiz's prefill (S74), cleaned first (`linkAnswers()`).
+     */
+    public function accepted(FormDefinition $definition, AnswerSet $answers): AnswerSet
+    {
+        return new AnswerSet(array_map(
+            static fn (array $checked): mixed => $checked[0],
+            $this->checked($definition, $answers)
+        ));
+    }
+
+    /**
+     * A link's or the quiz's answers (S74, `Api\Forms::linkAnswers()`), each cleaned by its type's prefill
+     * rules first, the rules a stored value opens with (`FieldType::prefill()`): the parts the type makes
+     * nothing of (an option not offered) are dropped and the rest kept, and a value it makes nothing of is
+     * dropped whole. The cleaned answers are then checked as `accepted()` checks them. A list the request
+     * carries is read as the JSON text a list is stored as, and must clean to a list; a text must not.
+     */
+    public function linkAnswers(FormDefinition $definition, AnswerSet $answers): AnswerSet
+    {
+        $types = Contributions::current()->fieldTypes();
+        $cleaned = [];
+        foreach ($definition->fields as $field) {
+            $type = $types[$field->blockName] ?? null;
+            if ($type === null || !array_key_exists($field->key, $answers->answers)) {
+                continue;
+            }
+            $answer = self::cleaned($type, $field, $answers->answers[$field->key]);
+            if ($answer !== null) {
+                $cleaned[$field->key] = $answer;
+            }
+        }
+
+        return $this->accepted($definition, new AnswerSet($cleaned));
+    }
+
+    /** One answer of a link, as its type prefills it (`linkAnswers()`); null when nothing is left. */
+    private static function cleaned(FieldType $type, FormField $field, mixed $sent): mixed
+    {
+        $list = is_array($sent);
+        $stored = $list ? wp_json_encode($sent) : $sent;
+        if (!is_string($stored)) {
+            return null;
+        }
+        $answer = $type->prefill(new FieldTypeInput($stored, $field->attributes));
+
+        return is_array($answer) === $list ? $answer : null;
+    }
+
+    /**
+     * The accepted answers (`accepted()`) as the values they would be stored as: what the form opens with
+     * for them, through `FieldType::prefill()` like its host's stored values.
+     *
+     * @return array<string, string> field key → the value to store
+     */
+    public function acceptedValues(FormDefinition $definition, AnswerSet $answers): array
+    {
+        return array_map(static fn (array $checked): string => $checked[1], $this->checked($definition, $answers));
+    }
+
+    /**
+     * The keys whose accepted value `$over` sets differently from `$base` (`Api\Forms::changedKeys()`): a key
+     * `$over` answers and `$base` does not, or answers with another value. Compared as the values they would
+     * be stored as, so what the types read alike (spaces around a text) is no change; an answer of `$over`
+     * the types do not accept changes nothing. For a link's answers against the person's draft (S74).
+     *
+     * @return list<string>
+     */
+    public function changedKeys(FormDefinition $definition, AnswerSet $base, AnswerSet $over): array
+    {
+        $before = $this->acceptedValues($definition, $base);
+        $changed = [];
+        foreach ($this->acceptedValues($definition, $over) as $key => $value) {
+            if (($before[$key] ?? null) !== $value) {
+                $changed[] = (string) $key;
+            }
+        }
+
+        return $changed;
+    }
+
+    /**
+     * The text answers its fields' types find an error in, as typed: what a person had half typed into a
+     * text-like control (an e-mail address without its domain) when the autosave kept it. The form opens
+     * with it in the control, in error until it is corrected, rather than empty.
+     *
+     * @return array<string, string> field key → the text as typed
+     */
+    public function rejectedText(FormDefinition $definition, AnswerSet $answers): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        $rejected = [];
+        foreach ($definition->fields as $field) {
+            $sent = $answers->answers[$field->key] ?? null;
+            $type = $types[$field->blockName] ?? null;
+            if (!is_string($sent) || $type === null) {
+                continue;
+            }
+            try {
+                $answer = $type->answer(new FieldTypeInput($sent, $field->attributes));
+            } catch (InvalidInput) {
+                continue;
+            }
+            if ($answer->error !== null) {
+                $rejected[$field->key] = $sent;
+            }
+        }
+
+        return $rejected;
+    }
+
+    /** @return array<string, array{mixed, string}> field key → the answer as sent and the value to store */
+    private function checked(FormDefinition $definition, AnswerSet $answers): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        $checked = [];
+        foreach ($definition->fields as $field) {
+            if (!array_key_exists($field->key, $answers->answers)) {
+                continue;
+            }
+            $type = $types[$field->blockName] ?? null;
+            if ($type === null) {
+                continue;
+            }
+            $sent = $answers->answers[$field->key];
+            try {
+                $stored = FormWalk::storedOf($field, $type, $sent);
+            } catch (InvalidInput) {
+                continue;
+            }
+            if ($stored !== null) {
+                $checked[$field->key] = [$sent, $stored];
+            }
+        }
+
+        return $checked;
     }
 
     /**

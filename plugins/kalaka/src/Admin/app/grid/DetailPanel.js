@@ -2,20 +2,28 @@
  * The registration detail panel (S38): a non-modal side panel over the grid, with the identifying header and
  * the tabs. It reads `GET kalaka-admin/v1/events/{event}/registrations/{code}`, which already cuts every part to
  * the user's views and grants: a header field the views do not list is absent and leaves no gap, and the money
- * tab shows only with `can.view_money`. [UNAPPROVED N2] [UNAPPROVED N4] [UNAPPROVED N12]
+ * tab shows only with `can.view_money`.
+ * N4 reboxed: the header is the name, then code and e-mail, then the status row and the confirmation row with a
+ * slot each, then the tabs (N1200). N12 reboxed: every tab always shown and the last-clicked one remembered
+ * (N1201; written on a click only, see `tabClicks` and [UNAPPROVED N1264]). T3 struck: the disabled „Hamarosan…”
+ * tab is gone.
  *
- * S20: next to the status, the confirmation decision's state, only when the read has it, and under the header
- * the manual confirmation block. When the re-read after a save fails twice, the state and the block are not
- * shown (the old ones would look current); the load-error message says so. [UNAPPROVED N30] [UNAPPROVED N37]
+ * S20: the confirmation state is its own line, the confirmation row, under the status row, and under it the
+ * manual confirmation (who set the flag, when and why, and the button(s)); `ManualConfirmation` renders the row.
+ * N30 reboxed: the state is no longer shown next to the status. When the re-read after a save fails twice, the
+ * state and what hangs under it are not shown (the old ones would look current); the load-error message says so.
+ * On a „Lemondott” or „Törölt” registration it is not shown either (owner 2026-11-27). [UNAPPROVED N30]
  */
-import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
+import { useCallback, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
-import { confirmationOf, markOf, warningOf } from './confirmation';
+import { unconfirmBlocked, warningOf } from './confirmation';
+import FieldsBlock from './FieldsBlock';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
-import RequestsBlock from './RequestsBlock';
-import StatusMark from './StatusMark';
+import { AwaitingStrip, hasRequests, offeredOf, RequestsList, useAnswering } from './RequestsBlock';
+import StatusActs from './StatusActs';
+import { tabClicks } from './panel';
 import { PANEL } from './texts';
 
 /**
@@ -30,6 +38,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	const [ detail, setDetail ] = useState( null );
 	const [ problem, setProblem ] = useState( null ); // 'missing' (404) or 'failed'
 	const root = useRef();
+	const closeRef = useRef();
 	const shown = useRef( code );
 	shown.current = code;
 
@@ -82,23 +91,44 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 		// Only a new activation of the row tries again.
 	}, [ again ] );
 
-	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
-	// After a failed re-read the money data is stale: the tab list is hidden and the money tab shows nothing but
-	// its snackbar, so only the load-failure message remains. [UNAPPROVED N24]
-	const showsTabs = !! ( detail && detail.can && detail.can.view_money && detail.money );
+	// The tabs are „Adatok”, „Kérelmek” and „Pénzügyek”, in that order (N1004). Every tab is always shown, an empty
+	// one with its own empty text, and the last-clicked tab is kept for the browser session, so it stays open when
+	// another registration is selected; a remembered tab the viewer lacks falls back to the first. A tab the viewer
+	// has no right to is left out: the read carries no part for it (no money read, no requests, no field list).
+	// After a failed re-read the data is stale: the tab list and the chosen tab stay (built from the last good
+	// read, so the panel does not jump to another tab), the tabs show no values (the field list, the requests and
+	// the money show nothing but their snackbars) and the strip is gone, so under the load-failure message nothing
+	// stale remains. [UNAPPROVED N1036] [UNAPPROVED N1037]
+	// The tab panel shows only the chosen tab, so a tab's snackbar (a saved field, a money act) is gone when another
+	// tab is chosen within its five seconds; the answer's snackbar is not, it lives here. [UNAPPROVED N1040]
 	const stale = !! problem;
+	const hasMoney = !! ( detail && detail.can && detail.can.view_money && detail.money );
+	const offered = offeredOf( detail, stale );
+	const canAnswer = !! ( detail && detail.can && detail.can.answer_request );
+	const tabs = [];
+	if ( detail && Array.isArray( detail.fields ) ) {
+		tabs.push( { name: 'fields', title: PANEL.tabFields } );
+	}
+	if ( hasRequests( detail ) ) {
+		tabs.push( { name: 'requests', title: PANEL.tabRequests } );
+	}
+	if ( hasMoney ) {
+		tabs.push( { name: 'money', title: PANEL.tabMoney } );
+	}
+	const tabNames = tabs.map( ( tab ) => tab.name ).join( ',' );
+	// One memory of the clicks per registration and tab set: a new row opens on the remembered tab, and only a
+	// click writes it (N1264).
+	const tabMemory = useMemo( () => tabClicks( tabNames ? tabNames.split( ',' ) : [] ), [ tabNames, code ] );
+	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
 	useEffect( () => {
 		const list = root.current && root.current.querySelector( '[role="tablist"]' );
 		if ( list ) {
 			list.setAttribute( 'aria-label', PANEL.tabsLabel );
-			list.style.display = stale ? 'none' : '';
 		}
-	}, [ showsTabs, stale ] );
+	}, [ tabNames ] );
+	const answering = useAnswering( config, code, reload, onSaved, root, detail && detail.requests ? detail.requests.currency : undefined );
 
 	const registration = ( detail && detail.registration ) || {};
-	// While the last read failed the state on screen may be old: it is left out.
-	const confirmation = problem ? null : confirmationOf( registration );
-	const [ confirmIcon, confirmTone ] = confirmation ? markOf( confirmation.state ) : [ '', '' ];
 	return (
 		<aside
 			className="kg-panel"
@@ -112,25 +142,49 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				{ detail && (
 					<div className="kg-panel-id">
 						{ registration.name && <h2 className="kg-panel-name">{ registration.name }</h2> }
-						{ ( registration.code || registration.status_label || confirmation || registration.email ) && (
+						{ ( registration.code || registration.email ) && (
 							<p className="kg-panel-meta">
 								{ registration.code && <span className="kg-code">{ registration.code }</span> }
-								{ registration.status_label && (
-									<StatusMark status={ registration.status } text={ registration.status_label } />
-								) }
-								{ confirmation && (
-									<span className="kg-mark">
-										<span className={ `dashicons ${ confirmIcon } ${ confirmTone }` } aria-hidden="true" />
-										<span className="screen-reader-text">{ confirmation.label }: </span>
-										{ confirmation.state_label }
-									</span>
-								) }
 								{ registration.email && <span className="kg-panel-email">{ registration.email }</span> }
 							</p>
 						) }
+						{ /* The two state rows: the status row's slot holds the status acts, the confirmation row's the manual confirmation's buttons. */ }
+						<StatusActs
+							stale={ !! problem }
+							config={ config }
+							code={ code }
+							can={ detail.can || {} }
+							money={ detail.money }
+							status={ registration.status }
+							text={ registration.status_label }
+							reload={ reload }
+							onSaved={ onSaved }
+						/>
+						{ detail && (
+							<ManualConfirmation
+								stale={ !! problem }
+								config={ config }
+								code={ code }
+								can={ detail.can || {} }
+								manual={ registration.manual_confirmation }
+								status={ registration.status }
+								warning={ warningOf( registration, detail.can ) }
+								blocked={ unconfirmBlocked( registration ) }
+								confirmed={ registration.confirmed }
+								reload={ reload }
+								onSaved={ onSaved }
+								closeRef={ closeRef }
+							/>
+						) }
 					</div>
 				) }
-				<Button icon="no-alt" label={ PANEL.close } onClick={ onClose } className="kg-panel-close" />
+				<Button
+					icon="no-alt"
+					label={ PANEL.close }
+					onClick={ onClose }
+					className="kg-panel-close"
+					ref={ closeRef }
+				/>
 			</div>
 			{ problem && (
 				<p className="kg-load-fail" role="alert">
@@ -142,51 +196,58 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 					{ PANEL.loading }
 				</p>
 			) }
-			{ detail && (
-				<ManualConfirmation
-					stale={ !! problem }
-					config={ config }
-					code={ code }
-					can={ detail.can || {} }
-					manual={ registration.manual_confirmation }
-					warning={ warningOf( registration, detail.can ) }
-					reload={ reload }
-					onSaved={ onSaved }
-				/>
-			) }
-			{ detail && (
-				<RequestsBlock
-					config={ config }
-					code={ code }
-					detail={ detail }
-					stale={ !! problem }
-					reload={ reload }
-					onSaved={ onSaved }
-				/>
-			) }
-			{ showsTabs && (
+			{ detail && <AwaitingStrip items={ offered } start={ answering.start } can={ canAnswer } /> }
+			{ tabs.length > 0 && (
 				<TabPanel
+					key={ tabNames }
 					className="kg-tabs-money"
-					tabs={ [
-						{ name: 'money', title: PANEL.tabMoney },
-						{ name: 'soon', title: PANEL.tabSoon, disabled: true },
-					] }
-					initialTabName="money"
+					tabs={ tabs }
+					initialTabName={ tabMemory.initial }
+					onSelect={ tabMemory.onSelect }
 					orientation="horizontal"
 				>
-					{ () => (
-						<MoneyTab
-							config={ config }
-							code={ code }
-							money={ detail.money }
-							stale={ stale }
-							can={ detail.can }
-							reload={ reload }
-							onSaved={ onSaved }
-						/>
-					) }
+					{ ( tab ) => {
+						if ( tab.name === 'fields' ) {
+							return (
+								<FieldsBlock
+									config={ config }
+									code={ code }
+									detail={ detail }
+									stale={ stale }
+									reload={ reload }
+									onSaved={ onSaved }
+								/>
+							);
+						}
+						if ( tab.name === 'requests' ) {
+							if ( stale ) {
+								return null;
+							}
+							return (
+								<RequestsList
+									items={ offered }
+									currency={ detail.requests.currency }
+									start={ answering.start }
+									can={ canAnswer }
+								/>
+							);
+						}
+						return (
+							<MoneyTab
+								config={ config }
+								code={ code }
+								money={ detail.money }
+								stale={ stale }
+								can={ detail.can }
+								reload={ reload }
+								onSaved={ onSaved }
+								closeRef={ closeRef }
+							/>
+						);
+					} }
 				</TabPanel>
 			) }
+			{ detail && answering.dialog }
 		</aside>
 	);
 }

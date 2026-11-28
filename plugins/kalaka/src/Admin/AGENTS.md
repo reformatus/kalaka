@@ -24,9 +24,16 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `kalaka/revoke-full-access` (audited; the capability is written after the
   commit; the audit records the real old value), except that tests and the
   development seed's `kalaka_admin` add it directly. One holder rule,
-  `FullAccessQuery::holders()`: a user holds it by their own capability or
-  through a role that carries it. The last holder keeps it (use case, profile,
-  CLI and abilities alike). The profile screen checks a change after
+  `FullAccessQuery::holders()`: a user holds it by their own capability only,
+  never through a role, and `user_has_cap` makes every `user_can()` check
+  agree; `OwnCapability::owns()` is the same rule on a user object, for the
+  filter, the profile checkbox and the Users column. The last holder keeps it: the use case, the profile, the CLI and the
+  abilities refuse; WordPress's users screen and REST refuse deleting them
+  through `map_meta_cap`, and `wp user delete` stops on the `delete_user`
+  action; plain code calling `wp_delete_user()` past the check is logged and
+  the deletion proceeds. Not guarded: `wp user remove-cap`, `wp user delete
+  --network` (which fires `wpmu_delete_user`, not `delete_user`) and a direct
+  `remove_cap()`. The profile screen checks a change after
   WordPress has checked the rest of the form, and makes it only after
   WordPress has saved the user. Activation gives the activating user full
   access through `GrantFullAccess` (audited, as the system), only while
@@ -51,6 +58,13 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `Admin\Api\ViewQuery`, which reads only through a `HeldView` that `Access`
   hands out, or through full access. Only `ViewQuery` names a registration
   table (`RegistrationTablesTest`); it never selects the secret.
+- The display names of a list of registrations are read through
+  `ViewQuery::namesOf(HeldView, list<string>)`, at most `MAX_NAMES` (100) codes
+  (more is `InvalidInput`): the value of the display-name field of the slot
+  form's submitted version, resolved through `Forms`, returned only for a code
+  the view's filter holds and whose `field:<name>` column the view lists; null
+  otherwise (a viewer without name access, a code outside the view, no answer).
+  Full access (the master view) sees every name.
 - The abilities' permission callback, and the gate of the grid's
   `kalaka-admin/v1` routes, let through only full access or a grant holder;
   the runner's coarse check still decides each call.
@@ -58,14 +72,19 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `kalaka_views` (`master` 1): at most one per event (the unique key on
   `master_event`), written only through `ViewRepository`, by `CopyViews`
   (nothing in the grid writes it). Its name, filter and columns are stored
-  empty and never read. It is never listed, edited or deleted as a view. A
+  empty and never read. Its columns are composed by rule (owner 2026-11-27): every core column
+  (`ViewShape::CORE_COLUMNS`), every field key, every decision kind and every computed column
+  (`ViewShape::COMPUTED_COLUMNS`, today `awaits_answer`); a new column joins one of those lists, never a hand list. It is never listed, edited or deleted as a view. A
   grant on the master view keeps `view_id` null and never points at the master
   row.
 - The grid's ad hoc filters and search (`Narrowing`, S37) only narrow: the view query appends them to the held
   view's own filter and bound value, never replaces them, so a grant holder never reaches a row the view does
   not hold. They apply only to the view's listed columns (anything else is `InvalidInput`), and their kind comes
   from the column's own type (`GridNarrowing`), never from the client. They reach `page()` (and its total) and
-  `aggregates()` only; `count()` for the dialog, `contains()` and the access checks never see them. The
+  `aggregates()` only, and `codesOf()`, which returns the codes of every matching row (no paging limit, the
+  same conditions as `page()`) for a bulk act on "all rows the grid shows" (`Api\GridSelection`, through the one
+  held-view path `Access::viewOf()` that the rows route also takes); `count()` for the dialog, `contains()` and
+  the access checks never see them. The
   sorszám range is computed in SQL as `RegistrationList` computes it. Text matches ignore case and accents
   (`utf8mb4_unicode_520_ci`); a stored `1` is yes, a stored `0` is no and no value is neither.
 - The counted members of a view (`counts`) are stored only by full access, and
@@ -79,21 +98,54 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   never decides access: what it shows and which actions it offers come from
   the read (its `can` included), and the server decides every call.
 - The detail read carries the registration's `requests` (with their latest answers, the request's participant field
-  keys as `fields: {ask, answer}` and, for a refused offer, whether its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
-  access; `can.answer_request` says so, and is true only while the registration is `registered` (the grid
+  keys as `fields: {ask, answer}` and, for a refused offer, whether its pool is full) only to a holder of
+  `kalaka_answer_request` on a view that holds the registration, or full access; `can.answer_request` says so, and
+  is true only while the registration is `registered` (the grid
   column's meaning: nothing awaits on a waitlisted, withdrawn or removed one). An unanswered request on such a
-  registration reads `inactive`, not `awaiting`; its answered ones keep their answers. The answer act is `kalaka/answer-request` (Registrations); the panel's
+  registration reads `inactive`, not `awaiting`; its answered ones keep their answers. The requests' money figures —
+  an item's `amount` and, for an aid request, `aid: {full_price, can_pay, asked, max_award}` from the request
+  source's `terms()` — follow the read's money gate (`can.view_money`), so a holder whose view/grant gives no money
+  fields reads the requests without them. The answer act is `kalaka/answer-request` (Registrations); the panel's
   block of requests only calls it.
-- A grid row carries `awaits_answer`, a bool computed per page by Registrations' `Requests::awaitsOf()` (one
-  statement for the page's field values, none without a request source); it is a row value, not a column, so it is
-  not filterable, sortable or summable.
+- "Awaits an answer" is a core-derived grid column, `awaits_answer`, like `status` and `serial`: a view lists it or
+  not, any view may (it tells that something awaits, not what), and it filters (yes or no, no „Nincs válasz”),
+  sorts (yes first descending) and counts (`yes`) like the other yes/no columns, all over the one SQL expression
+  `ViewQuery::awaiting()`. That is `Requests::awaitingCondition()`, three-valued (owner 2026-11-27, N/A is different
+  from „Nem”): for a `registered` registration it is yes when some request source's `awaitingRule()` (declarative;
+  core compiles it) holds and no otherwise; for every other status it is N/A, NULL in SQL, never false. A filter on
+  yes or no never matches N/A (`NOT` of NULL is NULL); N/A sorts with no value (last descending, first ascending);
+  the grid shows it as „–”. It is never a filter term or a counted-members column. A grid row carries
+  `awaits_answer` as true, false or null (N/A) from the same expression in the page's one statement, whether or not
+  the view lists the column.
+- The mail pages (`Mail\MailPages`, `app/mail/`) are full access's and decide no
+  access: they show only what the mail reads return, every change is an ability
+  call, and the page reads again after it; a typed or chosen draft is dropped
+  only when its act succeeded.
+- The grid's bulk action „Levél küldése” is offered on a tab only when the
+  page's configuration says the tab carries `ManualMails::GRANT_ACTION` (full
+  access: always); that is only an offer. It sends the ticked rows' codes as a
+  `{ codes }` selection, and the preview and `kalaka/send-manual-mail` decide
+  access again on every call (`kalaka_manual_mail`, inside the grant's view).
 - Staff correct a field value only through `kalaka/edit-field-value` (`FieldEdit\EditFieldValue`): a field change with
   no action, so rights are read-write columns of a held view and full access, never a new grant action. The field
   type turns the value into its stored form before the run (`FieldEditInput`), never inside it; no form condition is
   walked (staff override). Staff never edit a `system` field, an `extension` field only its own act writes, or a
   retired field. The edit is not a submission; the write goes through `Registrations\Api\FieldCorrections`, and the
   runner's evaluation (money, confirmation, mail) follows it; the edit sends no mail of its own. An identical value
-  writes nothing, and a stored value other than `expected` is a `VersionConflict`.
+  writes nothing, and a stored value other than `expected` is a `VersionConflict`. Admin never runs a field type:
+  the stored form and the editor's data come from `Forms\Api\FieldEditing`. The ability registers with `$prepare`
+  (`EditFieldValue::prepared()`) and takes `preview`, which does everything but the write and returns the
+  `warnings` (the approved "full" text, `AssignmentSets::FULL_WARNING`) beside `changed` and `over_limit`. A reason is
+  optional (the panel asks for the warning before staff type one); like every successful preview, a preview writes
+  no audit entry (the runner's one rule, `PreviewableUseCase`); a save is audited, an unchanged one too.
+- The detail read tells, for each field it lists, whether staff may edit it (`writable`: the field is one staff
+  edit and the actor's held view lists its column read-write while holding the registration, the same rule as
+  `Access::mayWrite()` as a plain read, read once for all columns with `Access::writer()`; the act re-checks). A
+  writable field carries `edit`: `answer` (`kind`, the field type's block name, and `value`, its prefill),
+  `expected` (the stored value exactly as the act compares it), `control` (`choice`, `multi_choice`, `consent`, `text`, `number`, `date` (the stored `YYYY-MM-DD`, no bounds: a date field declares none), or null when the type has no simple control; from `Forms\Api\FieldEditing`, never a list in Admin), `multiple` for a choice and, for a type with options, `options` (each
+  with `full`) and, for a consent, `full`. `full` is `FieldCorrections::fullValues()`: the choice's pool would
+  go over for this registration, true only for a `registered` one. Reading it writes no audit entry and moves no
+  seat. Placing into a tier or an offer by hand is this same act on `price_tier` or the offer's key.
 - The detail read's `can.admit`, `can.withdraw` and `can.remove` are the act's grant action carried and the status
   allowing it now; `can.restore` is full access and the status allowing it (a restore carries no grant action) (`Registrations\Api\StatusActs`); the status acts are Registrations' use cases, and the
   command line runs them through `Registrations\Api\StatusActions` without a rule of its own: it previews first, prints

@@ -9,7 +9,6 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\PriceLadder\LadderInput;
-use Kalaka\PriceLadder\PriceLadderComponent;
 use Kalaka\PriceLadder\LadderSaveGuard;
 use Kalaka\PriceLadder\TierRecord;
 use Kalaka\PriceLadder\TierRepository;

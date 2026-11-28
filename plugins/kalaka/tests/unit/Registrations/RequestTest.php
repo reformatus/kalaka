@@ -27,6 +27,7 @@ final class RequestTest extends TestCase
             'upper case' => ['Aid', false],
             'a space' => ['offer: x', false],
             'a second colon' => ['offer:a:b', false],
+            'a trailing newline' => ["aid\n", false],
             'too long' => ['offer:' . str_repeat('a', 59), false],
         ];
     }

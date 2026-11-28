@@ -12,7 +12,7 @@ use Kalaka\Registrations\Api\SeatPool;
 /**
  * The places of one set option under the one seat rule: the pool row is the option's own row, its limit the
  * option's capacity (none: no limit). A confirmed assignment holds a seat; a proposed one holds none until
- * staff confirm it. Its key is `option.<set ID>.<option key>`. [UNAPPROVED N3]
+ * staff confirm it. Its key is `option.<set ID>.<option key>`.
  */
 final class OptionSeatPool implements SeatPool
 {

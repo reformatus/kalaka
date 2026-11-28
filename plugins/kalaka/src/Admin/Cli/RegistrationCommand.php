@@ -64,8 +64,8 @@ final class RegistrationCommand
      * : The new value as the field's form control would send it: text, a number, `1` or `0` for a consent,
      * an option's value for a choice, a JSON list for several. Leave it out with --clear.
      *
-     * --reason=<text>
-     * : Why the value is corrected, 1 to 500 characters. Written to the audit entry.
+     * [--reason=<text>]
+     * : Why the value is corrected, at most 500 characters. Optional; written to the audit entry.
      *
      * [--clear]
      * : Remove the value instead of setting one.
@@ -90,17 +90,15 @@ final class RegistrationCommand
                 throw $error;
             }
             $reason = $assoc['reason'] ?? null;
-            if (!is_string($reason)) {
-                $error = new CommandFailure('--reason is required.');
-                throw $error;
-            }
             $input = [
                 'event_id' => (int) $args[0],
                 'code' => $args[1],
                 'field' => $args[2],
                 'value' => $clear ? null : $args[3],
-                'reason' => $reason,
             ];
+            if (is_string($reason)) {
+                $input['reason'] = $reason;
+            }
             if (isset($assoc['expected'])) {
                 $expected = $assoc['expected'];
                 $input['expected'] = is_string($expected) && $expected !== '' ? $expected : null;
@@ -117,8 +115,8 @@ final class RegistrationCommand
 
                 return;
             }
-            if (($preview['over_limit'] ?? []) !== []) {
-                \WP_CLI::warning(AssignmentSets::FULL_WARNING);
+            foreach ((array) ($preview['warnings'] ?? []) as $warning) {
+                \WP_CLI::warning((string) $warning);
             }
             \WP_CLI::confirm('Set ' . $args[2] . ' of ' . $args[1] . '?', $assoc);
 

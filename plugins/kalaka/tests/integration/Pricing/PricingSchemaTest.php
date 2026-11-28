@@ -19,7 +19,7 @@ final class PricingSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(4, (int) get_option('kalaka_schema_pricing'));
+        self::assertSame(5, (int) get_option('kalaka_schema_pricing'));
         self::assertSame([], LoadState::current()->failures);
 
         $columns = $wpdb->get_results($wpdb->prepare(

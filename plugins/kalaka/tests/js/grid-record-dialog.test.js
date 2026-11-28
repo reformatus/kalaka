@@ -474,14 +474,14 @@ describe( 'the note fields carry the participant-visible hint (topic 11, T36)', 
 		expect( hints() ).toBe( 2 );
 	} );
 
-	test( 'Indoklás of the Korrekció, also while its message shows', async () => {
+	test( 'Megjegyzés of the Korrekció carries the hint and is optional', async () => {
 		await render( MONEY_ONLY, 'correction' );
 		expect( noteHint( MONEY.reasonField ) ).toContain( MONEY.titleHint );
 		await pick( radios( MONEY.directionField )[ 0 ] );
 		await setValue( field( MONEY.amountField ), '500' );
 		await submit();
-		expect( noteHint( MONEY.reasonField ) ).toContain( MONEY.noteRequired );
 		expect( noteHint( MONEY.reasonField ) ).toContain( MONEY.titleHint );
+		expect( noteHint( MONEY.reasonField ) ).not.toContain( 'Add meg az indoklást.' );
 	} );
 } );
 

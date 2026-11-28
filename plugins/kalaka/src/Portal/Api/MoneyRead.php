@@ -17,9 +17,11 @@ use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
- * The participant's money table (`ParticipantMoney`) from one ledger statement of the participant payer and the
- * names of its owed lines. A plain read of the module Apis: it writes nothing and applies no access rule of its
- * own, like `StatusRead::of()`; the blocks reach it only through `forActive()`. Other payers' lines are never read.
+ * One payer's money table (`ParticipantMoney`, kept under its name: it is "a payer's money table", the
+ * participant's by default) from one ledger statement of that payer and the names of its owed lines. A plain read
+ * of the module Apis: it writes nothing and applies no access rule of its own, like `StatusRead::of()`; the blocks
+ * reach it only through `forActive()`. Any payer's table is built by this one code, so a congregation table is
+ * shaped exactly like the participant's. [UNAPPROVED N692]
  */
 final class MoneyRead
 {
@@ -33,9 +35,9 @@ final class MoneyRead
     ) {
     }
 
-    public function of(RegistrationKey $key, Currency $currency): ParticipantMoney
+    public function of(RegistrationKey $key, Currency $currency, string $payer = Payer::PARTICIPANT): ParticipantMoney
     {
-        $statement = $this->ledger->statementOf($key, Payer::PARTICIPANT, $currency);
+        $statement = $this->ledger->statementOf($key, $payer, $currency);
 
         $balance = $statement->totals->balance;
         $overpaid = $balance->isNegative() && !$balance->countsAsZero();
@@ -99,7 +101,11 @@ final class MoneyRead
         return [...$base, ...$positive, ...$negative];
     }
 
-    private static function movement(LedgerEntry $entry): MovementRow
+    /**
+     * The movement a paid-side ledger line is, as the table lists it. The payment mail reads one line through it
+     * (`MailMoney::movement()`), so the mail and the table use the same words. Not for a charge line.
+     */
+    public static function movement(LedgerEntry $entry): MovementRow
     {
         $refund = $entry->kind === LineKind::Refund || $entry->kind === LineKind::ManualRefund;
         $type = match (true) {

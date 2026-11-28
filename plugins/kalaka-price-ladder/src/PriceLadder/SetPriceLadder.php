@@ -29,7 +29,6 @@ use Kalaka\PriceLadder\Api\Tier;
  * It refuses to remove a tier an open (registered or waitlisted) registration has chosen, and to declare
  * `price_tier` over another declarer's field (`LadderSaveGuard`, which the preview runs too). A tier's
  * limit may be given, changed or removed at any time: every chooser of a tier holds a seat row, limited or not.
- * [UNAPPROVED N2, N129, N130]
  */
 final class SetPriceLadder implements AdminUseCase
 {

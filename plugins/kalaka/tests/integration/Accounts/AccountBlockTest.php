@@ -19,6 +19,7 @@ use Kalaka\Forms\Engine\FormPage;
 use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Forms\EventFormHost;
+use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -357,18 +358,27 @@ final class AccountBlockTest extends AccountsTestCase
         $mandatory = $this->openForm('mandatory', 'registration', self::ACCOUNT_BLOCK . $this->slotFields() . $chain);
         $off = $this->openForm('off', 'registration', $this->slotFields() . $chain);
         $additional = $this->openForm('optional', 'additional', $chain);
+        // An additional form is served through its registration's link: give it one (S60), so the re-fetch
+        // reaches the walk instead of `no_active_registration`.
+        $additionalEvent = (int) get_post_meta($additional, 'kalaka_event_id', true);
+        $slot = $this->insertForm(self::ACCOUNT_BLOCK . $this->slotFields(), ['kalaka_event_id' => $additionalEvent]);
+        ActiveRegistrationState::set($this->submit($slot)->registration, false);
 
-        // Where the step exists: no for a guest, yes (the branch hidden) for an account.
-        foreach ([$optional, $mandatory] as $form) {
-            self::assertSame([0 => 0], $this->refetch($form)['availability']['chains']);
-        }
-        // Where it does not: none for a guest and for a logged-in person alike.
-        foreach ([$off, $additional] as $form) {
-            self::assertSame([0 => null], $this->refetch($form)['availability']['chains']);
-        }
-        wp_set_current_user($this->verifiedUser());
-        foreach ([$optional, $mandatory, $off, $additional] as $form) {
-            self::assertSame([0 => null], $this->refetch($form)['availability']['chains']);
+        try {
+            // Where the step exists: no for a guest, yes (the branch hidden) for an account.
+            foreach ([$optional, $mandatory] as $form) {
+                self::assertSame([0 => 0], $this->refetch($form)['availability']['chains']);
+            }
+            // Where it does not: none for a guest and for a logged-in person alike.
+            foreach ([$off, $additional] as $form) {
+                self::assertSame([0 => null], $this->refetch($form)['availability']['chains']);
+            }
+            wp_set_current_user($this->verifiedUser());
+            foreach ([$optional, $mandatory, $off, $additional] as $form) {
+                self::assertSame([0 => null], $this->refetch($form)['availability']['chains']);
+            }
+        } finally {
+            ActiveRegistrationState::set(null, false);
         }
 
         $event = (new Events())->find((int) get_post_meta($optional, 'kalaka_event_id', true));
