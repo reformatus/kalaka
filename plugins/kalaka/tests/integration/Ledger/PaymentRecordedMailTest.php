@@ -35,7 +35,6 @@ final class PaymentRecordedMailTest extends ManualEntryTestCase
             'version' => 1,
             'enabled' => $on ? 1 : 0,
             'body_id' => null,
-            'layout' => 1,
         ]);
     }
 

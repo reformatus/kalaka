@@ -7,6 +7,7 @@ namespace Kalaka\Admin\Grid;
 use Kalaka\Admin\Api\Access;
 use Kalaka\Admin\Api\HeldView;
 use Kalaka\Admin\Api\ViewQuery;
+use Kalaka\Admin\Grant\GrantQuery;
 use Kalaka\Admin\Rest\GridRoutes;
 use Kalaka\Admin\View\ViewList;
 use Kalaka\Events\Api\Event;
@@ -15,6 +16,7 @@ use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Mail\Api\ManualMails;
 
 /**
  * The per-event „Jelentkezők” page with the grid (S37), and, until the admin frame (S72) is built, the
@@ -30,9 +32,13 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  */
 final class GridPage
 {
-    private const SLUG = 'kalaka-event-%d-registrations';
+    /** The page slug; the event's other screens hang under it as submenus. */
+    public const SLUG = 'kalaka-event-%d-registrations';
     private const HANDLE = 'kalaka-admin-grid';
     private const PER_PAGE = [25, 50, 100, 500];
+
+    /** @var array<string, string> the event items' icons by menu slug, filled by `menu()` for `menuStyle()` */
+    private static array $icons = [];
 
     /** `admin_menu` */
     public static function menu(): void
@@ -59,10 +65,31 @@ final class GridPage
                 'read',
                 $slug,
                 [self::class, 'render'],
-                '',
+                'none',
                 4 + ++$position / 100
             );
+            self::$icons[$slug] = MenuIcon::uri($event->name);
             add_submenu_page($slug, Texts::REGISTRANTS, Texts::REGISTRANTS, 'read', $slug, [self::class, 'render']);
+        }
+    }
+
+    /**
+     * `admin_head`: each event item's derived icon as a mask filled with the menu's own icon colour, so it follows the
+     * colour scheme, hover and current states with no repaint.
+     */
+    public static function menuStyle(): void
+    {
+        $css = '';
+        foreach (self::$icons as $slug => $icon) {
+            $url = 'url("' . esc_attr($icon) . '") center / 20px 20px no-repeat';
+            $css .= '#toplevel_page_' . $slug . ' div.wp-menu-image::before { content: ""; display: block; '
+                . 'width: 20px; height: 20px; margin: 7px auto 0; padding: 0; '
+                . 'background-color: currentColor; -webkit-mask: ' . $url
+                . '; mask: ' . $url . '; }';
+        }
+        if ($css !== '') {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- generated slugs, escaped URIs
+            echo '<style>' . $css . '</style>';
         }
     }
 
@@ -153,7 +180,16 @@ final class GridPage
 
         $fields = (new FieldDefinitions())->of($eventId);
         $model = new GridModel();
+        // Whether a tab's grant carries the manual mail (full access: always); the grid offers the bulk action by
+        // this, and the ability and the preview decide again on every call.
+        $mailGrants = [];
+        if (!$full) {
+            foreach ((new GrantQuery())->forUser($eventId, $actor->userId) as $grant) {
+                $mailGrants[$grant['id']] = in_array(ManualMails::GRANT_ACTION, $grant['actions'], true);
+            }
+        }
         $tabs = array_map(static fn (HeldView $view): array => [
+            'manualMail' => $full || ($mailGrants[$view->grantId ?? 0] ?? false),
             'key' => GridModel::tabKey($view),
             'view' => $view->viewId ?? 0,
             'grant' => $view->grantId ?? 0,

@@ -30,6 +30,40 @@ final class MailEditorTest extends MailBodyTestCase
         return $response;
     }
 
+    public function testATemplateUsesTheFrameUntilItsFlagIsSetFalseAndTheFlagSurvivesRest(): void
+    {
+        $event = $this->create();
+        $id = $this->document($event, $this->paragraph('Szia'));
+        $posts = new MailPosts();
+        self::assertTrue($posts->usesFrame($id));
+
+        $full = self::factory()->user->create();
+        $user = get_userdata($full);
+        self::assertInstanceOf(\WP_User::class, $user);
+        $user->add_cap(AdminAccess::FULL_ACCESS);
+        wp_set_current_user($full);
+        $read = $this->get('/wp/v2/kalaka_mail/' . $id);
+        self::assertSame(true, $read->get_data()['meta'][MailPosts::META_USES_FRAME]);
+
+        foreach ([false, true, false] as $uses) {
+            $request = new \WP_REST_Request('POST', '/wp/v2/kalaka_mail/' . $id);
+            $request->set_body_params(['meta' => [MailPosts::META_USES_FRAME => $uses]]);
+            self::assertSame(200, rest_do_request($request)->get_status());
+            self::assertSame($uses, $posts->usesFrame($id));
+            self::assertSame(
+                $uses,
+                $this->get('/wp/v2/kalaka_mail/' . $id)->get_data()['meta'][MailPosts::META_USES_FRAME]
+            );
+        }
+
+        // Without full access the flag cannot be written.
+        wp_set_current_user(0);
+        $request = new \WP_REST_Request('POST', '/wp/v2/kalaka_mail/' . $id);
+        $request->set_body_params(['meta' => [MailPosts::META_USES_FRAME => true]]);
+        self::assertContains(rest_do_request($request)->get_status(), [401, 403]);
+        self::assertFalse($posts->usesFrame($id));
+    }
+
     public function testOnlyFullAccessReadsAndWritesMailDocumentsInRest(): void
     {
         $event = $this->create();

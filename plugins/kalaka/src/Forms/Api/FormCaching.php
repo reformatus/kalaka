@@ -50,7 +50,7 @@ final class FormCaching
 
     /**
      * The IDs of the forms the content places, in order: the `kalaka/form` blocks (nested ones too) and the
-     * `[kalaka_form id="…"]` shortcodes.
+     * `[kalaka_form id="…"]` shortcodes (not an escaped `[[kalaka_form …]]`), each once.
      *
      * @return list<int>
      */
@@ -70,9 +70,14 @@ final class FormCaching
             }
         };
         $walk(parse_blocks($content));
-        if (preg_match_all('/' . get_shortcode_regex([self::SHORTCODE]) . '/', $content, $matches) > 0) {
-            foreach ($matches[3] as $attributes) {
-                $id = absint(shortcode_parse_atts($attributes)['id'] ?? 0);
+        $pattern = '/' . get_shortcode_regex([self::SHORTCODE]) . '/';
+        if (preg_match_all($pattern, $content, $matches, PREG_SET_ORDER) > 0) {
+            foreach ($matches as $m) {
+                if ($m[1] === '[' && $m[6] === ']') {
+                    // An escaped `[[kalaka_form …]]` is literal text, as `do_shortcode_tag()` leaves it.
+                    continue;
+                }
+                $id = absint(shortcode_parse_atts($m[3])['id'] ?? 0);
                 if ($id > 0) {
                     $ids[] = $id;
                 }

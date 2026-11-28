@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Extras;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Pricing\Api\PreviewRow;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
@@ -30,7 +31,7 @@ final class ExtrasTest extends ExtrasTestCase
 
     public function testTheNumberFieldWithTheChargesKeyMultipliesTheAmount(): void
     {
-        $this->applyCharges([self::item('ejjel', 'Éjszaka', '1000')]);
+        $this->applyCharges([self::item('ejjel', 'Éjszaka', '1000', 'number')]);
 
         $anna = $this->registerWith('00A0', ['ejjel' => '3']);
 
@@ -47,11 +48,11 @@ final class ExtrasTest extends ExtrasTestCase
         self::assertSame('3500', $this->balance($anna));
     }
 
-    public function testEveryChargeIsItsOwnLineAndRemovingOneReversesOnlyItsLine(): void
+    public function testEveryChargeIsItsOwnLineAndAnAnswerOfNoneReversesOnlyItsLine(): void
     {
         $this->applyCharges([
             self::item('ebed', 'Ebéd', '3500'),
-            self::item('ejjel', 'Éjszaka', '1000'),
+            self::item('ejjel', 'Éjszaka', '1000', 'number'),
         ]);
 
         $anna = $this->registerWith('00A0', ['ebed' => '1', 'ejjel' => '2']);
@@ -65,6 +66,10 @@ final class ExtrasTest extends ExtrasTestCase
         $this->evaluate($anna);
         self::assertSame('4500', $this->balance($anna));
 
+        // A charge an open registration chose is not taken out (D3): the quantity goes to 0 first, which
+        // reverses that charge's line alone, and only then may the charge go.
+        $this->writeValue($anna, 'ejjel', '0');
+        $this->evaluate($anna);
         $this->applyCharges([self::item('ebed', 'Ebéd', '3500')]);
         self::assertSame('3500', $this->balance($anna));
         self::assertSame([
@@ -72,12 +77,12 @@ final class ExtrasTest extends ExtrasTestCase
             'extras:ejjel participant 2000 charge:extras:ejjel:participant:1',
             'extras:ejjel participant -1000 charge:extras:ejjel:participant:2',
             'extras:ejjel participant -1000 charge:extras:ejjel:participant:3',
-        ], $this->charges($anna), 'The removed charge reverses its own line; the other is untouched.');
+        ], $this->charges($anna), 'The unchosen charge reverses its own line; the other is untouched.');
     }
 
     public function testAWithdrawnRegistrationReversesEveryChargeLine(): void
     {
-        $this->applyCharges([self::item('ebed', 'Ebéd', '3500'), self::item('ejjel', 'Éjszaka', '1000')]);
+        $this->applyCharges([self::item('ebed', 'Ebéd', '3500'), self::item('ejjel', 'Éjszaka', '1000', 'number')]);
         $anna = $this->registerWith('00A0', ['ebed' => '1', 'ejjel' => '2']);
         self::assertSame('5500', $this->balance($anna));
 
@@ -100,7 +105,7 @@ final class ExtrasTest extends ExtrasTestCase
 
     public function testAnythingButAPositiveWholeQuantityChargesNothing(): void
     {
-        $this->applyCharges([self::item('ejjel', 'Éjszaka', '1000')]);
+        $this->applyCharges([self::item('ejjel', 'Éjszaka', '1000', 'number')]);
 
         foreach (['00A0' => '0', '00A2' => '-2', '00A5' => '2.5', '00A8' => ''] as $code => $answer) {
             $key = $this->registerWith($code, ['ejjel' => $answer]);
@@ -111,7 +116,7 @@ final class ExtrasTest extends ExtrasTestCase
     public function testAnAmountTimesAnAnswerMoneyCannotHoldChargesNobodyAndNothingThrows(): void
     {
         $this->applyCharges([
-            self::item('ejjel', 'Éjszaka', '100000000000000'),
+            self::item('ejjel', 'Éjszaka', '100000000000000', 'number'),
             self::item('ebed', 'Ebéd', '3500'),
         ]);
 
@@ -130,7 +135,8 @@ final class ExtrasTest extends ExtrasTestCase
             $this->event,
             new ProposedMoneySettings(components: [
                 $this->extras->propose($this->event, [self::item('ebed', 'Ebéd', '3500')]),
-            ])
+            ]),
+            new CliActor(null)
         );
 
         self::assertCount(1, $rows);
@@ -145,6 +151,9 @@ final class ExtrasTest extends ExtrasTestCase
         $this->applyCharges([self::item('ebed', 'Ebéd', '3500')]);
         self::assertCount(2, $this->charges($anna), 'A second apply writes nothing.');
 
+        // A chosen charge is not taken out (D3): the registrant's answer goes to no first.
+        $this->writeValue($anna, 'ebed', '0');
+        $this->evaluate($anna);
         $this->applyCharges([]);
         self::assertSame([], $this->extras->charges($this->event));
         self::assertSame('40000', $this->balance($anna));
@@ -164,14 +173,15 @@ final class ExtrasTest extends ExtrasTestCase
 
     public function testOnlyAConsentAndAWholeNumberFieldChargeAndEveryOtherTypeChargesNobody(): void
     {
-        $this->declareField('szoveg', 'kalaka/text-field', null, 3);
-        $this->declareField('skala', 'kalaka/scale-field', null, 4);
-        $this->declareField('valasz', 'kalaka/choice-field', null, 5);
         $this->applyCharges([
             self::item('szoveg', 'Szöveg', '1000'),
             self::item('skala', 'Skála', '1000'),
             self::item('valasz', 'Választás', '1000'),
         ]);
+        // The declaration only makes consents and numbers: the other types are rows written around it.
+        $this->retypeField('szoveg', 'kalaka/text-field');
+        $this->retypeField('skala', 'kalaka/scale-field');
+        $this->retypeField('valasz', 'kalaka/choice-field');
 
         $anna = $this->registerWith('00A0', ['szoveg' => '3', 'skala' => '4', 'valasz' => '["1"]']);
 
@@ -181,7 +191,7 @@ final class ExtrasTest extends ExtrasTestCase
     public function testASavedChargeIsNotChargedByANumberFieldDeclaredWithDecimalsAfterwards(): void
     {
         $this->applyCharges([self::item('uj', 'Új', '1000')]);
-        $this->declareField('uj', 'kalaka/number-field', ['decimals' => 2], 3);
+        $this->retypeField('uj', 'kalaka/number-field', ['decimals' => 2]);
 
         $anna = $this->registerWith('00A0', ['uj' => '3']);
 
@@ -208,7 +218,7 @@ final class ExtrasTest extends ExtrasTestCase
 
         $bad = [
             [self::item('ebed', 'Ebéd', '3500'), self::item('ebed', 'Ebéd', '3000')],
-            [self::item('tizedes', 'Tizedes', '3500')],
+            [self::item('tizedes', 'Tizedes', '3500', 'number')],
             [self::item('adomany', 'Adomány', '3500')],
             [self::item('a' . str_repeat('b', 40), 'Hosszú', '3500')],
             [['key' => 'ebed', 'label' => 'Ebéd', 'amount' => '3500', 'field' => 'ebed']],

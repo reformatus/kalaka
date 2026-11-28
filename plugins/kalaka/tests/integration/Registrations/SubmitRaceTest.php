@@ -125,6 +125,7 @@ final class SubmitRaceTest extends RealTableTestCase
             false,
             [],
             (new ParticipantFields())->of($this->event),
+            fingerprint: SubmitRegistration::fingerprint($form->id, $answers),
         );
         // The read above opened a transaction (the test runs without autocommit); the runner starts its own.
         $wpdb->query('COMMIT');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Events\PublishEvent;
+use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
 use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
@@ -12,7 +13,10 @@ use Kalaka\Forms\Engine\FieldType\TextFieldType;
 use Kalaka\Forms\Engine\FormPage;
 use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\EventFormHost;
+use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\ObjectCache;
+use Kalaka\Registrations\Api\Drafts;
 
 /**
  * A form opens with its host's stored values (`FormHost::prefill()`): each turned into its field's answer by
@@ -35,6 +39,10 @@ final class FormPrefillTest extends FormsTestCase
             'ends_at' => $day(36),
         ]);
         $this->transition(new PublishEvent(), $id);
+        // Drafts need accounts (N9), and an event with accounts needs the account block in its form.
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['account_mode' => 'optional'], ['id' => $id]);
+        ObjectCache::clear();
 
         return $id;
     }
@@ -42,12 +50,88 @@ final class FormPrefillTest extends FormsTestCase
     /** @param array<string, string> $stored */
     private function render(string $content, array $stored): string
     {
-        $formId = $this->insertForm($this->slotFields() . $content, ['kalaka_event_id' => $this->event()]);
+        $formId = $this->insertForm(
+            '<!-- wp:kalaka/account /-->' . $this->slotFields() . $content,
+            ['kalaka_event_id' => $this->event()]
+        );
         $host = new PrefillingHost(new EventFormHost(), $stored);
 
         return (new FormPage($host))->html($formId, static function (FormPageView $view): void {
             echo $view->content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the rendered form
         });
+    }
+
+    /**
+     * The page's script context for a form with two triggers: `size`, and `tier`, which shows only for the
+     * size `m`.
+     *
+     * @param array<string, string> $stored
+     * @param array<string, mixed> $draft the logged-in person's draft, saved before the render
+     * @return array<string, mixed>
+     */
+    private function context(array $stored, array $draft = []): array
+    {
+        $tiers = [['value' => 'a', 'label' => 'A'], ['value' => 'b', 'label' => 'B']];
+        $reads = static fn (string $key, string $value): string => wp_json_encode(['condition' => [
+            'match' => 'all',
+            'items' => [['key' => $key, 'operator' => 'equals', 'value' => $value]],
+        ]]);
+        $event = $this->event();
+        $formId = $this->insertForm(
+            '<!-- wp:kalaka/account /-->' . $this->slotFields()
+                . $this->field('choice', 'size', ['options' => self::SIZES])
+                . '<!-- wp:kalaka/if ' . $reads('size', 'm') . ' -->'
+                . $this->field('choice', 'tier', ['options' => $tiers]) . '<!-- /wp:kalaka/if -->'
+                . '<!-- wp:kalaka/if ' . $reads('tier', 'b') . ' -->'
+                . $this->field('text', 'why') . '<!-- /wp:kalaka/if -->'
+                . $this->field('text', 'note'),
+            ['kalaka_event_id' => $event]
+        );
+        if ($draft !== []) {
+            $user = self::factory()->user->create();
+            wp_set_current_user($user);
+            (new Drafts($this->runner))->save(
+                $event,
+                $formId,
+                $this->readForm($formId)->version,
+                new AnswerSet($draft),
+                0,
+                0,
+                new AccountActor($user)
+            );
+        }
+        $html = (new FormPage(new PrefillingHost(new EventFormHost(), $stored)))->html(
+            $formId,
+            static function (FormPageView $view): void {
+                echo wp_json_encode($view->context);
+            }
+        );
+        wp_set_current_user(0);
+        $context = json_decode($html, true);
+        self::assertIsArray($context);
+
+        return $context;
+    }
+
+    public function testThePageContextCarriesTheTriggersAnswersItOpenedWith(): void
+    {
+        $context = $this->context(['name' => 'Teszt Anna', 'size' => 'm', 'tier' => 'b', 'note' => 'x']);
+
+        self::assertSame(['size', 'tier'], $context['triggers']);
+        self::assertSame(['size' => 'm', 'tier' => 'b'], $context['opened']);
+    }
+
+    public function testThePageContextCarriesTheDraftsAnswersOverTheStoredOnes(): void
+    {
+        $context = $this->context(['size' => 's'], ['size' => 'm', 'tier' => 'a']);
+
+        self::assertSame(['size' => 'm', 'tier' => 'a'], $context['opened']);
+    }
+
+    public function testATriggerThatDoesNotShowIsNotInThePageContext(): void
+    {
+        self::assertSame(['size' => 's'], $this->context(['size' => 's', 'tier' => 'b'])['opened']);
+        self::assertSame([], $this->context([])['opened']);
     }
 
     public function testTheFieldsOpenWithTheirStoredValues(): void

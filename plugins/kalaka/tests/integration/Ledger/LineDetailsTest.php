@@ -117,6 +117,16 @@ final class LineDetailsTest extends LedgerTestCase
         }
     }
 
+    /** The owner's rulings #217 N1204 and #218 N1222: a correction's reason is optional. */
+    public function testACorrectionWithoutAReasonIsRecordedWithNoNote(): void
+    {
+        $this->registration();
+        $stored = $this->record($this->manual(LineKind::ManualRefund, '500', 'c9', null, true, null))[0];
+
+        self::assertTrue($stored->correction);
+        self::assertSame(1, $this->lineCount());
+    }
+
     public function testACorrectionWithAMethodIsASystemFailure(): void
     {
         $this->registration();

@@ -1,6 +1,7 @@
 import * as confirmation from '../../src/Admin/app/grid/confirmation';
 import {
 	manualActions,
+	markOf,
 	REASON_MAX,
 	snackbarAfter,
 	unconfirmBlocked,
@@ -9,6 +10,19 @@ import {
 } from '../../src/Admin/app/grid/confirmation';
 import { formatMoment } from '../../src/Admin/app/grid/money';
 import { CONFIRM } from '../../src/Admin/app/grid/texts';
+
+describe( 'the mark of a decision state', () => {
+	test( 'a state has the mark the server declares, and no entry has none', () => {
+		const marks = {
+			confirmed: { icon: 'yes-alt', tone: 'ok' },
+			unconfirmed: { icon: 'marker', tone: '' },
+		};
+		expect( markOf( marks, 'confirmed' ) ).toEqual( [ 'dashicons-yes-alt', 'kg-ok' ] );
+		expect( markOf( marks, 'unconfirmed' ) ).toEqual( [ 'dashicons-marker', '' ] );
+		expect( markOf( marks, 'whatever' ) ).toEqual( [ '', '' ] );
+		expect( markOf( [], 'confirmed' ) ).toEqual( [ '', '' ] );
+	} );
+} );
 
 describe( 'the reason', () => {
 	test( 'is never required: empty and blank may be sent, and the old message is gone', () => {
@@ -33,7 +47,7 @@ describe( 'the reason', () => {
 	} );
 
 	test( 'both messages are the dialog\'s', () => {
-		expect( CONFIRM.reasonTooLong ).toBe( 'Az indoklás legfeljebb 500 karakter lehet.' );
+		expect( CONFIRM.reasonTooLong ).toBe( 'A megjegyzés legfeljebb 500 karakter lehet.' );
 	} );
 } );
 

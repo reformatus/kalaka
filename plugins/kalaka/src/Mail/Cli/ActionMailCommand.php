@@ -27,7 +27,7 @@ use Kalaka\Mail\Catalogue\UpdateActionMail;
  */
 final class ActionMailCommand
 {
-    private const FIELDS = ['mail', 'label', 'enabled', 'body_id', 'layout'];
+    private const FIELDS = ['mail', 'label', 'enabled', 'body_id'];
 
     /** @param ?\Closure(string, list<array<string, string>>, list<string>): void $print prints rows in a format */
     public function __construct(
@@ -45,7 +45,7 @@ final class ActionMailCommand
     }
 
     /**
-     * Lists the action mails of an event: whether each is on, its body and whether the event layout wraps it.
+     * Lists the action mails of an event: whether each is on, its body.
      *
      * ## OPTIONS
      *
@@ -78,8 +78,6 @@ final class ActionMailCommand
 
                 return;
             }
-            // WP-CLI's helper, not installed for the static analysis.
-            // @phpstan-ignore function.notFound
             \WP_CLI\Utils\format_items($format, $rows, self::FIELDS);
         });
     }
@@ -93,7 +91,7 @@ final class ActionMailCommand
      * : The event ID.
      *
      * <kind>
-     * : The mail: registered, waitlisted, payment_recorded, confirmed or link_regenerated.
+     * : The mail: registered, waitlisted, payment_recorded or confirmed.
      *
      * @param list<string> $args
      * @param array<string, mixed> $assocArgs
@@ -125,7 +123,7 @@ final class ActionMailCommand
      * : The event ID.
      *
      * <kind>
-     * : The mail: registered, waitlisted, payment_recorded, confirmed or link_regenerated.
+     * : The mail: registered, waitlisted, payment_recorded or confirmed.
      *
      * @param list<string> $args
      * @param array<string, mixed> $assocArgs
@@ -146,7 +144,7 @@ final class ActionMailCommand
      * : The event ID.
      *
      * <kind>
-     * : The mail: registered, waitlisted, payment_recorded, confirmed or link_regenerated.
+     * : The mail: registered, waitlisted, payment_recorded or confirmed.
      *
      * @param list<string> $args
      * @param array<string, mixed> $assocArgs
@@ -169,7 +167,7 @@ final class ActionMailCommand
      * : The event ID.
      *
      * <kind>
-     * : The mail: registered, waitlisted, payment_recorded, confirmed or link_regenerated.
+     * : The mail: registered, waitlisted, payment_recorded or confirmed.
      *
      * --file=<path>
      * : The body's block markup, stored as it is.
@@ -389,7 +387,6 @@ final class ActionMailCommand
             'label' => $mail->action->label(),
             'enabled' => $mail->enabled ? 'yes' : 'no',
             'body_id' => $mail->bodyId === null ? '' : (string) $mail->bodyId,
-            'layout' => $mail->layout ? 'yes' : 'no',
         ];
     }
 }

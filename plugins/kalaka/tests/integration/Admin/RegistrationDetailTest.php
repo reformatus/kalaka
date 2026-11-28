@@ -17,8 +17,12 @@ use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeComposition;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\LineName;
+use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\ManualConfirmations;
+use Kalaka\Pricing\Api\NamedFeeComponent;
 use Kalaka\Pricing\CoreFeeComponents;
+use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 use Kalaka\Tests\Integration\Registrations\AnswerPool;
@@ -291,6 +295,74 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $lines[$this->seeded['payment']]['type'],
             $lines[$this->seeded['payment']]['side'],
         ]);
+    }
+
+    private function namingComponent(string $id, ?string $word): NamedFeeComponent
+    {
+        return new class ($id, $word) implements NamedFeeComponent {
+            public function __construct(private readonly string $id, private readonly ?string $word)
+            {
+            }
+
+            public function id(): string
+            {
+                return $this->id;
+            }
+
+            public function stage(): FeeStage
+            {
+                return FeeStage::Extras;
+            }
+
+            public function targets(FeeComponentInput $input): FeeTargets
+            {
+                return FeeTargets::none();
+            }
+
+            public function lineNames(RegistrationKey $registration, array $items): array
+            {
+                return $this->word === null
+                    ? throw new \RuntimeException('Teszt hiba a névadásban.')
+                    : ['' => new LineName(LineName::COMPONENT, $this->word)];
+            }
+        };
+    }
+
+    /**
+     * Failure isolation: a fee component whose `lineNames()` throws is skipped and logged; its line reads as the
+     * fixed price, „Díj”, and the read still answers, with the other component's names unaffected.
+     */
+    public function testAThrowingFeeComponentDoesNotFailTheDetailAndItsLineReadsAsTheFallback(): void
+    {
+        $this->addRegistration('00A0');
+        $broken = $this->addLine('charge', '1000', 'charge:broken', overrides: [
+            'source_type' => 'fee_component',
+            'source_key' => 'broken',
+            'value_date' => null,
+            'method' => null,
+        ]);
+        $fine = $this->addLine('charge', '2000', 'charge:fine', overrides: [
+            'source_type' => 'fee_component',
+            'source_key' => 'fine',
+            'value_date' => null,
+            'method' => null,
+        ]);
+        $read = new RegistrationDetail(lineNames: new LineNames(new CoreFeeComponents([
+            $this->namingComponent('broken', null),
+            $this->namingComponent('fine', 'Teszt kirándulás'),
+        ])));
+
+        $money = [];
+        $log = $this->capturedErrorLog(function () use ($read, &$money): void {
+            $money = $read->of(new UserActor($this->admin->userId), $this->event, '00A0')['money'];
+        });
+        $lines = array_column($money['lines'], null, 'id');
+
+        self::assertSame(['fee', 'Díj'], [$lines[$broken]['type'], $lines[$broken]['kind_label']]);
+        self::assertSame(['component', 'Teszt kirándulás'], [$lines[$fine]['type'], $lines[$fine]['kind_label']]);
+        self::assertStringContainsString('Kaláka: line names of fee component broken failed', $log);
+        self::assertStringContainsString('Teszt hiba a névadásban.', $log);
+        self::assertStringNotContainsString('fee component fine failed', $log);
     }
 
     /** @return array<string, mixed> */
@@ -806,6 +878,23 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         }
     }
 
+    /**
+     * `can.answer_request` holds only while the registration is registered, as the answer act refuses any other
+     * status; the grant alone is not enough.
+     *
+     * @dataProvider statuses
+     */
+    public function testAnswerRequestIsOfferedOnlyOnARegisteredRegistration(string $status): void
+    {
+        $this->addRegistration('00A0', $status);
+        $partner = $this->plainUser();
+        $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $registered = $status === 'registered';
+
+        self::assertSame($registered, $this->detail($partner)['can']['answer_request']);
+        self::assertSame($registered, $this->detail($this->admin->userId)['can']['answer_request']);
+    }
+
     /** D14: `registration.confirmed` is always there, for a holder without the money-view too. */
     public function testTheDetailAlwaysCarriesWhetherTheRegistrationIsConfirmed(): void
     {
@@ -925,7 +1014,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
         ObjectCache::clear();
 
@@ -1096,6 +1185,44 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             [null, '9000.00000000'],
             array_column($read($money, $full)['requests']['items'], 'amount')
         );
+    }
+
+    /**
+     * N655: the requests agree with the grid column. A request is answerable only while the registration is
+     * registered: on a waitlisted, withdrawn or removed one an unanswered request reads `inactive`, not
+     * `awaiting`, and `can.answer_request` is false; the requests and their answers still show.
+     *
+     * @return iterable<string, array{string, string, bool}>
+     */
+    public static function requestStatuses(): iterable
+    {
+        yield 'registered' => ['registered', 'awaiting', true];
+        yield 'waitlisted' => ['waitlisted', 'inactive', false];
+        yield 'withdrawn' => ['withdrawn', 'inactive', false];
+        yield 'removed' => ['removed', 'inactive', false];
+    }
+
+    /** @dataProvider requestStatuses */
+    public function testTheRequestsAgreeWithTheAwaitsColumn(string $status, string $state, bool $answerable): void
+    {
+        $this->addRegistration('00A0', $status);
+        $this->addValue('00A0', 'support', 'church');
+        $this->addValue('00A0', 'aid_asked', '12000');
+        $read = fn (int $user): array => (new RegistrationDetail(
+            requests: new Requests([new TestRequestSource()]),
+        ))->of(new UserActor($user), $this->event, '00A0');
+
+        $holder = $this->plainUser();
+        $this->grant($holder, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $without = $this->plainUser();
+        $this->grant($without, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        foreach ([$this->admin->userId, $holder] as $user) {
+            $detail = $read($user);
+            self::assertSame([$state, $state], array_column($detail['requests']['items'], 'state'));
+            self::assertSame($answerable, $detail['can']['answer_request']);
+        }
+        self::assertFalse($read($without)['can']['answer_request']);
     }
 
     public function testTheAidItemCarriesTheFullPriceWhatTheyCanPayAndTheAidAskedNothingOnAnOffer(): void

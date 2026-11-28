@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Registrations;
 
 use Kalaka\Foundation\Api\LoadState;
+use Kalaka\Foundation\SchemaUpgrader;
 use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the tables of the module (the seats and the answers of slice B among them). */
+/** AC1: the tables of the module (S15's three, #247's seats, #232's answers and S74's drafts, schema 8). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -62,6 +63,22 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'taken_at' => 'datetime(6)',
             'act' => 'varchar(20)',
         ],
+        'kalaka_drafts' => [
+            'event_id' => 'bigint(20) unsigned',
+            'id' => 'bigint(20) unsigned',
+            'version' => 'int(10) unsigned',
+            'claims' => 'int(10) unsigned',
+            'form_id' => 'bigint(20) unsigned',
+            'form_version' => 'bigint(20) unsigned',
+            'user_id' => 'bigint(20) unsigned null',
+            'claim_hash' => 'char(64) null',
+            'resolved_claim' => 'char(64) null',
+            'resolved_choice' => 'varchar(16) null',
+            'answers' => 'longtext',
+            'page' => 'smallint(5) unsigned',
+            'created_at' => 'datetime(6)',
+            'updated_at' => 'datetime(6)',
+        ],
     ];
 
     /** The columns compared exactly (#42, D1). */
@@ -74,13 +91,16 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         'kalaka_answers.currency' => 'utf8mb4_nopad_bin',
 
         'kalaka_seats.pool' => 'utf8mb4_nopad_bin',
+        'kalaka_drafts.claim_hash' => 'utf8mb4_nopad_bin',
+        'kalaka_drafts.resolved_claim' => 'utf8mb4_nopad_bin',
+        'kalaka_drafts.resolved_choice' => 'utf8mb4_nopad_bin',
     ];
 
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
     {
         global $wpdb;
 
-        self::assertSame(7, (int) get_option('kalaka_schema_registrations'));
+        self::assertSame(8, (int) get_option('kalaka_schema_registrations'));
         self::assertSame([], LoadState::current()->failures);
 
         foreach (self::COLUMNS as $table => $expected) {
@@ -121,7 +141,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         global $wpdb;
 
         $tables = (new Module())->schema()->tables;
-        self::assertCount(5, $tables);
+        self::assertCount(6, $tables);
         foreach ($tables as $statement) {
             $statement = str_replace('{prefix}', $wpdb->prefix, $statement);
             self::assertSame(1, preg_match('/CREATE TABLE\s+(\S+)/', $statement, $match));
@@ -155,6 +175,86 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             ['PRIMARY:event_id', 'PRIMARY:code', 'PRIMARY:pool', 'pool:event_id', 'pool:pool'],
             array_map(static fn (array $row): string => $row['Key_name'] . ':' . $row['Column_name'], $keys)
         );
+    }
+
+    public function testADraftIsKeyedEventFirstWithOneDraftPerFormAndPersonAndOneClaim(): void
+    {
+        global $wpdb;
+
+        $keys = $wpdb->get_results("SHOW INDEX FROM {$wpdb->prefix}kalaka_drafts", ARRAY_A);
+        self::assertIsArray($keys);
+        self::assertSame(
+            [
+                'PRIMARY:event_id:0', 'PRIMARY:id:0',
+                'owner:event_id:0', 'owner:form_id:0', 'owner:user_id:0',
+                'claim:claim_hash:0', 'id:id:1',
+            ],
+            array_map(
+                static fn (array $row): string
+                    => $row['Key_name'] . ':' . $row['Column_name'] . ':' . $row['Non_unique'],
+                $keys
+            )
+        );
+    }
+
+    /**
+     * A site at schema 3 (S15's `owner_user_id`) upgrades to 8: #247's seats, #232's answers and S74's drafts
+     * are created and the registrations keep their owner. Real tables under a prefix of their own, dropped
+     * after; creating them commits the harness transaction, so the version option is put back by hand.
+     */
+    public function testAnUpgradeFromThreeAddsTheSeatsTheAnswersAndTheDraftsAndKeepsTheOwnerAccount(): void
+    {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        remove_filter('query', [$this, '_create_temporary_tables']);
+        remove_filter('query', [$this, '_drop_temporary_tables']);
+
+        $module = new Module();
+        $upgrader = new SchemaUpgrader();
+        $option = $upgrader->versionOption($module);
+        $prefix = $wpdb->prefix;
+        $wpdb->prefix = $prefix . 'upgrade_';
+        try {
+            foreach (array_slice($module->schema()->tables, 0, 3) as $statement) {
+                dbDelta(str_replace('{prefix}', $wpdb->prefix, $statement));
+            }
+            $wpdb->query($wpdb->prepare(
+                'INSERT INTO %i (event_id, code, version, status, secret, created_at, owner_user_id)'
+                . " VALUES (1, 'TESZT1', 1, 'registered', %s, '2026-11-19 10:00:00', 7)",
+                $wpdb->prefix . 'kalaka_registrations',
+                str_repeat('a', 22)
+            ));
+            self::assertNull($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->prefix . 'kalaka_drafts')));
+            update_option($option, 3);
+
+            $upgrader->upgrade($module);
+
+            self::assertSame(8, (int) get_option($option));
+            foreach (['kalaka_seats', 'kalaka_answers', 'kalaka_drafts'] as $table) {
+                self::assertSame(
+                    $wpdb->prefix . $table,
+                    $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->prefix . $table))
+                );
+            }
+            self::assertSame('7', $wpdb->get_var($wpdb->prepare(
+                "SELECT owner_user_id FROM %i WHERE code = 'TESZT1'",
+                $wpdb->prefix . 'kalaka_registrations'
+            )));
+        } finally {
+            $tables = [
+                'kalaka_registrations',
+                'kalaka_field_values',
+                'kalaka_submissions',
+                'kalaka_seats',
+                'kalaka_answers',
+                'kalaka_drafts',
+            ];
+            foreach ($tables as $table) {
+                $wpdb->query($wpdb->prepare('DROP TABLE IF EXISTS %i', $wpdb->prefix . $table));
+            }
+            $wpdb->prefix = $prefix;
+            update_option($option, 8);
+        }
     }
 
     public function testDbDeltaFindsNothingToChange(): void
