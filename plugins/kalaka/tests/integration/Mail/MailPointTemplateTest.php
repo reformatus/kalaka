@@ -88,12 +88,18 @@ final class MailPointTemplateTest extends MailAdminTestCase
         // So does an unassignment.
         $this->updateMail(['event_id' => $event, 'mail' => 'waitlisted', 'enabled' => true]);
         $this->updateMail(['event_id' => $event, 'mail' => 'waitlisted', 'body_id' => null]);
-        self::assertSame([false, null], [$this->point($event, 'waitlisted')['enabled'], $this->point($event, 'waitlisted')['body_id']]);
+        self::assertSame(
+            [false, null],
+            [$this->point($event, 'waitlisted')['enabled'], $this->point($event, 'waitlisted')['body_id']]
+        );
 
         // A call that says `enabled` with the new template is the caller's word: on, with a published template.
         $this->updateMail(['event_id' => $event, 'mail' => 'waitlisted', 'body_id' => $first, 'enabled' => true]);
         $this->updateMail(['event_id' => $event, 'mail' => 'waitlisted', 'body_id' => $second, 'enabled' => true]);
-        self::assertSame([true, $second], [$this->point($event, 'waitlisted')['enabled'], $this->point($event, 'waitlisted')['body_id']]);
+        self::assertSame(
+            [true, $second],
+            [$this->point($event, 'waitlisted')['enabled'], $this->point($event, 'waitlisted')['body_id']]
+        );
     }
 
     public function testTheRegisteredPointOfAnEventWithAccountsStaysOnWhenItsTemplateIsSwapped(): void
@@ -109,7 +115,10 @@ final class MailPointTemplateTest extends MailAdminTestCase
         $this->switchOn($event, 'registered', $first);
 
         $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => $second]);
-        self::assertSame([true, $second], [$this->point($event, 'registered')['enabled'], $this->point($event, 'registered')['body_id']]);
+        self::assertSame(
+            [true, $second],
+            [$this->point($event, 'registered')['enabled'], $this->point($event, 'registered')['body_id']]
+        );
         // A draft cannot be the template of a point that cannot go off.
         self::assertSame('kalaka_point_template_unpublished', $this->codeOf(
             fn () => $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => $draft])
@@ -134,7 +143,10 @@ final class MailPointTemplateTest extends MailAdminTestCase
         self::assertSame(['kalaka_mail', 'draft', ''], [$post->post_type, $post->post_status, $post->post_content]);
         self::assertSame($event, (int) get_post_meta($post->ID, 'kalaka_event_id', true));
         self::assertStringEndsWith('post.php?post=' . $post->ID . '&action=edit', $data['edit_url']);
-        self::assertSame([false, $post->ID], [$this->point($event, 'waitlisted')['enabled'], $this->point($event, 'waitlisted')['body_id']]);
+        self::assertSame(
+            [false, $post->ID],
+            [$this->point($event, 'waitlisted')['enabled'], $this->point($event, 'waitlisted')['body_id']]
+        );
         self::assertCount(2, $this->entriesOf('kalaka/update-action-mail'));
     }
 
@@ -153,7 +165,10 @@ final class MailPointTemplateTest extends MailAdminTestCase
         }
         $this->as($this->admin->userId);
         self::assertSame(404, $this->rest('POST', '/events/99999/mail/points/waitlisted/template')->get_status());
-        self::assertSame(400, $this->rest('POST', '/events/' . $event . '/mail/points/nincs_ilyen/template')->get_status());
+        self::assertSame(
+            400,
+            $this->rest('POST', '/events/' . $event . '/mail/points/nincs_ilyen/template')->get_status()
+        );
         self::assertSame($count, (int) wp_count_posts('kalaka_mail')->draft);
     }
 
@@ -191,7 +206,10 @@ final class MailPointTemplateTest extends MailAdminTestCase
         $mails = $this->rest('GET', '/events/' . $event . '/mail')->get_data()['mails'];
         $byKey = array_column($mails, null, 'mail');
 
-        self::assertSame(['no_template', null], [$byKey['registered']['enable_unavailable'], $byKey['registered']['template']]);
+        self::assertSame(
+            ['no_template', null],
+            [$byKey['registered']['enable_unavailable'], $byKey['registered']['template']]
+        );
         self::assertSame('template_draft', $byKey['waitlisted']['enable_unavailable']);
         self::assertSame(
             ['id', 'status', 'title', 'subject', 'modified', 'uses_frame', 'edit_url'],
@@ -214,11 +232,65 @@ final class MailPointTemplateTest extends MailAdminTestCase
         );
         self::assertTrue($byKey['confirmed']['template']['uses_frame']);
         self::assertSame(
-            ['registered' => true, 'waitlisted' => true, 'payment_recorded' => true, 'confirmed' => true, 'link_regenerated' => false],
+            [
+                'registered' => true,
+                'waitlisted' => true,
+                'payment_recorded' => true,
+                'confirmed' => true,
+                'link_regenerated' => false,
+            ],
             array_map(static fn (array $mail): bool => $mail['wired'], $byKey)
         );
         foreach (ActionMail::cases() as $case) {
             self::assertSame($byKey[$case->value]['wired'], $case->isWired());
         }
+    }
+
+    public function testTheUnassignedTemplateIsAnEmptyDraftOfTheEventAndNoPointChanges(): void
+    {
+        $event = $this->published();
+        $live = $this->document($event, $this->paragraph('Élő'), 'Élő');
+        $this->switchOn($event, 'waitlisted', $live);
+        $before = [$this->point($event, 'waitlisted'), $this->point($event, 'registered')];
+        $entries = count($this->entriesOf('kalaka/update-action-mail'));
+        $this->as($this->admin->userId);
+
+        $response = $this->rest('POST', '/events/' . $event . '/mail/templates');
+
+        self::assertSame(201, $response->get_status());
+        $data = $response->get_data();
+        self::assertIsArray($data);
+        self::assertSame(['id', 'edit_url'], array_keys($data));
+        $id = (int) $data['id'];
+        $post = get_post($id);
+        self::assertInstanceOf(\WP_Post::class, $post);
+        self::assertSame(['kalaka_mail', 'draft', ''], [$post->post_type, $post->post_status, $post->post_content]);
+        self::assertSame($event, (int) get_post_meta($id, 'kalaka_event_id', true));
+        self::assertStringEndsWith('post.php?post=' . $id . '&action=edit', (string) $data['edit_url']);
+
+        // The event's own bodies list it with no point, and no point changed: nothing went through the use case.
+        $bodies = array_column($this->rest('GET', '/events/' . $event . '/mail')->get_data()['bodies'], null, 'id');
+        self::assertArrayHasKey($id, $bodies);
+        self::assertSame(['draft', null], [$bodies[$id]['status'], $bodies[$id]['used_by']]);
+        self::assertSame($before, [$this->point($event, 'waitlisted'), $this->point($event, 'registered')]);
+        self::assertCount($entries, $this->entriesOf('kalaka/update-action-mail'));
+    }
+
+    public function testTheUnassignedTemplateIsForFullAccessAndRefusesAnUnknownEvent(): void
+    {
+        $event = $this->published();
+        $plain = self::factory()->user->create(['role' => 'subscriber']);
+        $drafts = (int) wp_count_posts('kalaka_mail')->draft;
+
+        foreach ([0, $plain, $this->holder($event)] as $user) {
+            $this->as($user);
+            self::assertContains(
+                $this->rest('POST', '/events/' . $event . '/mail/templates')->get_status(),
+                [401, 403]
+            );
+        }
+        $this->as($this->admin->userId);
+        self::assertSame(404, $this->rest('POST', '/events/99999/mail/templates')->get_status());
+        self::assertSame($drafts, (int) wp_count_posts('kalaka_mail')->draft);
     }
 }

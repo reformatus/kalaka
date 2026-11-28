@@ -520,8 +520,10 @@ final class ViewQuery extends Query
         $resolved = [];
         foreach ($slotForms as $code => $slot) {
             $slotKey = $slot['form_id'] . ':' . $slot['form_version'];
-            $keys = $this->forms->contactKeys($slot['form_id'], $slot['form_version']);
-            $nameKeys[$code] = $resolved[$slotKey] ??= $keys['name'];
+            if (!array_key_exists($slotKey, $resolved)) {
+                $resolved[$slotKey] = $this->forms->contactKeys($slot['form_id'], $slot['form_version'])['name'];
+            }
+            $nameKeys[$code] = $resolved[$slotKey];
         }
 
         // Read a value only for a code the view holds and whose name column the view lists.
