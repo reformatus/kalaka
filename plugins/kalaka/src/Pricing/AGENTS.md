@@ -44,14 +44,22 @@ retention and the materializer
   item per entry; nobody writes its `charge` lines but the materializer.
 - A fee component returns a value and writes nothing. Core composes the
   components in the fixed stage order tier → support → share → aid →
-  extras; a component sees only the totals of earlier stages. A throw, a
-  malformed payer or another currency than the event's is
-  `FeeComponentFailed`, which fails the use case as the rule
-  `money/<component id>`.
+  extras; a component sees only the totals of earlier stages, and the
+  computed values earlier stages put into its facts (`FeeTargets::$computed`,
+  dotted keys the facts do not have; never stored). A throw, a malformed
+  payer or another currency than the event's is `FeeComponentFailed`, which
+  fails the use case as the rule `money/<component id>`.
+- A component that cannot say what is owed and a person can act on why
+  throws `Api\FeeRefusal` with a text for staff and, when its form can reach the case, one for the registrant (none:
+  the registrant gets the generic failure);
+  the evaluation refuses the use case with the actor side's text
+  (`Api\FeeRefused`, a `RuleViolation` with its own code `kalaka_fee_refused`), still naming the rule
+  `money/<component id>`, so the periodic run flags it.
 - The components are core's fixed price, then those the modules contribute
   (`Contributions::feeComponent()`, IDs unique), core's Extras among them. The fixed
-  price is the base only without a ladder: it composes last in the tier
-  stage and owes nothing once another tier-stage component owes something.
+  price is the base only without a ladder: it is charged only when no
+  component provides the event's base (`Api\ProvidesBase`, which a ladder
+  with tiers does), whatever that component owes a registration.
 - A module's settings reach a preview and an apply as
   `Api\ProposedComponentSettings`: the preview composes its `component()` in
   place of the registered one; the apply runs its `save()` use case before
@@ -67,6 +75,16 @@ retention and the materializer
   failure never stops the others, a failed one is flagged "evaluation failed",
   and it converges on its next evaluation. The preview refuses what the apply
   refuses (a negative price).
+- A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings
+  as plain data and reads them back (`settingsToArray()`, `settingsFromArray()`
+  into `ProposedComponentSettings`), so `wp kalaka money-settings show|preview|apply`
+  (`Cli/`) carries every component's settings as JSON by component ID without Pricing
+  knowing any of them; Pricing itself reads and writes only the fixed price (core's Extras
+  carries its own). The
+  command is a thin entry point over `Api\MoneySettings`: it runs as the command
+  line, or as WP-CLI's `--user`, and the apply asks first. Every verb, `show` and
+  `preview` too, is checked as the fixed price's save (`SetFixedPrice`, full
+  access only) before it reads.
 - Once confirmed, a registered registration never becomes unconfirmed because
   amounts change later, an apply included (owner rule, 2026-11-14), nor by a
   refund (the owner's ruling 2026-11-19): only staff's unconfirm

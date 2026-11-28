@@ -94,6 +94,7 @@ final class Registrations
             $event,
             $now,
             $fields->values,
+            [],
             $fields->kinds,
         );
     }

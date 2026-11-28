@@ -18,6 +18,7 @@ use Kalaka\Mail\Body\BodyInUse;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Body\MailRestController;
 use Kalaka\Mail\Cli\ActionMailCommand;
+use Kalaka\Mail\Cli\MailCommand;
 use Kalaka\Mail\Pause\PauseCause;
 use Kalaka\Mail\Pause\PauseWarning;
 use Kalaka\Mail\Pause\RequestState;
@@ -144,6 +145,7 @@ SQL;
         add_action('init', [$this, 'register']);
         if (defined('WP_CLI') && WP_CLI) {
             ActionMailCommand::register();
+            MailCommand::register();
         }
     }
 

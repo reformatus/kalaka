@@ -12,20 +12,28 @@ use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\DefinitionCheck;
+use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Forms\Module as FormsModule;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Ranking\RankingFieldType;
+use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\SubmitRequest;
+use Kalaka\Registrations\Api\SubmitToken;
+use Kalaka\Tests\Integration\Foundation\TestClock;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /**
- * S44: the ranking names its assignment set (S44-1), its options are the set's, offered by their
- * condition on the track answer before it, held by the ranking block itself (`optionConditions`, S76), the
- * field it declares is the set's one request field, and outside the set's choice window it does not show and
- * writes nothing (C3). The set and its options are IVK's shape with invented modules: ifivezető modules A–C
- * for everybody, "Iskolamisszió" and "PRO" only for their track.
+ * S44: the ranking names its assignment set (S44-1), its options are the set's, offered by their condition on the
+ * track answer before it, held by the ranking block itself (`optionConditions`, S76), the field it declares is the
+ * set's one request field; a set has no choice window (owner ruling 2026-11-25), so the field is answered at any time
+ * its form is open. The set and its options are IVK's shape with invented modules: ifivezető modules A–C for
+ * everybody, "Iskolamisszió" and "PRO" only for their track.
  */
 final class RankingSetTest extends FormsTestCase
 {
@@ -52,7 +60,7 @@ final class RankingSetTest extends FormsTestCase
         $this->transition(new PublishEvent(), $this->event);
         // The track is declared by a form first: a condition reads only the event's participant fields.
         $this->insertChecked($this->slotFields() . $this->track(), $this->meta(), ['post_status' => 'draft']);
-        $this->set = $this->newSet('2026-11-01 08:00', '2027-02-15 20:00');
+        $this->set = $this->newSet();
     }
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook in snake case
@@ -79,14 +87,12 @@ final class RankingSetTest extends FormsTestCase
         ]]);
     }
 
-    private function newSet(?string $opens, ?string $closes): int
+    private function newSet(): int
     {
         $set = $this->sets->save([
             'event_id' => $this->event,
             'name' => 'Modulok',
             'required' => true,
-            'window_opens_at' => $opens,
-            'window_closes_at' => $closes,
             'published' => false,
         ], new CliActor(null));
         foreach (['Modul A', 'Modul B', 'Modul C'] as $position => $label) {
@@ -221,24 +227,25 @@ final class RankingSetTest extends FormsTestCase
         self::assertSame('1. Iskolamisszió, 2. Modul A', $value->text);
     }
 
-    public function testOutsideTheWindowTheRankingDoesNotShowAndWritesNothing(): void
+    public function testTheRankingIsAnsweredAtAnyTimeItsFormIsOpen(): void
     {
-        // C3: the window closed before the clock's moment (2026-11-30 08:00 UTC); registration is still open.
-        $closed = $this->newSet('2026-10-01 08:00', '2026-11-15 20:00');
-        $form = $this->form($this->ranking('modulok_2', $closed, ['required' => true]));
-        $definition = $this->forms->definition($this->readForm($form));
+        // A set has no window: the field shows and writes whenever the form is open, early or late in the period.
+        $form = $this->form($this->ranking('modulok_2', $this->newSet(), ['required' => true]));
 
-        $availability = $this->forms->availability($definition, [], $this->facts());
-        self::assertFalse($availability->shows('modulok_2'));
-        $validated = $this->forms->validate($definition, self::NAMES + [
-            'szolgalati_terulet' => 'pro',
-            'modulok_2' => ['modul_a'],
-        ], $this->facts());
-        self::assertArrayNotHasKey('modulok_2', $validated->stored());
+        foreach (['2026-11-30 08:00:00', '2026-12-14 18:00:00'] as $moment) {
+            Runner::publish(new Runner(new TestClock(new \DateTimeImmutable($moment, new \DateTimeZone('UTC'))), true));
+            $definition = $this->forms->definition($this->readForm($form));
 
-        $html = do_blocks('<!-- wp:kalaka/form ' . wp_json_encode(['formId' => $form]) . ' /-->');
-        self::assertStringNotContainsString('data-kalaka-ranking', $html);
-        self::assertStringContainsString('data-kalaka-field="szolgalati_terulet"', $html);
+            self::assertTrue($this->forms->availability($definition, [], $this->facts())->shows('modulok_2'), $moment);
+            $validated = $this->forms->validate($definition, self::NAMES + [
+                'szolgalati_terulet' => 'pro',
+                'modulok_2' => ['modul_a'],
+            ], $this->facts());
+            self::assertSame('["modul_a"]', $validated->stored()['modulok_2'] ?? null, $moment);
+
+            $html = do_blocks('<!-- wp:kalaka/form ' . wp_json_encode(['formId' => $form]) . ' /-->');
+            self::assertStringContainsString('data-kalaka-ranking', $html, $moment);
+        }
     }
 
     public function testTheReFetchReRendersTheRankingWithItsOfferedOptions(): void
@@ -277,7 +284,7 @@ final class RankingSetTest extends FormsTestCase
             DefinitionCheck::problem($content, 0, FormPlacement::Registration, $this->event)
         );
         // Within one form too.
-        $fresh = $this->newSet(null, null);
+        $fresh = $this->newSet();
         $twice = $this->slotFields() . $this->track()
             . $this->ranking('elso', $fresh) . $this->ranking('masodik', $fresh);
         self::assertSame(
@@ -298,7 +305,7 @@ final class RankingSetTest extends FormsTestCase
     public function testOneFieldIsNotTheRequestFieldOfTwoSets(): void
     {
         $this->form();
-        $other = $this->newSet(null, null);
+        $other = $this->newSet();
 
         $content = $this->slotFields() . $this->track() . $this->ranking('modulok', $other);
         self::assertSame(
@@ -392,5 +399,46 @@ final class RankingSetTest extends FormsTestCase
             ['invalid_option_conditions', 'modulok'],
             DefinitionCheck::problem($content, 0, FormPlacement::Registration, $this->event)
         );
+    }
+
+    public function testAReRankingFormsOptionConditionsReadTheStoredTrackItDoesNotHold(): void
+    {
+        $slot = $this->form();
+        $registration = (new RegistrationSubmit($this->runner))->submit(
+            new SubmitRequest(
+                $slot,
+                $this->readForm($slot)->version,
+                self::NAMES + ['szolgalati_terulet' => 'iskolamisszio', 'modulok' => ['modul_a']],
+                SubmitToken::generate()
+            ),
+            new GuestActor()
+        )->registration;
+        ActiveRegistrationState::set($registration, false);
+
+        try {
+            // The re-ranking form holds only the ranking: the track is read from the registration (CF2). The
+            // same content as a registration form has no such track before the ranking, so the save refuses it.
+            self::assertSame(
+                ['condition_key_not_earlier', 'szolgalati_terulet'],
+                DefinitionCheck::problem($this->ranking(), 0, FormPlacement::Registration, $this->event)
+            );
+            self::assertNull(DefinitionCheck::problem($this->ranking(), 0, FormPlacement::Additional, $this->event));
+            $form = $this->insertChecked($this->ranking(), $this->meta('additional'));
+
+            $definition = $this->forms->definition($this->readForm($form));
+            $facts = (new EventFormHost())->facts($this->readForm($form), $this->clock->now());
+            self::assertNotNull($facts);
+            $availability = $this->forms->availability($definition, [], $facts);
+
+            self::assertSame(
+                ['modul_a', 'modul_b', 'modul_c', 'iskolamisszio'],
+                $availability->offeredOptions('modulok')
+            );
+            // The submit's walk offers the same options, so "PRO" (not this track's) is dropped.
+            $ranked = $this->forms->validate($definition, ['modulok' => ['iskolamisszio', 'pro']], $facts);
+            self::assertSame('["iskolamisszio"]', $ranked->stored()['modulok']);
+        } finally {
+            ActiveRegistrationState::set(null, false);
+        }
     }
 }

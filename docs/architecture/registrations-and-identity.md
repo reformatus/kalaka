@@ -175,6 +175,9 @@ erDiagram
 - **Only capacity (waitlisted) and withdrawal or removal keep a registration
   from being `registered`.** Deposit or aid status never makes a registration
   invalid.
+- **A live registration is a registered one:** a waitlisted, withdrawn or
+  removed registration is not live. One test in code decides it, for counts, seats
+  and every rule that applies to live registrations.
 - **Confirmation sits beside status, not in it:** it is defined only for
   `registered` registrations, a system decision recorded from payments or a
   manual flag ([Money](money.md#confirmation)). Participants see one phase
@@ -248,12 +251,13 @@ reference and check-in barcode.
     wins: access follows the account. Until the account picker is built, being
     logged in sets nothing: only a secret link makes a registration active.
   - The active registration **expires** 24 hours after its link was
-    followed (following it again starts anew), and **"kilépés"** clears it.
+    followed (following it again starts anew), and **"kijelentkezés"**
+    clears it and logs a logged-in account out.
 - **The participant side is built from blocks** that admins place on any
   page, not from a fixed portal page: e.g. the registration's status, its
   bank-transfer details, a picker among an account's registrations,
-  "kilépés", or a small additional form. They show the active registration.
-  The exact set of blocks is still to be agreed with the owner.
+  "kijelentkezés", or a small additional form. They show the active
+  registration. The exact set of blocks is still to be agreed with the owner.
 - **A page holding a participant block is never cached.**
 - **Forms start from the active registration:** an additional form writes
   to it, and a registration form may prefill from it
@@ -262,9 +266,6 @@ reference and check-in barcode.
   **stored readable,** so every email can carry the registrant's link. They
   are treated as secrets: our own code never writes one into a log line or an
   exception message, and they are masked in exports.
-- **Organizers can regenerate a link:** an audited use case; the old link
-  stops working immediately. Mailing the new link is an action mail, switched
-  on or off per event like the others.
 - **The contact email is not unique.** "Resend my link" mails the links of
   every registration with that address. When a second guest registration with
   the same email is submitted to the same event, the registrant sees a soft

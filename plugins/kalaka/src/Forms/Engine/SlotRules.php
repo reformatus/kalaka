@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine;
 
+use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\PageDefinition;
 use Kalaka\Forms\Api\FormPlacement;
@@ -16,6 +17,34 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
  */
 final class SlotRules
 {
+    /** The problem code of a required participant field the registration form lacks (`SlotRequirement`). */
+    public const REQUIRED_FIELD_MISSING = 'required_field_missing';
+
+    /**
+     * An extension's requirement (`Api\SlotRequirement`): each key must be a required field of the form, outside
+     * any condition branch and any conditional page. Event-dependent, so it is not part of `check()`, which
+     * every version of a form passes: it applies to the form as served and as saved live, like the account block.
+     *
+     * @param list<string> $keys
+     * @return array{string, string}|null the problem code and the first missing key
+     */
+    public function requiredFieldProblem(FormDefinition $definition, array $keys): ?array
+    {
+        foreach ($keys as $key) {
+            $field = $definition->field($key);
+            if (
+                $field === null
+                || !$field->isRequired()
+                || $field->branches !== []
+                || ($field->page !== null && ($definition->pages[$field->page] ?? null)?->condition !== null)
+            ) {
+                return [self::REQUIRED_FIELD_MISSING, $key];
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @param list<FormField> $fields
      * @param list<PageDefinition> $pages the form's pages: neither marking may sit on
