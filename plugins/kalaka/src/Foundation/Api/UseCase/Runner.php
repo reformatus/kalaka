@@ -270,7 +270,7 @@ final class Runner
             $result = $useCase->execute($input, $context);
             self::throwRecorded($state);
             // A preview writes nothing, so it is neither evaluated nor audited: the one rule for every
-            // preview. [UNAPPROVED N534]
+            // preview.
             $preview = $useCase instanceof PreviewableUseCase && $useCase->isPreview($input);
             if ($preview && $context->touchedRegistrations() !== []) {
                 $error = new SystemFailure(null, new \LogicException($useCase::name() . ' wrote in a preview.'));

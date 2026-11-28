@@ -149,7 +149,7 @@ final class RegistrationDetail
             $read['requests'] = $this->requestsPart($key, $event->currency->value, $registered);
         }
         // The status acts: the grant carries the act's action and the status allows it now (the server decides, the
-        // panel keeps no status logic). [UNAPPROVED N513]
+        // panel keeps no status logic).
         $statusActs = $this->statusActs->allowedFor($key);
         $read['can'] = [
             // A request is answerable only while the registration is registered, as the grid column says (N655).
@@ -358,7 +358,7 @@ final class RegistrationDetail
      * none; sent back unchanged), `options` for a type with options (each `{value, label, full}`) and `full` for a
      * consent. `full` is true when taking that choice's seat would put its pool over the limit for this
      * registration (`FieldCorrections::fullValues()`): the "full" warning before a save, only for a registered
-     * registration. Staff placing is never stopped by it. [UNAPPROVED N620, N621, N622]
+     * registration. Staff placing is never stopped by it.
      *
      * @param \Closure(string): bool $writes
      * @return list<array<string, mixed>>

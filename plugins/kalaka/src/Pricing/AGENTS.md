@@ -90,7 +90,7 @@ retention and the materializer
   `Api\FeeComposition`, as one `retention` line per payer (label
   `Retention::LABEL`). The kept amount is held to the payer's own payments: it never owes more than was paid and
   refunds nothing. A restore makes the line read zero and the materializer reverses it; a
-  change of the rule re-evaluates the registrations that left too. [UNAPPROVED T505]
+  change of the rule re-evaluates the registrations that left too.
 - The money phase runs first in the evaluation, before the decision rules,
   with the registration's row lock held.
 - A money settings change goes preview → apply: the preview writes nothing;
@@ -134,7 +134,7 @@ retention and the materializer
   transaction; a restore does not bring the flag back).
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
   registration), written only by `kalaka/unconfirm`. Both use cases take the
-  per-event action `kalaka_confirm_manually` and a required reason. Setting a
+  per-event action `kalaka_confirm_manually` and an optional reason. [UNAPPROVED R347] Setting a
   set flag writes nothing; unconfirming a registration that is not confirmed
   writes nothing; unconfirming a confirmed one is a new act every time. A
   revoke keeps the flag's row with its revoke time. The flag is set on a
