@@ -18,6 +18,7 @@ use Kalaka\Pricing\SetManualConfirmation;
 use Kalaka\Pricing\SetRetention;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Portal\ActiveRegistrationState;
+use Kalaka\Portal\ParticipantBlocks;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\Api\WithdrawBadNonce;
 use Kalaka\Portal\Api\WithdrawStale;
@@ -409,6 +410,41 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
         LoadState::record([new LoadFailure('x', 'y')]);
         self::assertFalse($read->of($this->key('00A5'))?->can->withdraw);
+    }
+
+    /** The block render hands the status markup the real offer: the button, the route's address, the hint after the close. */
+    public function testTheBlockOffersTheWithdrawalFromTheStatusRead(): void
+    {
+        // The status block shows nothing of a registration to a closed or unpublished event, so publish this
+        // one the way PortalTestCase does, behind the repository.
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['state' => 'published'], ['id' => $this->event]);
+        \Kalaka\Foundation\ObjectCache::clear();
+        $this->closesAt(null);
+        ActiveRegistrationState::set($this->key('00A0'), false);
+        $_GET['kalaka_withdraw'] = '';
+        $open = ParticipantBlocks::status();
+        self::assertStringContainsString('Jelentkezés lemondása', $open);
+        // The first button is a plain GET to the page's own confirm step; only the confirmed form posts to the route.
+        self::assertStringContainsString('#kalaka-withdraw-question', $open);
+        self::assertStringNotContainsString('Biztosan lemondod', $open);
+
+        $_GET['kalaka_withdraw'] = 'confirm';
+        $confirm = ParticipantBlocks::status();
+        self::assertStringContainsString('Biztosan lemondod a jelentkezésedet?', $confirm);
+        self::assertStringContainsString(rest_url('kalaka-portal/v1/withdraw'), $confirm);
+        unset($_GET['kalaka_withdraw']);
+
+        $this->closesAt('2026-12-01 08:00:00');
+        $closed = ParticipantBlocks::status();
+        self::assertStringNotContainsString('Jelentkezés lemondása', $closed);
+        self::assertStringContainsString(
+            'A jelentkezés lezárult, ezért ezt a jelentkezést itt már nem tudod lemondani.',
+            $closed
+        );
+
+        ActiveRegistrationState::set(null, false);
+        self::assertStringNotContainsString('Jelentkezés lemondása', ParticipantBlocks::status());
     }
 
     private function closesAt(?string $at): void

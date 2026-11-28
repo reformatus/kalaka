@@ -93,7 +93,9 @@ page, and the account area
   which is structural only (the money table's emphasis is `em` and `strong` in
   its markup; a theme's row lines and colours are the theme adapter's); the
   texts read correctly without either. Every text is the frozen spec's or
-  approved.
+  approved, except the registrant's withdrawal (T765 to T775, T991, T992,
+  marked `[UNAPPROVED]` in `StatusMarkup`), a prototype until the owner
+  approves it.
 - The leave block `kalaka/leave` (`[kalaka_leave]`) is page content only and renders nothing unless there is
   an active registration or a logged-in account, or while the site is closed (the transfer block's rule). It
   is one form with one button that posts the page's own address as `return_url` to
@@ -103,6 +105,9 @@ page, and the account area
   `wp_logout()` (a REST request without a nonce has no user by then); `wp_logout()` for an account; the
   active-registration cookie cleared; a 303 to a same-site `return_url`, else the home page, with no body.
   No nonce (the registrant may be a guest), no state, no audit.
+- The registrant's withdrawal is presentation only: `StatusMarkup` shows the
+  button on the server's `can.withdraw` and a confirmation step whose post is the
+  confirmed act; the page decides nothing and holds no rule. [UNAPPROVED N765 to N779, N1026 to N1031]
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
 - The participant's own withdrawal (`POST kalaka-portal/v1/withdraw`, `Rest\WithdrawRoute`; `Api\Withdrawal`)
