@@ -535,9 +535,10 @@ final class ParticipantMoneyTest extends PortalTestCase
         }
 
         self::assertSame($counts[0], $counts[1]);
-        // The registration, the event, the decisions, the summary, the statement and the manual fees, and the
-        // fact source's two request reads (whether a request awaits an answer and its last changed answer).
-        self::assertSame(8, $counts[0]);
+        // The registration, the event, the decisions, the summary, the participant's balance (the rule of what is
+        // payable now reads `balancesOf()`, never the summary), the statement and the manual fees, and the fact
+        // source's two request reads (whether a request awaits an answer and its last changed answer).
+        self::assertSame(9, $counts[0]);
     }
 
     // ----- The table's markup (owner topics 10 and 11, rounds 2 and 3) -----

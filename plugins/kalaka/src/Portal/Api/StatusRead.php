@@ -9,6 +9,7 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Api\Phase;
 use Kalaka\Foundation\Api\Decision\Decisions;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\Payer;
@@ -63,11 +64,7 @@ final class StatusRead
         if ($registration === null || $event === null) {
             return null;
         }
-        $availability = match ($event->state()) {
-            EventState::Published => Availability::Open,
-            EventState::Archived => Availability::Archived,
-            default => Availability::EventClosed,
-        };
+        $availability = self::availability($event);
 
         $confirmation = null;
         $payment = null;
@@ -83,7 +80,9 @@ final class StatusRead
             $facts = $this->registrations->factsOf($key, $event, $now);
             $awaits = $facts !== null && $facts->awaitsAnswer === true;
             $payment = $this->payment($registration, $event, $confirmed, $awaits, $now, $facts?->paymentDue());
-            $transfer = $this->transfer($key, $event, $availability, $payment);
+            // One balance read per status read: the rule's input is the balance, never the display summary.
+            $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
+            $transfer = $this->transfer($key, $event, $availability, $payment, $balance);
         }
 
         return new RegistrationStatusView(
@@ -97,6 +96,33 @@ final class StatusRead
             $transfer,
             $this->money->of($key, $event->currency),
         );
+    }
+
+    /**
+     * What the registration can be paid now, by the one rule of the transfer block (`PayableNow`): null unless it
+     * is registered. The same reads as `of()` makes for the transfer, and no more.
+     */
+    public function payableNow(RegistrationKey $key): ?Money
+    {
+        $registration = $this->registrations->find($key);
+        $event = $registration === null ? null : $this->events->find($key->eventId);
+        if ($registration === null || $event === null || $registration->status !== RegistrationStatus::Registered) {
+            return null;
+        }
+        $facts = $this->registrations->factsOf($key, $event, Runner::current()->clock()->now());
+        $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
+        $availability = self::availability($event);
+
+        return PayableNow::amount($availability, $facts !== null && $facts->awaitsAnswer, $balance);
+    }
+
+    private static function availability(Event $event): Availability
+    {
+        return match ($event->state()) {
+            EventState::Published => Availability::Open,
+            EventState::Archived => Availability::Archived,
+            default => Availability::EventClosed,
+        };
     }
 
     private static function phase(RegistrationStatus $status, bool $confirmed): Phase
@@ -139,14 +165,12 @@ final class StatusRead
         Event $event,
         Availability $availability,
         PaymentView $payment,
+        Money $balance,
     ): ?TransferDetails {
-        $amount = $payment->participant->balance->roundedUpToPayableUnit();
+        $amount = PayableNow::amount($availability, $payment->awaitsAnswer, $balance);
         $beneficiary = trim((string) $event->transferBeneficiary);
         $account = trim((string) $event->transferAccount);
-        if (
-            $availability !== Availability::Open || $payment->awaitsAnswer || !$amount->isPositive()
-            || $beneficiary === '' || $account === ''
-        ) {
+        if ($amount === null || $beneficiary === '' || $account === '') {
             return null;
         }
         $prefix = trim((string) $event->transferReferencePrefix);
