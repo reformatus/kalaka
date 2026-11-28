@@ -246,8 +246,8 @@ src/Registrations/
   JavaScript stays readable.
 - **`@wordpress/scripts`** scans `src/` for `block.json` (with
   `--webpack-copy-php`); blocks are registered from `build/`. The root
-  `webpack.config.js` adds the one script no `block.json` names, the
-  draft-claim popup.
+  `webpack.config.js` adds the two scripts no `block.json` names, the
+  admin app and the draft-claim popup.
 - **The admin app** lives in `src/Admin/app/`, with its own entry in a small
   custom webpack config. If it grows large it can move to a top-level
   `client/admin/`.

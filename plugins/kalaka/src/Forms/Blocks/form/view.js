@@ -1555,12 +1555,14 @@ async function send(form) {
 
 store('kalaka/form', {
 	actions: {
-		// A field's message clears on the first edit of that field.
+		// A field's message clears on the first edit of that field, and typing alone arms the draft autosave:
+		// a text field's `change` fires only when the person leaves it (the answers are read at save time).
 		edited(event) {
 			const form = getElement().ref;
 			const wrapper = event?.target?.closest?.('[data-kalaka-field]');
 			if (wrapper !== null && wrapper !== undefined && form.contains(wrapper)) {
 				clearFieldMessage(wrapper);
+				draftChanged(form);
 			}
 		},
 		update(event) {

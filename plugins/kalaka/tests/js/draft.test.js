@@ -133,6 +133,32 @@ describe('the autosave', () => {
 		expect(draftCalls()[0][1].keepalive).toBe(true);
 	});
 
+	test('typing alone, with no change event, arms the timer save and the pagehide save (review 772 C1-1)', async () => {
+		await load(form(text('name'), { draftUrl: DRAFT_URL }));
+		jest.useFakeTimers();
+		const input = root().querySelector('[name="name"]');
+
+		input.value = 'Teszt Anna';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		expect(draftCalls()).toHaveLength(0);
+		jest.advanceTimersByTime(3000);
+
+		expect(draftCalls()).toHaveLength(1);
+		expect(JSON.parse(draftCalls()[0][1].body).answers).toEqual({
+			name: 'Teszt Anna',
+		});
+
+		input.value = 'Teszt Anna Mária';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		window.dispatchEvent(new Event('pagehide'));
+
+		expect(draftCalls()).toHaveLength(2);
+		expect(draftCalls()[1][1].keepalive).toBe(true);
+		expect(JSON.parse(draftCalls()[1][1].body).answers).toEqual({
+			name: 'Teszt Anna Mária',
+		});
+	});
+
 	test('saves nothing once a send starts', async () => {
 		await load(form(text('name'), { draftUrl: DRAFT_URL }));
 
