@@ -68,7 +68,7 @@ final class StatusRead
         $confirmation = null;
         $payment = null;
         $transfer = null;
-        if ($registration->status === RegistrationStatus::Registered) {
+        if ($registration->status->isLive()) {
             $now = Runner::current()->clock()->now();
             $decisions = $this->decisions->currentOf($key);
             $confirmed = Confirmations::confirmedIn($decisions);

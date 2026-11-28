@@ -578,3 +578,57 @@ describe("what the server tells the editor (server.js)", () => {
     }
   });
 });
+
+describe("the per-event keys the server prints (CF2)", () => {
+  const withKeys = (run) => {
+    const before = globalThis.kalakaFormEditor;
+    globalThis.kalakaFormEditor = {
+      ...before,
+      eventTypes: {
+        ...before.eventTypes,
+        "event.seats_left": "number",
+        "event.points.3": "date",
+        "registration.status": "choice",
+        // a stored value of the event's participant field, which an additional form may read
+        sav: "choice",
+        kesobbi: "text",
+      },
+    };
+    try {
+      run();
+    } finally {
+      globalThis.kalakaFormEditor = before;
+    }
+  };
+
+  test("a condition may read the keys the server prints for the event", () => {
+    withKeys(() => {
+      const scope = scopeOf(form, "elseif");
+      const reads = (key, operator, value) =>
+        checkCondition(
+          { match: "all", items: [{ key, operator, value }] },
+          scope,
+        );
+      expect(reads("event.seats_left", "greaterThan", "0")).toBeNull();
+      expect(reads("event.points.3", "greaterThan", "2026-12-01")).toBeNull();
+      expect(reads("registration.status", "equals", "registered")).toBeNull();
+      expect(reads("sav", "equals", "A")).toBeNull();
+    });
+  });
+
+  test("a key the form holds as a field is read from its answers: an earlier field wins, a later one is no key", () => {
+    withKeys(() => {
+      const scope = scopeOf(form, "elseif");
+      // `szallas` is an earlier choice field: its options are checked, a stored key of that name is not read.
+      expect(checkCondition(equals("szallas", "nincs"), scope)).not.toBeNull();
+      // `kesobbi` is a field of the form, later than the chain: never the stored value of that key.
+      expect(checkCondition(equals("kesobbi", "x"), scope)).not.toBeNull();
+    });
+  });
+
+  test("a key the server does not print is refused", () => {
+    expect(
+      checkCondition(equals("event.seats_left", "1"), scopeOf(form, "elseif")),
+    ).not.toBeNull();
+  });
+});

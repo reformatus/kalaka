@@ -37,7 +37,7 @@ final readonly class EventMailSettings
      * @return array{
      *     event_id: int,
      *     layout_html: string,
-     *     mails: list<array{mail: string, label: string, enabled: bool, body_id: ?int, layout: bool}>
+     *     mails: list<array{mail: string, label: string, enabled: bool, body_id: ?int}>
      * }
      */
     public function toArray(): array

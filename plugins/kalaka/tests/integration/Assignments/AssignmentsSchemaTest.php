@@ -21,8 +21,6 @@ final class AssignmentsSchemaTest extends WP_UnitTestCase
             'time_slot' => 'varchar(191) null',
             'required' => 'tinyint(1)',
             'mode' => 'varchar(20)',
-            'window_opens_at' => 'datetime(6) null',
-            'window_closes_at' => 'datetime(6) null',
             'published' => 'tinyint(1)',
             'request_field_key' => 'varchar(64) null',
         ],
@@ -59,7 +57,7 @@ final class AssignmentsSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(1, (int) get_option('kalaka_schema_assignments'));
+        self::assertSame(2, (int) get_option('kalaka_schema_assignments'));
         self::assertSame([], LoadState::current()->failures);
 
         foreach (self::COLUMNS as $table => $expected) {
@@ -85,6 +83,27 @@ final class AssignmentsSchemaTest extends WP_UnitTestCase
             }
             self::assertSame($expected, $declared, $table);
         }
+    }
+
+    public function testSchemaStepTwoDropsTheSetWindowColumnsWhereTheyExistAndRunsAgain(): void
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'kalaka_assignment_sets';
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the test's own table
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN window_opens_at datetime(6) DEFAULT NULL, "
+            . 'ADD COLUMN window_closes_at datetime(6) DEFAULT NULL');
+        $has = static fn (string $column): bool => $wpdb->get_var(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the test's own table
+            $wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $column)
+        ) !== null;
+        self::assertTrue($has('window_opens_at') && $has('window_closes_at'));
+
+        $step = (new Module())->schema()->steps[2];
+        $step();
+        $step();
+
+        self::assertFalse($has('window_opens_at'));
+        self::assertFalse($has('window_closes_at'));
     }
 
     public function testTheKeysAreAsDeclaredWithoutAPrefixIndex(): void

@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Mail\Body;
+
+use Kalaka\Mail\BodyUnusable;
+use Kalaka\Mail\Delivery;
+use Kalaka\Mail\MailMessage;
+use Kalaka\Mail\Manual\MailBatch;
+use Kalaka\Mail\Manual\MailBatchQuery;
+
+/**
+ * Composes a manual delivery (mail.md, "Five kinds of mail"): the cause of the delivery is its send batch, and
+ * the batch names the body. The body is rendered at send time from current
+ * data, by `MailRenderer::renderBody()`, as an action mail's is. A batch that is gone is the delivery's own
+ * problem (`no_batch`), failed without an attempt and never counted toward pausing.
+ */
+final class ManualMailComposer
+{
+    public function __construct(
+        private readonly MailRenderer $renderer = new MailRenderer(),
+        private readonly MailBatchQuery $batches = new MailBatchQuery(),
+    ) {
+    }
+
+    /**
+     * @param \DateTimeImmutable $now the sender's moment for this run: the one clock the body's `time.now` reads
+     * @throws BodyUnusable no such batch (`no_batch <id>`), or the body's own problem (`MailRenderer`)
+     */
+    public function compose(Delivery $delivery, \DateTimeImmutable $now): MailMessage
+    {
+        $registration = $delivery->registration;
+        $id = $delivery->causeType === MailBatch::CAUSE ? (int) $delivery->causeKey : 0;
+        $batch = $id > 0 ? $this->batches->find($registration->eventId, $id) : null;
+        if ($batch === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
+            throw new BodyUnusable('no_batch ' . $delivery->causeKey);
+        }
+        $mail = $this->renderer->renderBody($registration->eventId, $batch->bodyId, $registration, $now);
+
+        return new MailMessage($mail->subject, $mail->html, ['Content-Type: text/html; charset=UTF-8'], $mail->version);
+    }
+}
