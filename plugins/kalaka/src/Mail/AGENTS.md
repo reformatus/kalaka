@@ -71,7 +71,8 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
 - An action mail is decided only through `Api\ActionMails::due()` inside the
   acting use case, or inside the evaluation that use case runs (confirmed),
   which queues it only when the event has it switched on and
-  looks at nothing else (not the event's state).
+  looks at nothing else (not the event's state). `ActionMails::isOn()` is the
+  plain read of that switch, for a preview that queues nothing.
 - A mail is rendered at send time by `Body\MailRenderer`, through
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and

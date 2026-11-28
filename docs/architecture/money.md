@@ -357,7 +357,10 @@ such as lunch or a donation.
 - **Saving money settings is preview → confirm → apply**
   ([Bulk changes](foundation.md#bulk-changes)). The preview composes every
   `registered` and `waitlisted` registration with the proposed settings and
-  writes nothing, showing what each payer owes now and would owe. The apply
+  writes nothing, showing what each payer owes now and would owe, and how
+  many registrations would become confirmed and how many "confirmed" mails
+  would go (a dry run of [Confirmation](#confirmation) against the proposed
+  composition; a registration confirmed already is not counted). The apply
   saves the settings, then re-evaluates each of them in its own transaction,
   and the materializer writes the difference as `charge` lines. Its report
   lists the failed registrations, with retry and skip; a failed or skipped
