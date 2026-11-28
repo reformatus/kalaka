@@ -101,12 +101,10 @@ flowchart TB
   - a registration form is open while the slot is: from "registration
     opens" up to "registration closes". It has no period of its own;
   - **each additional form has its own open period**, which a form link can
-    bypass ([below](#form-links-and-admin-submissions));
-  - an additional form that writes an assignment set's choice follows that
-    set's choice window instead
-    ([Modules](modules-and-extensions.md#assignment-sets)).
+    bypass ([below](#form-links-and-admin-submissions)).
 - **The slot adds one more rule:** every form in it must contain the
-  required fields and functionality (e.g. exactly one contact email).
+  required fields and functionality (e.g. exactly one contact email, or the
+  field an extension requires, such as the price ladder's `price_tier`).
   Otherwise all forms share the same primitives.
 - **An additional form never creates a registration** and never counts
   toward capacity. It writes to the active registration
@@ -126,7 +124,7 @@ flowchart TB
   ([Modules](modules-and-extensions.md#assignment-sets)). A choice field in a
   form writes a set's direct choice or a request. **Re-choosing later is an
   additional form** holding that choice, in both access modes, open while
-  the set's choice window is; there is no separate portal edit.
+  that form is; there is no separate portal edit.
 - **Form texts read amounts, quotas and deadlines from the event's settings,**
   so they cannot drift from the rules
   ([Values and conditions](#values-and-conditions)).
@@ -299,7 +297,9 @@ flowchart TB
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
     then may a form hold its key, and only then may staff correct it
-    through views;
+    through views. A form that joins an extension's choice
+    field offers only options the extension declared, any subset of them,
+    and never adds one;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth
@@ -312,8 +312,10 @@ flowchart TB
   request: the form editor asks the organizer whether to carry a changed
   label over, or staff edit it in the field list (`form` and `staff` fields;
   a `system` or `extension` field's texts are its declarer's). A form shows
-  its own labels; mails, views and the participant blocks show the
-  participant field's.
+  its own labels, and shows the participant field's only where it leaves a
+  label empty (for an `extension` field, the declarer's text, which is the
+  admin name); mails, views and the participant blocks show the participant
+  field's.
 - **Designing a form designs participant fields.** A new form field creates
   a new participant field. A form field joins an existing participant field
   only explicitly, by taking its key (below); several forms writing one
@@ -356,16 +358,29 @@ flowchart TB
   when the type is the same; with another type the save is refused.
   Derivation never picks a retired key. A choice field's options are the union over
   the forms that hold it; an option no form offers any more is retired,
-  keeping its label, so stored values still read.
-- **Every form-to-backend link is by key.** An admin adds a backend thing
-  (a charge, the donation), authors a form, adds a field, and sets the
-  field's key to the backend thing's key; the backend names no field. The
-  field with that key is what the thing reads. A backend key no field uses
-  does nothing.
+  keeping its label, so stored values still read. An extension field's
+  options are its declarer's, not the forms' union.
+- **Who defines a participant field.** A field that only holds data is
+  created by the form field that first asks for it. A field that code acts
+  on (the price tier, an extra charge, the donation, a share or support
+  answer) is defined by that code, which declares it with its key and type
+  when its setting is saved (`extension` source); a form field joins it by
+  taking its key and never creates it. The field with that key is what the
+  code reads; a declared key no form field holds does nothing. When a form
+  field already holds the key, with the same type, the declaration adopts
+  it: the field becomes an `extension` field with the declarer's title (the
+  participant field's own; every form keeps its own labels), and its values
+  stay. A key a `staff` or `system` field holds, or a field of
+  another type, refuses the declaration. A key another code declarer holds
+  is refused.
 - **Explicit markings:** the contact email (exactly one per form in the
-  registration slot) and the display name.
-- **Money-relevance is a type capability** supplied by plugins; core ships no
-  money field types. Values are stored like any other, **locked after their
+  registration slot) and the display name. They stay on the registration
+  form's blocks and do not move to the participant-field list.
+- **An additional form holds neither explicit marking;** the save refuses it,
+  as the slot's rule does. A "change my e-mail" form waits for its own design.
+- **Money-relevance is a type capability** supplied by plugins, or declared
+  by an extension for a field it declares; core ships no money field types.
+  Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
   only through use cases that re-materialize the money; a staff correction
   through views is one and needs no unlock.
@@ -383,9 +398,14 @@ is no other participant-side edit.
   value from its form link or a public prefill. Fields the form does not hold,
   and fields in branches or pages that do not show, keep their values. A
   shown field that was prefilled and is left blank clears its value: the
-  form showed the current value, so blank is the answer. A field whose type
+  form showed the current value, so blank is the answer. A shown consent left
+  unticked is not blank but the answer no, stored as `0`: withdrawing a consent
+  given earlier overwrites it and never clears it. A field whose type
   refuses prefill opens empty, so left blank it keeps the current value:
   the form never showed it.
+- **An additional form's submit sends no action mail;** the page shows the
+  form's after-submit text, or the supplement's default when it has none
+  ([Forms implementation](#forms-implementation)).
 - **The form opens with the current values** of the registration, as
   editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
 - **Locked fields, money-relevant ones by default:** the first write is
@@ -420,6 +440,11 @@ is no other participant-side edit.
     logged in (`account.logged_in`, „Bejelentkezve”): yes or no where the
     form has an account step, and none where it has none (the event's off
     account mode, an additional form), never no there.
+    An additional form's conditions also read its registration's status
+    (`registration.status`). Every form's conditions read the places the
+    event has left (`event.seats_left`) and the event's own points
+    (`event.points.<id>`). Whatever decides what a form shows is such a
+    value; the backend keeps no rule of its own on who sees what.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
 - **Inline values** are a rich-text format stored as
@@ -441,7 +466,7 @@ is no other participant-side edit.
   one condition in this format, through one evaluator in PHP that reads a
   **fact source**: form fields and branches, pages and sections, a choice
   field's options (the options a ranking takes from an assignment set
-  included), price-ladder tiers, offers and the adjudicated aid. An
+  included), offers and the adjudicated aid. An
   assignment-set option carries no condition of its own: the form's ranking
   field decides who may pick it. In a form it reads the draft answers and
   the event's values, on every render and again at submit; in the fee components and the materializer it reads the
@@ -467,9 +492,20 @@ is no other participant-side edit.
   stores nothing. Validation follows what shows: at submit a required
   choice left unanswered has its own required error, and the fields of the
   branch shown at that moment (an `else`, say) are checked like any shown
-  field.
+  field. A registration form's submit and an
+  additional form's submit both walk the form this way, so a required field
+  that shows and is left blank refuses the submit with the general answer
+  error.
 - **Mid-form availability is advisory.** Seats and capacity are decided only
   at submit, under the lock; the texts say so (approved when built).
+- **The submit judges values that change.** The time, the places left, a
+  registration's status can change between the page and
+  the submit. The submit's walk reads them as they are then: a field that now shows is checked
+  like any shown field, and an answer that no longer shows or is no longer
+  offered is dropped. An additional form's submit reads the registration's
+  stored values and status once for its walk and reads them again under the
+  registration lock; if they differ, the walk is run again. Places are still
+  taken only under the lock, by the rules that own them.
 
 **The condition format:**
 

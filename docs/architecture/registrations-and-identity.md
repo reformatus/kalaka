@@ -248,12 +248,13 @@ reference and check-in barcode.
     wins: access follows the account. Until the account picker is built, being
     logged in sets nothing: only a secret link makes a registration active.
   - The active registration **expires** 24 hours after its link was
-    followed (following it again starts anew), and **"kilépés"** clears it.
+    followed (following it again starts anew), and **"kijelentkezés"**
+    clears it and logs a logged-in account out.
 - **The participant side is built from blocks** that admins place on any
   page, not from a fixed portal page: e.g. the registration's status, its
   bank-transfer details, a picker among an account's registrations,
-  "kilépés", or a small additional form. They show the active registration.
-  The exact set of blocks is still to be agreed with the owner.
+  "kijelentkezés", or a small additional form. They show the active
+  registration. The exact set of blocks is still to be agreed with the owner.
 - **A page holding a participant block is never cached.**
 - **Forms start from the active registration:** an additional form writes
   to it, and a registration form may prefill from it

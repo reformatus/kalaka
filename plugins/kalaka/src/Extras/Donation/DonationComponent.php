@@ -19,6 +19,9 @@ use Kalaka\Pricing\Api\FeeTargets;
  * decide whether decimals are allowed). Empty, 0, a negative value or an event without that field owes nothing
  * and writes no line. There is no setting: the key alone decides. The congregation share never covers it: the
  * share reads only the earlier stages.
+ *
+ * The field is declared by the extras' save (`SetExtraCharges`: an `extension` number field, form-writable, which
+ * adopts a form field of the same type that holds the key); a form field joins it by the key.
  */
 final class DonationComponent implements FeeComponent
 {
@@ -26,6 +29,9 @@ final class DonationComponent implements FeeComponent
 
     /** The key of the participant field that is the event's donation, fixed by Kaláka. */
     public const KEY = 'adomany';
+
+    /** The donation field's title, the declarer's text. */
+    public const FIELD_TITLE = 'Adomány';
 
     public function id(): string
     {

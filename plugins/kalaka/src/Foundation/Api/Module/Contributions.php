@@ -6,6 +6,7 @@ namespace Kalaka\Foundation\Api\Module;
 
 use Kalaka\Forms\Api\BlockHost;
 use Kalaka\Forms\Api\FieldType;
+use Kalaka\Forms\Api\SlotRequirement;
 use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
@@ -26,6 +27,9 @@ final class Contributions
 
     /** @var array<string, FieldType> */
     private array $fieldTypes = [];
+
+    /** @var list<SlotRequirement> */
+    private array $slotRequirements = [];
 
     /** @var list<ThemeAdapter> */
     private array $themeAdapters = [];
@@ -111,6 +115,25 @@ final class Contributions
     public function fieldTypes(): array
     {
         return $this->fieldTypes;
+    }
+
+    /**
+     * A requirement on an event's registration form is an outside point (modules-and-extensions.md, "The
+     * extension surface"): participant field keys the form must hold (`Forms\Api\SlotRequirement`).
+     */
+    public function slotRequirement(SlotRequirement $requirement): void
+    {
+        $this->slotRequirements[] = $requirement;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<SlotRequirement>
+     */
+    public function slotRequirements(): array
+    {
+        return $this->slotRequirements;
     }
 
     /**

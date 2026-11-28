@@ -10,10 +10,10 @@ use Kalaka\Foundation\Api\UseCase\LockLevel;
 
 /**
  * One pool of seats: a limited number of places that registrations hold under the one seat rule
- * (foundation.md, "Facts, decisions and computed values"). The event's places, a set option's places and,
- * later, a price tier's or a support offer's places are pools. The pool's own row is what `Seats` locks
- * `FOR UPDATE` before it counts, so the module that owns the row implements this interface; the limit is
- * that row's setting, never a seat.
+ * (foundation.md, "Facts, decisions and computed values"). The event's places, a set option's places, a price
+ * tier's places (kalaka-price-ladder) and, from #237, a support offer's places (kalaka-support) are pools. The
+ * pool's own row is what `Seats` locks `FOR UPDATE` before it counts, so the module that owns the row implements
+ * this interface; the limit is that row's setting, never a seat.
  */
 interface SeatPool
 {

@@ -44,5 +44,14 @@ page, and the account area
 - The blocks have no look of their own: core preset classes and `portal.css`,
   which is structural only; the texts read correctly without either. Every
   text is the frozen spec's or approved.
+- The leave block `kalaka/leave` (`[kalaka_leave]`) is page content only and renders nothing unless there is
+  an active registration or a logged-in account, or while the site is closed (the transfer block's rule). It
+  is one form with one button that posts the page's own address as `return_url` to
+  `POST kalaka-portal/v1/leave`: one press, no confirmation step.
+- The leave route, in this order: the same-site check first (a post from another site gets the plain 403
+  page, never JSON); the `logged_in` cookie read and validated by the route itself, and its user set, before
+  `wp_logout()` (a REST request without a nonce has no user by then); `wp_logout()` for an account; the
+  active-registration cookie cleared; a 303 to a same-site `return_url`, else the home page, with no body.
+  No nonce (the registrant may be a guest), no state, no audit.
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
