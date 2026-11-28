@@ -10,7 +10,7 @@ use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the tables of the module (S15's three, #247's seats and S74's drafts, schema 6). */
+/** AC1: the tables of the module (S15's three, #247's seats and S74's drafts, schema 7). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -182,7 +182,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     }
 
     /**
-     * A site at schema 3 (S15's `owner_user_id`) upgrades to 6: #247's seats and S74's drafts are created and
+     * A site at schema 3 (S15's `owner_user_id`) upgrades to 7: #247's seats and S74's drafts are created and
      * the registrations keep their owner. Real tables under a prefix of their own, dropped after; creating them
      * commits the harness transaction, so the version option is put back by hand.
      */
@@ -236,7 +236,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
                 $wpdb->query($wpdb->prepare('DROP TABLE IF EXISTS %i', $wpdb->prefix . $table));
             }
             $wpdb->prefix = $prefix;
-            update_option($option, 6);
+            update_option($option, 7);
         }
     }
 

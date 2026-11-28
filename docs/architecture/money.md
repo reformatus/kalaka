@@ -177,17 +177,16 @@ title: Money
   the fee composition says it owes now, manual charges and discounts
   included; **nothing is due** when every payer's target is zero or below.
   Confirmation reads payment facts, never charge lines.
-- **The manual flag** ("may come without paying") is a fact: set with a
-  reason, audited, carrying its own set time. Staff can always take it back,
+- **The manual flag** ("may come without paying") is a fact: set with an
+  optional reason, audited, carrying its own set time. Staff can always take it back,
   through staff's unconfirm; that is allowed also when payments or nothing
   due then confirm the registration again at once.
 - **Staff's unconfirm** („Visszaigazolás visszavonása”) is the one way to take
-  a confirmation back. It is a fact: recorded with a reason, who and when,
+  a confirmation back. It is a fact: recorded with an optional reason, who and when,
   audited, and allowed on any confirmed registration. It revokes the manual
   flag if set and records `unconfirmed`; then confirmation is decided again at
   once, so payments that reach the threshold or nothing due confirm it again.
-  Staff are warned before that happens, and, while the event's confirmed mail is
-  on, that the registrant then gets that mail.
+  Staff are warned before that happens.
 
 | Transition | When |
 |---|---|
