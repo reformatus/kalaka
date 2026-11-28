@@ -1,24 +1,23 @@
 /**
- * The requests of the detail panel (slice B, "answer a request"), split by the panel-tabs ruling (2026-11-26): the
- * requests that await an answer show in a strip above the tabs, with the answer button; every request shows on the
- * „Kérelmek” tab with its state and the answer or change button. Both show only what the read carries: nothing
- * without the requests in the read (only holders of the answer ability get them) and nothing while the last read
- * failed; only the button needs `can.answer_request` (false while the registration is not registered, N655), and an
- * inactive request shows its label with „–” as its state and no button. One `useAnswering` owns the dialog and the
- * snackbar, so the strip's button and the tab's button open the same dialog. [UNAPPROVED N7] [UNAPPROVED N1000]
- * [UNAPPROVED N1001] [UNAPPROVED N1002]
+ * The requests of the detail panel (slice B, "answer a request"), on the „Kérelmek” tab: every request with its
+ * state and the answer or change button. The tab shows only what the read carries: nothing without the requests in
+ * the read (only holders of the answer ability get them) and nothing while the last read failed; only the button
+ * needs `can.answer_request` (false while the registration is not registered, N655), and an inactive request shows
+ * its label with „–” as its state and no button. Answering happens here only (owner 2026-11-27: no awaiting strip
+ * above the tabs; the tab's count badge says how many await, `awaitingCount`). One `useAnswering` owns the dialog
+ * and the snackbar. [UNAPPROVED N7] [UNAPPROVED N1315]
  *
- * The two buttons of one awaiting request (the strip's and the tab's) are kept, as the owner's hole N1002 stands;
- * each has a screen-reader name that says which request it answers (`REQUESTS.answerLabel`, `changeLabel`).
- * [UNAPPROVED T961] [UNAPPROVED T962] [UNAPPROVED N1039]
+ * Each button has a screen-reader name that says which request it answers (`REQUESTS.answerLabel`, `changeLabel`).
+ * [UNAPPROVED T961] [UNAPPROVED T962]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
-import { Button, SnackbarList } from '@wordpress/components';
+import { Button, SnackbarList, VisuallyHidden } from '@wordpress/components';
 import AnswerDialog from './AnswerDialog';
 import NotApplicable from './NotApplicable';
 import { itemsOf, stateText } from './requests';
 import { fmt } from './format';
-import { REQUESTS } from './texts';
+import { returnFocus } from './panel';
+import { PANEL, REQUESTS } from './texts';
 
 /** How long the success snackbar stays, as the other blocks'. */
 const SNACKBAR_MS = 5000;
@@ -31,8 +30,8 @@ export function offeredOf( detail, stale ) {
 /** Whether the read carries the requests part at all: only holders of the answer ability get it. */
 export const hasRequests = ( detail ) => !! ( detail && detail.requests );
 
-/** The requests still awaiting an answer: the strip's. [UNAPPROVED N1000] */
-export const awaitingOf = ( items ) => items.filter( ( item ) => item.state === 'awaiting' );
+/** How many of the requests await an answer: the „Kérelmek” tab's badge. An inactive request does not count. */
+export const awaitingCount = ( items ) => items.filter( ( item ) => item.state === 'awaiting' ).length;
 
 /**
  * The answer dialog and its snackbar, and the function the buttons call to open it.
@@ -41,8 +40,8 @@ export const awaitingOf = ( items ) => items.filter( ( item ) => item.state === 
  * @param {string}   code     the registration's code
  * @param {Function} reload   re-reads the panel's detail; resolves when it is on screen
  * @param {Function} onSaved  tells the grid something changed
- * @param {Object}   fallback ref of the element that takes focus when the opener is gone: an answered request
- *                            leaves the strip, so its button no longer exists. [UNAPPROVED N1003]
+ * @param {Object}   fallback ref of the element that takes focus when the opener is gone: the panel's close
+ *                            button (`closeRef`), as the other blocks do
  * @param {string}   currency the read's `requests.currency`, for the aid figures of the dialog
  * @return {{start: Function, dialog: Object}} `start( item, button )` opens the dialog; `dialog` is to be rendered
  */
@@ -60,17 +59,11 @@ export function useAnswering( config, code, reload, onSaved, fallback, currency 
 	);
 
 	// Two frames after the dialog closes, so the dialog's own focus return has run first: where focus lands is then
-	// the same every time. It lands on the opener while that button is still there (a cancel, Esc, or an answer
-	// from „Kérelmek”), else on the panel. [UNAPPROVED N1038]
+	// the same every time. It lands on the opener while that button is still there (a cancel, Esc, or an answer),
+	// else on the panel's close button (`returnFocus`, as the other blocks). [UNAPPROVED N1316]
 	const focusOpener = () =>
 		window.requestAnimationFrame( () =>
-			window.requestAnimationFrame( () => {
-				const target =
-					opener.current && opener.current.isConnected ? opener.current : fallback && fallback.current;
-				if ( target ) {
-					target.focus();
-				}
-			} )
+			window.requestAnimationFrame( () => returnFocus( opener.current, fallback && fallback.current ) )
 		);
 	const done = async ( text ) => {
 		await reload();
@@ -132,33 +125,29 @@ const answerButton = ( item, start, can ) =>
 	);
 
 /**
- * The strip above the tabs: the requests awaiting an answer, each with its answer button. Nothing when none
- * awaits. [UNAPPROVED N1000] [UNAPPROVED T950] [UNAPPROVED N1001]
+ * The title of the „Kérelmek” tab: the name and, with requests awaiting an answer, a count badge. The badge shows
+ * only the number and is hidden from a screen reader, which hears the visually hidden „, 2 vár válaszra” instead,
+ * so the tab reads „Kérelmek, 2 vár válaszra”. No badge for a count of 0 (and `count` is 0 while the read is
+ * stale). [UNAPPROVED N1314] [UNAPPROVED T1309]
  */
-export function AwaitingStrip( { items, start, can } ) {
-	const awaiting = awaitingOf( items );
-	if ( ! can || awaiting.length === 0 ) {
-		return null;
+export function RequestsTabTitle( { count } ) {
+	if ( count < 1 ) {
+		return PANEL.tabRequests;
 	}
 	return (
-		<div className="kg-requests kg-awaiting">
-			<h3 className="kg-requests-title">{ REQUESTS.awaiting }</h3>
-			<ul>
-				{ awaiting.map( ( item ) => (
-					<li key={ item.id }>
-						<span>{ item.label }</span>
-						{ answerButton( item, start, can ) }
-					</li>
-				) ) }
-			</ul>
-		</div>
+		<Fragment>
+			{ PANEL.tabRequests }
+			<span className="kg-tab-count" aria-hidden="true">
+				{ count }
+			</span>
+			<VisuallyHidden as="span">{ ', ' + fmt( PANEL.tabRequestsAwaiting, count ) }</VisuallyHidden>
+		</Fragment>
 	);
 }
 
 /**
- * The „Kérelmek” tab: every request with its state and, with `can.answer_request`, its button; an awaiting one is
- * here as well, an inactive one shows „–” and no button, and with no request the tab says so. [UNAPPROVED N1002]
- * [UNAPPROVED T1308]
+ * The „Kérelmek” tab: every request with its state and, with `can.answer_request`, its button; an inactive one
+ * shows „–” and no button, and with no request the tab says so. [UNAPPROVED T1308]
  */
 export function RequestsList( { items, currency, start, can } ) {
 	if ( items.length === 0 ) {

@@ -7,9 +7,9 @@
  * snackbar says it was done and focus returns to the field's edit button. [UNAPPROVED N230] [UNAPPROVED N231]
  * [UNAPPROVED N232] [UNAPPROVED N237] [UNAPPROVED N243]. With no field the tab says so. [UNAPPROVED T1307]
  *
- * [UNAPPROVED N1010] Not built: the visual grouping of a request's ask and answer fields, with the pointer to that
- * request on „Kérelmek”. The read does not say which fields belong to a request (`requests.items[]` has no field
- * keys, `fields[]` has no request id): a server shape is needed, see internal/docs/panel-tabs-prototype.md.
+ * Not built (#272 ruling 3): the visual grouping of a request's ask and answer fields, with the pointer to that
+ * request on „Kérelmek”. The read already carries what it needs, `fields: { ask, answer }` on each request in
+ * `requests.items[]` (Admin/AGENTS.md); no screen groups the fields yet.
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';

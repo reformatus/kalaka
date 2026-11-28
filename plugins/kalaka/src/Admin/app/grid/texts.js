@@ -62,6 +62,9 @@ export const PANEL = {
 	// The two new tabs: „Adatok” was the field list's heading (T230), „Kérelmek” the requests block's (T3). [UNAPPROVED T951] [UNAPPROVED T952]
 	tabFields: 'Adatok',
 	tabRequests: 'Kérelmek',
+	// The „Kérelmek” tab's count badge, for screen readers: „Kérelmek, 2 vár válaszra”. The badge itself shows only
+	// the number. [UNAPPROVED T1309]
+	tabRequestsAwaiting: '%d vár válaszra',
 	tabMoney: 'Pénzügyek',
 	// The confirmation row's two words: the confirmation decision's own state labels, as `ConfirmationRule` declares
 	// them and the grid's cells already show.
@@ -209,8 +212,6 @@ export const REQUESTS = {
 	// The two buttons' screen-reader names, naming the request: „Válasz: <kérelem>”. [UNAPPROVED T961] [UNAPPROVED T962]
 	answerLabel: 'Válasz: %s',
 	changeLabel: 'Válasz módosítása: %s',
-	// The pointer of a request's field group on „Adatok”: it opens that request on „Kérelmek”. [UNAPPROVED T960]
-	goTo: 'Ugrás a kérelemhez',
 	dialogTitle: 'Kérelem megválaszolása',
 	answerField: 'Válasz',
 	answerEmpty: 'Add meg a választ.',
@@ -242,7 +243,7 @@ export const REQUESTS = {
 
 /**
  * The four status acts of the detail panel (S39 on #247). Every visible string is unapproved until the owner ticks
- * its box (T700..T723, the renamed ones T953..T959), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás”
+ * its box (T700..T723, the renamed ones T953..T959), except the reused ones: „Mentés” and „Mégse” (MONEY), „Megjegyzés”
  * (CONFIRM) and the generic failure (MONEY.saveFail). The „full” warning and the server's refusals are shown with
  * the server's own text (the preview's `warnings`, the error's `message`) and are not here.
  */
@@ -286,7 +287,7 @@ export const STATUS_ACTS = {
 
 /**
  * Staff editing of a registration's field values (B5-2 on #249). Every string is unapproved until the owner ticks
- * its box (T230..T233), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and its length message
+ * its box (T230..T233), except the reused ones: „Mentés” and „Mégse” (MONEY), „Megjegyzés” and its length message
  * (CONFIRM, its length message), the generic failure (MONEY.saveFail), „Nincs válasz” (GRID.unanswered), „–” (an empty value, MONEY's
  * preview dash) and the „full” warning (the preview's `warnings`, the server's text). Server refusals are shown
  * with the server's own text.
@@ -301,5 +302,5 @@ export const FIELDS = {
 	// An empty value in the list (reused: the preview's dash).
 	empty: '–',
 	// The „Adatok” tab with no field, in the pattern of the money tab's „Még nincs tétel.”. [UNAPPROVED T1307]
-	none: 'Még nincs adat.',
+	none: 'Nincs megjeleníthető adat.',
 };

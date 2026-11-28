@@ -2,7 +2,7 @@
  * The status acts of the detail panel (S39 on #247): which acts the read offers, the ability each runs, the
  * reason rule, and what a preview or a refusal turns into. No WordPress imports, so Jest runs it as it is. The
  * UI decides no access and no money: `can.*` is the server's and the preview's `over_capacity` and `seats` are
- * shown as they come. Every choice is an [UNAPPROVED N7xx] box in internal/docs/s39-247-prototype.md.
+ * shown as they come. Every choice is an [UNAPPROVED N7xx] box, see #272.
  */
 import { validateReason } from './confirmation';
 import { fmt } from './format';

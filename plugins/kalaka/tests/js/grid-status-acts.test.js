@@ -144,6 +144,87 @@ describe( 'the acts row', () => {
 	} );
 } );
 
+describe( 'focus after the dialog (N1316, through panel.js returnFocus and the panel\'s closeRef)', () => {
+	let closeButton;
+	let raf;
+	const mountActs = async ( closeRef ) => {
+		apiFetch.mockImplementation( ( request ) => Promise.resolve( request.data.input.preview ? HELD : { changed: true } ) );
+		host = document.createElement( 'div' );
+		document.body.appendChild( host );
+		closeButton = document.createElement( 'button' );
+		host.appendChild( closeButton );
+		if ( closeRef ) {
+			closeRef.current = closeButton; // what React does for DetailPanel's closeRef
+		}
+		const slot = document.createElement( 'div' );
+		host.appendChild( slot );
+		root = createRoot( slot );
+		const props = { config, code: 'x', status: 'registered', reload: () => Promise.resolve(), onSaved: () => {}, closeRef };
+		await act( async () => root.render( createElement( StatusActs, { ...props, can: { withdraw: true } } ) ) );
+		return props;
+	};
+	const openWithdraw = async () => {
+		const button = Array.from( host.querySelectorAll( 'button' ) ).find( ( b ) => b.textContent === STATUS_ACTS.withdraw );
+		button.focus();
+		await act( async () => button.click() );
+		return button;
+	};
+	// A frame later than the act's own re-render, as in the browser: the callback runs after React has drawn.
+	beforeEach( () => {
+		raf = jest.spyOn( window, 'requestAnimationFrame' ).mockImplementation( ( callback ) => {
+			Promise.resolve().then( callback );
+			return 0;
+		} );
+	} );
+	afterEach( () => {
+		raf.mockRestore();
+		host.remove();
+	} );
+	const flush = () => act( async () => {} );
+	// The re-read the act ends with, drawn at once: the withdraw flag is false now, so the opener leaves the row.
+	const actRemovingItsButton = async ( closeRef ) => {
+		const props = await mountActs( closeRef );
+		props.reload = async () => root.render( createElement( StatusActs, { ...props, can: {} } ) );
+		await act( async () => root.render( createElement( StatusActs, { ...props, can: { withdraw: true } } ) ) );
+		const opener = await openWithdraw();
+		await submit();
+		await flush();
+		return opener;
+	};
+
+	test( 'a cancelled dialog returns focus to the button that opened it', async () => {
+		await mountActs( { current: null } );
+		const opener = await openWithdraw();
+		opener.blur();
+		await act( async () => Array.from( host.querySelectorAll( 'button' ) ).find( ( b ) => b.textContent === MONEY.cancel ).click() );
+		await flush();
+		expect( document.activeElement ).toBe( opener );
+	} );
+
+	test( 'after an act the opener is still on screen, focus returns to it', async () => {
+		const props = await mountActs( { current: null } );
+		props.reload = async () => {};
+		const opener = await openWithdraw();
+		opener.blur();
+		await submit();
+		await flush();
+		expect( opener.isConnected ).toBe( true );
+		expect( document.activeElement ).toBe( opener );
+	} );
+
+	test( 'after an act that removes the opener, focus goes to the close button the panel passes', async () => {
+		const opener = await actRemovingItsButton( { current: null } );
+		expect( opener.isConnected ).toBe( false );
+		expect( document.activeElement ).toBe( closeButton );
+	} );
+
+	test( 'with the opener gone and no close button nothing is focused and nothing throws', async () => {
+		const opener = await actRemovingItsButton( undefined );
+		expect( opener.isConnected ).toBe( false );
+		expect( document.activeElement ).toBe( document.body );
+	} );
+} );
+
 describe( 'the call', () => {
 	test( 'names the ability and the input', () => {
 		expect( abilityOf( 'admit' ) ).toBe( 'kalaka/admit-registration' );
