@@ -23,6 +23,19 @@ final class Texts
     public const EVENT_PAGE = 'Levelek';
 
     /**
+     * The sender page's settings section, the form of the hourly budget. The heading is a candidate, not approved.
+     * [UNAPPROVED T1302]
+     */
+    public const SETTINGS = 'Küldési beállítások';
+
+    /** The budget's label: the twin of `SENDER.budget` in `app/mail/texts.js`, as the status block names it. */
+    public const BUDGET = 'Óránként legfeljebb küldhető levél';
+
+    /** The default shown beside the field, as text: the twin of `SENDER.budgetDefault` (printf, one number). */
+    public const BUDGET_DEFAULT = 'Alapértelmezés: %d';
+
+
+    /**
      * The `kalaka_mail` editor's overrides of core's „Közzététel” wording: the msgid in core's own English, then the
      * Hungarian shown. The progress label is `Publishing…` (with the ellipsis), not the Preferences heading's bare
      * `Publishing`, which is no longer overridden. The `Publish` override also renames the sidebar's date row and its
@@ -123,7 +136,7 @@ final class Texts
     public const YES = 'Igen';
     public const NO = 'Nem';
     public const NONE = '–';
-    public const SAVE = 'Mentés';
+    public const SAVE = 'Mentés'; // also the budget form's submit button (the twin of `COMMON.save`)
     public const CANCEL = 'Mégsem';
     public const LOADING = 'Betöltés…';
     public const CLOSE = 'Bezárás';

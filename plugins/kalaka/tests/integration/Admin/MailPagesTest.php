@@ -125,4 +125,48 @@ final class MailPagesTest extends GrantTestCase
         self::assertSame('sender', $config['kind']);
         self::assertContains($event, array_column($config['events'], 'id'));
     }
+
+    /** The site page's HTML, as `render()` prints it. */
+    private function sitePage(): string
+    {
+        $_GET['page'] = 'kalaka-mail';
+        MailPages::enqueue();
+        ob_start();
+        MailPages::render();
+
+        return (string) ob_get_clean();
+    }
+
+    public function testTheSitePagePrintsTheBudgetAsCoresSettingsFormAfterTheAppsMount(): void
+    {
+        wp_set_current_user($this->admin->userId);
+        Access::forget();
+        \Kalaka\Mail\Pause\BudgetSetting::register();
+
+        $html = $this->sitePage();
+
+        self::assertStringContainsString('<form method="post" action="options.php">', $html);
+        // Core's `settings_fields()` prints this field with single quotes, the others with double ones.
+        self::assertMatchesRegularExpression('/name=["\']option_page["\'] value=["\']kalaka_mail["\']/', $html);
+        self::assertStringContainsString('<table class="form-table"', $html);
+        self::assertMatchesRegularExpression('/<label for="kalaka_mail_hourly_budget">[^<]+<\/label>/', $html);
+        self::assertStringContainsString('name="kalaka_mail_hourly_budget"', $html);
+        self::assertStringContainsString('Alapértelmezés: 240', $html);
+        self::assertLessThan(strpos($html, 'action="options.php"'), strpos($html, 'id="kalaka-mail"'));
+    }
+
+    public function testTheEventPageHasNoSettingsForm(): void
+    {
+        $event = $this->createEvent();
+        wp_set_current_user($this->admin->userId);
+        Access::forget();
+
+        $_GET['page'] = sprintf('kalaka-event-%d-mail', $event);
+        MailPages::enqueue();
+        ob_start();
+        MailPages::render();
+        $html = (string) ob_get_clean();
+
+        self::assertStringNotContainsString('options.php', $html);
+    }
 }

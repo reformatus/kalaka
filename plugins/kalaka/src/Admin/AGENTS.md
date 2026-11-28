@@ -120,7 +120,9 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - The mail pages (`Mail\MailPages`, `app/mail/`) are full access's and decide no
   access: they show only what the mail reads return, every change is an ability
   call, and the page reads again after it; a typed or chosen draft is dropped
-  only when its act succeeded.
+  only when its act succeeded. The one exception is the hourly budget: the site
+  page's PHP settings form posts it to `options.php`, and `Mail\Pause\BudgetSetting`
+  checks and saves it (owner 8.6). [UNAPPROVED R372]
 - The grid's bulk action „Levél küldése” is offered on a tab only when the
   page's configuration says the tab carries `ManualMails::GRANT_ACTION` (full
   access: always); that is only an offer. It sends the ticked rows' codes as a
