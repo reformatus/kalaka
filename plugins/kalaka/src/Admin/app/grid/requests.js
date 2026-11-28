@@ -1,9 +1,9 @@
 /**
  * The pure logic of the requests block (slice B): what a request's state says, whether the dialog asks for an
  * amount, the one check of the dialog, and the ability's input. No WordPress imports, so Jest runs it as it is.
- * [UNAPPROVED N7]
+ *
  */
-import { amountString, formatMoney, parseAmount } from './money';
+import { amountString, formatMoney, parseAmount, toMinor } from './money';
 import { MONEY, REQUESTS } from './texts';
 
 /** The longest note the server takes, in characters. */
@@ -34,7 +34,31 @@ export const asksAmount = ( item, answer ) => item.kind === 'aid' && answer === 
  */
 export const warnsFull = ( item, answer ) => !! item.seat_full && answer === 'yes';
 
-/** The dialog's check: an aid "yes" needs an amount above zero; a message, or an empty string when it may be sent. */
+/**
+ * The aid figures the dialog shows (owner 2026-11-27, walkthrough 6.8): the read's own amounts, labelled; empty
+ * when the read carries none (a holder whose view/grant gives no money fields). [UNAPPROVED T8]
+ */
+export function aidFigures( item ) {
+	const aid = item && item.kind === 'aid' ? item.aid : null;
+	if ( ! aid ) {
+		return [];
+	}
+	return [ 'full_price', 'can_pay', 'asked', 'max_award' ]
+		.filter( ( key ) => aid[ key ] !== null && aid[ key ] !== undefined )
+		.map( ( key ) => ( { key, label: REQUESTS.figures[ key ], value: aid[ key ] } ) );
+}
+
+/** The aid's `asked` amount, hinted in the dialog's field: „12000”, or '' when the read carries none. */
+export function hintedAmount( item ) {
+	const minor = item && item.aid && item.aid.asked ? toMinor( item.aid.asked ) : null;
+	return minor !== null && minor > 0 ? amountString( minor ) : '';
+}
+
+/**
+ * The dialog's check: an aid "yes" needs an amount above zero and no more than the read's `max_award`, the full
+ * price the act refuses above (`AidAbovePrice`, the same sentence); a message, or an empty string when it may be
+ * sent. A holder without the aid figures gets the amount checks only, and the act still refuses. [UNAPPROVED T8]
+ */
 export function validateAnswer( item, answer, amount ) {
 	if ( ! asksAmount( item, answer ) ) {
 		return '';
@@ -43,25 +67,19 @@ export function validateAnswer( item, answer, amount ) {
 		return REQUESTS.awardEmpty;
 	}
 	const minor = parseAmount( amount );
-	return minor === null || minor <= 0 ? MONEY.amountBad : '';
+	if ( minor === null || minor <= 0 ) {
+		return MONEY.amountBad;
+	}
+	const max = item.aid && item.aid.max_award ? toMinor( item.aid.max_award ) : null;
+	return max !== null && minor > max ? REQUESTS.aidAbovePrice : '';
 }
 
 /**
- * A "yes" to an offer is a partner's approval, recorded with its reason: the dialog's note is then required
- * (release-plan.md, "Support and decisions"). A refusal and aid take it optionally. [UNAPPROVED N162]
- */
-export const asksReason = ( item, answer ) => item.kind === 'offer' && answer === 'yes';
-
-/**
- * The note's check, on the text that is sent (trimmed): the existing "give the reason" message when a reason is
- * required and empty, else at most 500 characters, counted by character, not by UTF-16 unit, so the field has no
- * `maxLength` of its own (as the confirmation dialog's reason). A message, or an empty string. [UNAPPROVED T257]
+ * The note's check, on the text that is sent (trimmed): at most 500 characters, counted by character, not by UTF-16 unit, so the field has no
+ * `maxLength` of its own (as the confirmation dialog's reason). A message, or an empty string.
  */
 export function validateNote( item, answer, note ) {
 	const text = String( note ).trim();
-	if ( asksReason( item, answer ) && text === '' ) {
-		return MONEY.noteRequired;
-	}
 	return Array.from( text ).length > NOTE_MAX ? REQUESTS.noteTooLong : '';
 }
 

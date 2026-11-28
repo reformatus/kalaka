@@ -19,6 +19,8 @@ use Kalaka\Forms\Api\SignUp;
  * never handles a password: logging in is `wp_login_url()`, setting the password is WordPress's own
  * `?action=rp` screen, and any WordPress user counts.
  *
+ * Before both, `login_init` refuses a cross-site POST to any of these screens (`refuseCrossSite()`).
+ *
  * Two gates:
  * - **The flag** (`$flag`), set on every POST to `action=register` without `loginSocial` (social sign-ups are
  *   their plugin's): it sets the hidden login name (`LoginName`), an opaque nicename, the
@@ -29,7 +31,9 @@ use Kalaka\Forms\Api\SignUp;
  *   event on the login and registration pages (OP5), and makes WordPress's links and redirects return to the
  *   form: the "Log in" and "Register" links, the registration's own redirect and the login's
  *   (`login_redirect`) through the return page (`returnPage()`, `SignUp::returnUrl()`), which tells the
- *   form's window opener and closes itself, and the "Log in" link after a password is set through the
+ *   form's window opener and closes itself (in the window the form block opened, marked `popup=1`, which
+ *   every one of these keeps, it never goes to the form's page: if the window stays open it offers a close
+ *   button), and the "Log in" link after a password is set through the
  *   registration mail's link, which carries the marker (OP1), straight to the form's page. The way back is
  *   always the form's page resolved on the server (`SignUp::page()`), never an address from the request.
  *
@@ -47,6 +51,12 @@ final class SignUpPage
     /** The user meta of an account Kaláka created whose password was never set: `1`. */
     public const UNVERIFIED = 'kalaka_unverified';
 
+    /**
+     * Social-login providers that post their callback back to the site (OAuth `response_mode=form_post`),
+     * by `loginSocial` value, with their origin (`scheme://host:port`, see `origin()`).
+     */
+    private const FORM_POST_PROVIDERS = ['apple' => 'https://appleid.apple.com:443'];
+
     /** How long a reset link lasts for an unverified account: 7 days. */
     public const EXPIRATION = 7 * DAY_IN_SECONDS;
 
@@ -59,6 +69,37 @@ final class SignUpPage
     public const RETURN_SCRIPT = '(function(p){var o=window.opener;try{if(o&&o!==window'
         . '&&o.location.origin===location.origin){o.postMessage({kalaka:"account"},location.origin);'
         . 'window.close();}}catch(e){}setTimeout(function(){location.replace(p);},500);})(%s);';
+
+    /**
+     * The popup return page's style: `hidden` hides the line and the button. WordPress's login CSS gives
+     * `.button` and `.login .message` a `display` of their own, which beats the browser's `[hidden]` rule.
+     */
+    public const POPUP_HIDDEN_STYLE = '[data-kalaka-return-line][hidden],[data-kalaka-return-close][hidden]'
+        . '{display:none!important}';
+
+    /**
+     * The popup return page's script (the return page with `popup=1`, no `%s`): it tells the page that opened
+     * the window (same origin only) that someone logged in and tries to close the window; it never goes to
+     * another page. After 300 ms, if the window is still open, it shows the line and the close button.
+     */
+    public const POPUP_RETURN_SCRIPT = '(function(){var o=window.opener;try{if(o&&o!==window'
+        . '&&o.location.origin===location.origin){o.postMessage({kalaka:"account"},location.origin);}}'
+        . 'catch(e){}try{window.close();}catch(e){}'
+        . 'var l=document.querySelector("[data-kalaka-return-line]"),'
+        . 'b=document.querySelector("[data-kalaka-return-close]");'
+        . 'if(b){b.addEventListener("click",function(){window.close();});}'
+        . 'setTimeout(function(){if(!window.closed){if(l){l.hidden=false;}if(b){b.hidden=false;}}},300);})();';
+
+    /**
+     * The close button on the popup return page. A stand-in until UX's text is approved.
+     */
+    public const RETURN_CLOSE_BUTTON = 'Lap bezárása';
+
+    /**
+     * The line on the popup return page, shown when the window could not close itself.
+     * A stand-in until UX's text is approved.
+     */
+    public const RETURN_CLOSE_LINE = 'Bezárhatod ezt a lapot.';
 
     /** The registration page's script: the error tied to the e-mail field, then the focus on it. */
     public const FOCUS_SCRIPT = 'window.addEventListener("load",function(){'
@@ -81,6 +122,7 @@ final class SignUpPage
 
     public function register(): void
     {
+        add_action('login_init', [$this, 'refuseCrossSite'], 1);
         add_action('login_form_register', [$this, 'beforeRegister'], 10);
         add_action('register_form', [$this, 'markerField'], 5);
         add_action('login_enqueue_scripts', [$this, 'styles']);
@@ -125,6 +167,79 @@ final class SignUpPage
     }
 
     /**
+     * `login_init`: a POST to `wp-login.php` (any action) from another site is refused, so a page elsewhere
+     * cannot sign a visitor in to, or up as, an account of its choosing (login CSRF). `Sec-Fetch-Site`
+     * decides when the browser sends it (`same-origin`, or `none` for a direct navigation); else `Origin`, or
+     * failing that `Referer`, must be this site's address; with none of the three the request is let through
+     * (old clients). One cross-site POST is let through: a social-login callback posted back by a provider
+     * that uses OAuth `response_mode=form_post` (`FORM_POST_PROVIDERS`), when `loginSocial` names that
+     * provider, `Origin` (failing that the `Referer`'s origin) is the provider's own origin, and the POST
+     * carries the callback's `code` and `state`. A bare `loginSocial` exempts nothing.
+     *
+     * @internal
+     */
+    public function refuseCrossSite(): void
+    {
+        $method = strtoupper(self::input('server', 'REQUEST_METHOD') ?? 'GET');
+        if ($method !== 'POST' || self::sameSite() || self::providerCallback()) {
+            return;
+        }
+        wp_die(
+            esc_html(
+                'Az űrlapot nem erről a weboldalról küldték el. Nyisd meg újra itt, ezen a weboldalon, '
+                . 'és próbáld meg még egyszer.'
+            ),
+            '',
+            ['response' => 403, 'back_link' => false],
+        );
+    }
+
+    /** Whether this is a form_post social-login callback from the provider itself: see `refuseCrossSite()`. */
+    private static function providerCallback(): bool
+    {
+        $provider = self::input('request', 'loginSocial');
+        if ($provider === null || !isset(self::FORM_POST_PROVIDERS[$provider])) {
+            return false;
+        }
+        $from = self::input('server', 'HTTP_ORIGIN') ?? self::input('server', 'HTTP_REFERER');
+
+        return $from !== null
+            && self::origin($from) === self::FORM_POST_PROVIDERS[$provider]
+            && (self::input('post', 'code') ?? '') !== ''
+            && (self::input('post', 'state') ?? '') !== '';
+    }
+
+    /** Whether the request's headers allow it: see `refuseCrossSite()`. */
+    private static function sameSite(): bool
+    {
+        $fetch = self::input('server', 'HTTP_SEC_FETCH_SITE');
+        if ($fetch !== null) {
+            return in_array(strtolower($fetch), ['same-origin', 'none'], true);
+        }
+        $from = self::input('server', 'HTTP_ORIGIN') ?? self::input('server', 'HTTP_REFERER');
+        if ($from === null || $from === '') {
+            return true;
+        }
+        $origin = self::origin($from);
+
+        return $origin !== null && in_array($origin, [self::origin(home_url()), self::origin(site_url())], true);
+    }
+
+    /** `scheme://host:port` of an address, lower-case with the default port filled in; null when it has none. */
+    private static function origin(string $url): ?string
+    {
+        $parts = wp_parse_url($url);
+        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+        $scheme = strtolower($parts['scheme']);
+
+        $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
+
+        return $scheme . '://' . strtolower($parts['host']) . ':' . $port;
+    }
+
+    /**
      * `login_form_register`: on a POST without `loginSocial`, the flag, and the login name from the e-mail
      * before `register_new_user()` reads it.
      *
@@ -144,18 +259,35 @@ final class SignUpPage
 
     /**
      * `login_form_kalaka_account`: the return page (`SignUp::returnUrl()`), where a login or sign-up from the
-     * form's account block lands. It prints no text: its script (`RETURN_SCRIPT`) tells the form's page and
-     * closes the window, or goes to the form's page (resolved on the server; the home page without a valid
-     * marker or a page that places the form).
+     * form's account block lands.
+     * - Without the popup marker (a same-tab login, the popup blocked) it prints no text: its script
+     *   (`RETURN_SCRIPT`) tells the form's page and closes the window, or goes to the form's page (resolved on
+     *   the server; the home page without a valid marker or a page that places the form).
+     * - With `popup=1` (`popupPage()`) it never goes anywhere: on WordPress's login frame its script
+     *   (`POPUP_RETURN_SCRIPT`) tells the form's page, tries to close the window and, if it stays open, shows a
+     *   line and a close button.
      *
      * @internal
      */
     public function returnPage(): void
     {
+        $this->renderReturnPage();
+        exit;
+    }
+
+    /** @internal What `returnPage()` prints, before it ends the request. */
+    public function renderReturnPage(): void
+    {
+        if ($this->popup()) {
+            $this->popupPage();
+            return;
+        }
         $marked = $this->marked();
         $page = ($marked === null ? null : self::page($marked[0])) ?? home_url('/');
         nocache_headers();
-        header('Content-Type: text/html; charset=utf-8');
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=utf-8');
+        }
         // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- a constant script; JSON with `<` hexed
         printf(
             '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="robots" content="noindex">'
@@ -166,7 +298,42 @@ final class SignUpPage
             esc_url($page)
         );
         // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
-        exit;
+    }
+
+    /** The return page with `popup=1`: WordPress's login frame, the script, the hidden line and button. */
+    private function popupPage(): void
+    {
+        nocache_headers();
+        add_action('login_head', static function (): void {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a constant
+            echo '<style>' . self::POPUP_HIDDEN_STYLE . '</style>';
+        });
+        // The window must not navigate away: no "Go to site" link, no privacy policy link, no language form.
+        $noLink = static fn (): string => '';
+        add_filter('login_site_html_link', $noLink);
+        add_filter('the_privacy_policy_link', $noLink);
+        add_filter('login_display_language_dropdown', '__return_false');
+        login_header(get_bloginfo('name'));
+        printf(
+            '<p class="message" data-kalaka-return-line hidden>%1$s</p>'
+                . '<p class="submit"><button type="button" class="button button-primary button-large"'
+                . ' data-kalaka-return-close hidden>%2$s</button></p>'
+                . '<noscript><p class="message">%1$s</p></noscript>',
+            esc_html(self::RETURN_CLOSE_LINE),
+            esc_html(self::RETURN_CLOSE_BUTTON)
+        );
+        wp_print_inline_script_tag(self::POPUP_RETURN_SCRIPT);
+        login_footer();
+        remove_filter('login_site_html_link', $noLink);
+        remove_filter('the_privacy_policy_link', $noLink);
+        remove_filter('login_display_language_dropdown', '__return_false');
+    }
+
+    /** Whether the request carries the popup marker: `popup=1` exactly (`SignUp::isPopup()`). */
+    private function popup(): bool
+    {
+        // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput -- compared to '1'
+        return SignUp::isPopup($_REQUEST[SignUp::POPUP] ?? null);
     }
 
     /**
@@ -184,6 +351,9 @@ final class SignUpPage
                 esc_attr(SignUp::MARKER),
                 esc_attr((string) $marked[0])
             );
+            if ($this->popup()) {
+                printf('<input type="hidden" name="%s" value="1">', esc_attr(SignUp::POPUP));
+            }
         }
     }
 
@@ -208,14 +378,14 @@ final class SignUpPage
             ? sprintf(
                 '%s <a href="%s">%s</a>.',
                 esc_html('Fiókot készítesz, hogy jelentkezhess erre az eseményre: ' . $event . '. Ha már van fiókod,'),
-                esc_url(SignUp::url($formId, $return)),
+                esc_url(SignUp::url($formId, $return, $this->popup())),
                 esc_html('jelentkezz be')
             )
             // OP5, approved by the owner 2026-11-17: the login page.
             : sprintf(
                 '%s <a href="%s">%s</a>.',
                 esc_html('Jelentkezz be, hogy jelentkezhess erre az eseményre: ' . $event . '. Ha még nincs fiókod,'),
-                esc_url(SignUp::registerUrl($formId, $return)),
+                esc_url(SignUp::registerUrl($formId, $return, $this->popup())),
                 esc_html('készíts egyet')
             );
 
@@ -314,10 +484,14 @@ final class SignUpPage
         }
         $action = self::input('request', 'action') ?? 'login';
         $reset = in_array($action, ['rp', 'resetpass'], true);
+        $popup = $this->popup();
         $return = is_string($redirect) && $redirect !== '' ? null : self::page($marked[0]);
         if ($return !== null) {
-            $back = $reset ? $return : SignUp::returnUrl($marked[0], $return);
+            $back = $reset && !$popup ? $return : SignUp::returnUrl($marked[0], $return, $popup);
             $url = add_query_arg('redirect_to', rawurlencode($back), $url);
+        }
+        if ($popup) {
+            $url = add_query_arg(SignUp::POPUP, '1', $url);
         }
 
         return $reset ? $url : add_query_arg(SignUp::MARKER, $marked[0], $url);
@@ -336,12 +510,16 @@ final class SignUpPage
         if ($marked === null) {
             return $url;
         }
+        $popup = $this->popup();
         $return = self::page($marked[0]);
         $url = add_query_arg(SignUp::MARKER, $marked[0], $url);
+        if ($popup) {
+            $url = add_query_arg(SignUp::POPUP, '1', $url);
+        }
 
         return $return === null
             ? $url
-            : add_query_arg('redirect_to', rawurlencode(SignUp::returnUrl($marked[0], $return)), $url);
+            : add_query_arg('redirect_to', rawurlencode(SignUp::returnUrl($marked[0], $return, $popup)), $url);
     }
 
     /**
@@ -361,7 +539,7 @@ final class SignUpPage
         $marked = $this->marked();
         $page = $marked === null ? null : self::page($marked[0]);
 
-        return $marked === null || $page === null ? null : SignUp::returnUrl($marked[0], $page);
+        return $marked === null || $page === null ? null : SignUp::returnUrl($marked[0], $page, $this->popup());
     }
 
     /**

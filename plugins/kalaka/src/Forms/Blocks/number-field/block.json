@@ -1,0 +1,45 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/number-field",
+  "title": "Szám",
+  "category": "kalaka",
+  "supports": {
+    "html": false
+  },
+  "attributes": {
+    "key": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string",
+      "default": ""
+    },
+    "required": {
+      "type": "boolean",
+      "default": false
+    },
+    "min": {
+      "type": "string"
+    },
+    "step": {
+      "type": "string"
+    },
+    "max": {
+      "type": "string"
+    },
+    "decimals": {
+      "type": "integer",
+      "default": 0
+    },
+    "prefix": {
+      "type": "string",
+      "default": ""
+    },
+    "suffix": {
+      "type": "string",
+      "default": ""
+    }
+  },
+  "editorScript": "kalaka-form-editor-script",
+  "render": "file:./render.php"
+}

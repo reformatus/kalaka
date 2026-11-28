@@ -24,9 +24,16 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `kalaka/revoke-full-access` (audited; the capability is written after the
   commit; the audit records the real old value), except that tests and the
   development seed's `kalaka_admin` add it directly. One holder rule,
-  `FullAccessQuery::holders()`: a user holds it by their own capability or
-  through a role that carries it. The last holder keeps it (use case, profile,
-  CLI and abilities alike). The profile screen checks a change after
+  `FullAccessQuery::holders()`: a user holds it by their own capability only,
+  never through a role, and `user_has_cap` makes every `user_can()` check
+  agree; `OwnCapability::owns()` is the same rule on a user object, for the
+  filter, the profile checkbox and the Users column. The last holder keeps it: the use case, the profile, the CLI and the
+  abilities refuse; WordPress's users screen and REST refuse deleting them
+  through `map_meta_cap`, and `wp user delete` stops on the `delete_user`
+  action; plain code calling `wp_delete_user()` past the check is logged and
+  the deletion proceeds. Not guarded: `wp user remove-cap`, `wp user delete
+  --network` (which fires `wpmu_delete_user`, not `delete_user`) and a direct
+  `remove_cap()`. The profile screen checks a change after
   WordPress has checked the rest of the form, and makes it only after
   WordPress has saved the user. Activation gives the activating user full
   access through `GrantFullAccess` (audited, as the system), only while
@@ -80,8 +87,18 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   the read (its `can` included), and the server decides every call.
 - The detail read carries the registration's `requests` (with their latest answers and, for a refused offer, whether
   its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
-  access; `can.answer_request` says so. The answer act is `kalaka/answer-request` (Registrations); the panel's
-  block of requests only calls it.
+  access; `can.answer_request` says so. The requests' money figures — an item's `amount` and, for an aid request,
+  `aid: {full_price, can_pay, asked, max_award}` from the request source's `terms()` — follow the read's money gate
+  (`can.view_money`), so a holder whose view/grant gives no money fields reads the requests without them. The answer
+  act is `kalaka/answer-request` (Registrations); the panel's block of requests only calls it.
 - A grid row carries `awaits_answer`, a bool computed per page by Registrations' `Requests::awaitsOf()` (one
   statement for the page's field values, none without a request source); it is a row value, not a column, so it is
   not filterable, sortable or summable.
+- Staff correct a field value only through `kalaka/edit-field-value` (`FieldEdit\EditFieldValue`): a field change with
+  no action, so rights are read-write columns of a held view and full access, never a new grant action. The field
+  type turns the value into its stored form before the run (`FieldEditInput`), never inside it; no form condition is
+  walked (staff override). Staff never edit a `system` field, an `extension` field only its own act writes, or a
+  retired field. The edit is not a submission; the write goes through `Registrations\Api\FieldCorrections`, and the
+  runner's evaluation (money, confirmation, mail) follows it; the edit sends no mail of its own. An identical value
+  writes nothing, and a stored value other than `expected` is a `VersionConflict`.
+- Staff placing into a set option is not an edit: it stays `kalaka/place-registration`.

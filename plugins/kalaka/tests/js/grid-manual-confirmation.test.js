@@ -1,16 +1,26 @@
 /**
- * The manual confirmation block (S20): where keyboard focus goes after an act. The real ManualConfirmation with
+ * The confirmation row (S20): where keyboard focus goes after an act, and what it shows. The real ManualConfirmation with
  * small stand-ins for wp-components and for the dialog (which has its own test): the stand-in's one button calls
  * `onDone` as the dialog does once it is saved.
  */
 import { act, createElement as h } from 'react';
 import { createRoot } from 'react-dom/client';
 import ManualConfirmation from '../../src/Admin/app/grid/ManualConfirmation';
-import { CONFIRM } from '../../src/Admin/app/grid/texts';
+import { CONFIRM, PANEL } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement } = require( 'react' );
-	const Button = ( { children, onClick } ) => createElement( 'button', { onClick }, children );
+	const Button = ( { children, onClick, disabled, accessibleWhenDisabled, 'aria-describedby': describedBy } ) =>
+		createElement(
+			'button',
+			{
+				onClick: disabled ? undefined : onClick,
+				disabled: disabled && ! accessibleWhenDisabled,
+				'aria-disabled': disabled && accessibleWhenDisabled ? 'true' : undefined,
+				'aria-describedby': describedBy,
+			},
+			children
+		);
 	const SnackbarList = () => null;
 	return { Button, SnackbarList };
 } );
@@ -37,7 +47,9 @@ const props = ( over ) => ( {
 	code: '92F7',
 	can: { confirm_manually: true, unconfirm: true },
 	manual,
+	status: 'registered',
 	warning: null,
+	confirmed: true,
 	stale: false,
 	reload: async () => ( { registration: {}, can: {} } ),
 	onSaved: () => {},
@@ -62,17 +74,27 @@ afterEach( async () => {
 } );
 
 describe( 'focus after the act', () => {
-	test( 'goes back to the button that opened the dialog while it is still there (the rules re-confirmed)', async () => {
-		await mount( props() );
+	let close;
+
+	beforeEach( () => {
+		close = document.createElement( 'button' );
+		close.textContent = 'close';
+		document.body.appendChild( close );
+	} );
+
+	afterEach( () => close.remove() );
+
+	test( 'goes to the row\'s button, which is the one that opened the dialog while it stays', async () => {
+		await mount( props( { closeRef: { current: close } } ) );
 		await act( async () => button( CONFIRM.unconfirm ).click() );
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( document.activeElement ).toBe( button( CONFIRM.unconfirm ) );
 	} );
 
-	test( 'goes to the block when the act removed the button (a plain unconfirm: can.unconfirm turns false)', async () => {
-		const after = props( { can: { confirm_manually: true, unconfirm: false }, manual: null } );
-		await mount( props( { reload: async () => {
+	test( 'goes to the new button of the row after an unconfirm replaces it with the set', async () => {
+		const after = props( { can: { confirm_manually: true, unconfirm: false }, manual: null, confirmed: false, closeRef: { current: close } } );
+		await mount( props( { closeRef: { current: close }, reload: async () => {
 			await mount( after );
 			return { registration: {}, can: after.can };
 		} } ) );
@@ -80,13 +102,12 @@ describe( 'focus after the act', () => {
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( button( CONFIRM.unconfirm ) ).toBeUndefined();
-		expect( document.activeElement ).toBe( host.querySelector( '.kg-manual' ) );
-		expect( host.querySelector( '.kg-manual' ).getAttribute( 'tabindex' ) ).toBe( '-1' );
+		expect( document.activeElement ).toBe( button( CONFIRM.set ) );
 	} );
 
-	test( 'goes to the block after a set, which removes the set button', async () => {
-		const after = props( { can: { confirm_manually: true, unconfirm: true } } );
-		await mount( props( { manual: null, can: { confirm_manually: true, unconfirm: false }, reload: async () => {
+	test( 'goes to the new button of the row after a set replaces it with the unconfirm', async () => {
+		const after = props( { can: { confirm_manually: true, unconfirm: true }, closeRef: { current: close } } );
+		await mount( props( { manual: null, confirmed: false, can: { confirm_manually: true, unconfirm: false }, closeRef: { current: close }, reload: async () => {
 			await mount( after );
 			return { registration: {}, can: after.can };
 		} } ) );
@@ -94,6 +115,102 @@ describe( 'focus after the act', () => {
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( button( CONFIRM.set ) ).toBeUndefined();
-		expect( document.activeElement ).toBe( host.querySelector( '.kg-manual' ) );
+		expect( document.activeElement ).toBe( button( CONFIRM.unconfirm ) );
+	} );
+
+	test( 'goes to the close button when the row has no button left', async () => {
+		const after = props( { can: {}, manual: null, confirmed: false, closeRef: { current: close } } );
+		await mount( props( { closeRef: { current: close }, reload: async () => {
+			await mount( after );
+			return { registration: {}, can: after.can };
+		} } ) );
+		await act( async () => button( CONFIRM.unconfirm ).click() );
+		await act( async () => host.querySelector( '#send' ).click() );
+		await settle();
+		expect( button( CONFIRM.unconfirm ) ).toBeUndefined();
+		expect( document.activeElement ).toBe( close );
+	} );
+} );
+
+describe( 'the confirmation row', () => {
+	test( 'holds the state and, under it, the flag lines and the buttons', async () => {
+		await mount( props() );
+		const row = host.querySelector( '.kg-panel-confirmation' );
+		expect( row.textContent ).toContain( PANEL.confirmed );
+		expect( row.querySelector( '.kg-panel-slot' ).contains( button( CONFIRM.unconfirm ) ) ).toBe( true );
+	} );
+
+	test( 'an unconfirmed registration reads „Nincs visszaigazolva” and has the set button', async () => {
+		await mount( props( { confirmed: false, manual: null, can: { confirm_manually: true, unconfirm: false } } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ).textContent ).toContain( PANEL.unconfirmed );
+		expect( button( CONFIRM.set ) ).toBeDefined();
+		expect( button( CONFIRM.unconfirm ) ).toBeUndefined();
+	} );
+
+	test( 'is left out while the last read failed, or when the read has no confirmed field', async () => {
+		await mount( props( { stale: true } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+		await mount( props( { confirmed: undefined } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+	} );
+
+	test( 'is left out on a „Lemondott” or „Törölt” registration, and shown on the others', async () => {
+		await mount( props( { status: 'withdrawn' } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+		await mount( props( { status: 'removed' } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+		for ( const status of [ 'registered', 'waitlisted', undefined ] ) {
+			await mount( props( { status } ) );
+			expect( host.querySelector( '.kg-panel-confirmation' ) ).not.toBeNull();
+		}
+	} );
+
+	test( 'a row with no buttons and no flag has no slot', async () => {
+		await mount( props( { manual: null, can: {} } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).not.toBeNull();
+		expect( host.querySelector( '.kg-panel-slot' ) ).toBeNull();
+	} );
+} );
+
+describe( 'the unconfirm the rules would undo at once', () => {
+	const reason = 'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
+
+	test( 'is disabled but still focusable, with the server\'s text as visible help text and as its description', async () => {
+		await mount( props( { blocked: true, warning: reason } ) );
+		const unconfirm = button( CONFIRM.unconfirm );
+		expect( unconfirm.getAttribute( 'aria-disabled' ) ).toBe( 'true' );
+		expect( unconfirm.disabled ).toBe( false );
+		expect( unconfirm.getAttribute( 'aria-describedby' ) ).toBe( 'kalaka-unconfirm-help' );
+		const hint = host.querySelector( '#kalaka-unconfirm-help' );
+		expect( hint.textContent ).toBe( reason );
+		// Under the button, not over anything: the text is a paragraph in the row.
+		expect( unconfirm.compareDocumentPosition( hint ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBeTruthy();
+		unconfirm.focus();
+		expect( document.activeElement ).toBe( unconfirm );
+	} );
+
+	test( 'does not open the dialog', async () => {
+		await mount( props( { blocked: true, warning: reason } ) );
+		await act( async () => button( CONFIRM.unconfirm ).click() );
+		expect( host.querySelector( '#send' ) ).toBeNull();
+	} );
+
+	test( 'a live unconfirm has no help text and is not disabled', async () => {
+		await mount( props( { blocked: false, warning: null } ) );
+		const unconfirm = button( CONFIRM.unconfirm );
+		expect( unconfirm.getAttribute( 'aria-disabled' ) ).toBeNull();
+		expect( unconfirm.getAttribute( 'aria-describedby' ) ).toBeNull();
+		expect( host.querySelector( '#kalaka-unconfirm-help' ) ).toBeNull();
+		await act( async () => unconfirm.click() );
+		expect( host.querySelector( '#send' ) ).not.toBeNull();
+	} );
+} );
+
+describe( 'the flag lines', () => {
+	test( 'the reason line is left out when the reason is empty', async () => {
+		await mount( props( { manual: { ...manual, reason: '' } } ) );
+		expect( host.querySelector( '.kg-manual' ).textContent ).not.toContain( 'Indoklás' );
+		await mount( props( { manual } ) );
+		expect( host.querySelector( '.kg-manual' ).textContent ).toContain( 'Indoklás: Telefonon' );
 	} );
 } );

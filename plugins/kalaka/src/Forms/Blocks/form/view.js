@@ -50,6 +50,32 @@
 
 import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
 import { readAnswer } from './answers';
+import {
+	BAD_NUMBER,
+	firstBadNumber,
+	guardNumberSeparators,
+	guardNumberWheel,
+	measureNumberAffixes,
+} from './number';
+
+// A focused number field never changes on the mouse wheel (topic 7), and its affixes get the room they
+// need (A3).
+guardNumberWheel();
+guardNumberSeparators(document, (control, message) => {
+	const key = control.closest('[data-kalaka-field]')?.getAttribute('data-kalaka-field');
+	const form = control.closest('form');
+	if (key !== undefined && key !== null && form !== null) {
+		showFieldMessages(form, { [key]: message });
+	}
+}, (control) => {
+	const wrapper = control.closest('[data-kalaka-field]');
+	if (wrapper !== null) {
+		clearFieldMessage(wrapper);
+	}
+});
+measureNumberAffixes();
+window.addEventListener('resize', () => measureNumberAffixes());
+document.fonts?.ready?.then(() => measureNumberAffixes());
 
 /**
  * What each form on the page started from (its context and its submit token), with its state: the
@@ -375,6 +401,12 @@ function apply(form, { availability, parts }) {
 		started.pages = availability.pages;
 		showButtons(form);
 	}
+	// A field that no longer shows loses its message, so a stale one never comes back with it.
+	for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
+		if (!shows(wrapper)) {
+			clearFieldMessage(wrapper);
+		}
+	}
 }
 
 function hasPages(started) {
@@ -554,6 +586,20 @@ function sessionEnded(form, message, retry) {
 }
 
 /**
+ * The login address with the popup marker `popup=1`, for the window only: the return page then never goes
+ * to the form's page. The plain address stays the same-tab fallback, without it.
+ */
+function popupUrl(url) {
+	try {
+		const marked = new URL(url, window.location.href);
+		marked.searchParams.set('popup', '1');
+		return marked.toString();
+	} catch {
+		return url;
+	}
+}
+
+/**
  * Opens WordPress's login page for the form in a window of its own, from the account block or the ended
  * session's link. Never `noopener`: the return page tells this page through `window.opener`.
  *
@@ -567,7 +613,7 @@ function openLogin(form) {
 	}
 	started.awaiting = true;
 	const opened = window.open(
-		url,
+		popupUrl(url),
 		'kalaka-account',
 		'popup=yes,width=520,height=720'
 	);
@@ -796,6 +842,26 @@ function messageIdOf(key) {
 	return `kalaka-field-${key}-error`;
 }
 
+/** Empties one field's error element and stops its controls being invalid or described by it. */
+function clearFieldMessage(wrapper) {
+	const slot = slotOf(wrapper);
+	if (slot !== null) {
+		slot.textContent = '';
+		slot.hidden = true;
+	}
+	for (const control of controlsOf(wrapper)) {
+		control.removeAttribute('aria-invalid');
+		const ids = (control.getAttribute('aria-describedby') ?? '')
+			.split(/\s+/)
+			.filter((id) => id !== '' && id !== slot?.id);
+		if (ids.length > 0) {
+			control.setAttribute('aria-describedby', ids.join(' '));
+		} else {
+			control.removeAttribute('aria-describedby');
+		}
+	}
+}
+
 function clearMessages(form) {
 	alertOf(form).textContent = '';
 	const account = form.querySelector('#kalaka-account-error');
@@ -804,22 +870,7 @@ function clearMessages(form) {
 		account.hidden = true;
 	}
 	for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
-		const slot = slotOf(wrapper);
-		if (slot !== null) {
-			slot.textContent = '';
-			slot.hidden = true;
-		}
-		for (const control of controlsOf(wrapper)) {
-			control.removeAttribute('aria-invalid');
-			const ids = (control.getAttribute('aria-describedby') ?? '')
-				.split(/\s+/)
-				.filter((id) => id !== '' && id !== slot?.id);
-			if (ids.length > 0) {
-				control.setAttribute('aria-describedby', ids.join(' '));
-			} else {
-				control.removeAttribute('aria-describedby');
-			}
-		}
+		clearFieldMessage(wrapper);
 	}
 }
 
@@ -931,6 +982,14 @@ async function checkPage(form) {
 	}
 	clearMessages(form);
 	const current = started.page;
+	const refused = firstBadNumber(form);
+	if (refused !== null && refused.control.validity.customError && pageOf(refused.wrapper) === current) {
+		showFieldMessages(form, {
+			[refused.wrapper.getAttribute('data-kalaka-field')]: refused.control.validationMessage,
+		});
+		refused.control.focus();
+		return null;
+	}
 	const availability = await refetch(form, current);
 	if (availability === null || started.page !== current) {
 		return null;
@@ -1140,6 +1199,16 @@ async function send(form) {
 	}
 
 	clearMessages(form);
+	const bad = firstBadNumber(form);
+	if (bad !== null) {
+		showFieldMessages(form, {
+			[bad.wrapper.getAttribute('data-kalaka-field')]: bad.control.validity.customError
+				? bad.control.validationMessage
+				: BAD_NUMBER,
+		});
+		bad.control.focus();
+		return;
+	}
 	const answers = answersOf(form);
 	started.sending = true;
 	reflect(form);
@@ -1230,9 +1299,21 @@ async function send(form) {
 
 store('kalaka/form', {
 	actions: {
+		// A field's message clears on the first edit of that field.
+		edited(event) {
+			const form = getElement().ref;
+			const wrapper = event?.target?.closest?.('[data-kalaka-field]');
+			if (wrapper !== null && wrapper !== undefined && form.contains(wrapper)) {
+				clearFieldMessage(wrapper);
+			}
+		},
 		update(event) {
 			const form = getElement().ref;
 			const started = forms.get(form);
+			const wrapper = event?.target?.closest?.('[data-kalaka-field]');
+			if (wrapper !== null && wrapper !== undefined && form.contains(wrapper)) {
+				clearFieldMessage(wrapper);
+			}
 			const name = event?.target?.name;
 			if (started === undefined || typeof name !== 'string') {
 				return undefined;

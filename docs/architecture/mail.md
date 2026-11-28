@@ -24,7 +24,7 @@ record, the check-in act, and so on.
 
 | Kind | Caused by | Decided by |
 |---|---|---|
-| **Action** | an act on one registration: registered (admission from the waitlist sends this mail too), waitlisted, payment recorded (the participant's money in and money out, a payment or a refund, by hand or online, keyed by the line; never a correction, a „Díj” or a „Kedvezmény”), confirmed, answered, link regenerated, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation's mail step ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so every `confirmed` record mails once, a re-confirmation right after staff's unconfirm included; "answered" by the answering act, keyed by the answer record, so every answer mails, a changed one included; every check-in route calls the same check-in use case |
+| **Action** | an act on one registration: registered (admission from the waitlist sends this mail too), waitlisted, payment recorded (the participant's money in and money out, a payment or a refund, by hand or online, keyed by the line; never a correction; a „Díj” or „Kedvezmény” ticked „Azonnal befizetve” mails for its paid entry like any payment, the fee itself mails none), confirmed, answered, link regenerated, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation's mail step ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so every `confirmed` record mails once, a re-confirmation right after staff's unconfirm included; "answered" by the answering act, keyed by the answer record, so every answer mails, a changed one included; every check-in route calls the same check-in use case |
 | **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
 | **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
 | **Manual** | staff send a chosen mail to chosen registrations, now or scheduled | the staff use case; keyed by the send batch |
@@ -45,7 +45,9 @@ record, the check-in act, and so on.
   that account's own address, no when that account is verified, and none for
   a guest, another recipient or an event without accounts. While an event's
   account mode is mandatory or optional, its "registered" mail must contain the key and cannot be switched
-  off. WordPress keeps one such link per account, so each new one replaces
+  off, and a change of an event's account mode to one with accounts is refused
+  unless that mail is on and carries it
+  ([Events](events-and-forms.md#forms-and-the-registration-slot)). WordPress keeps one such link per account, so each new one replaces
   the last.
 - **Scheduled mails are defined freely by admins** at a date reference
   ([Events](events-and-forms.md#date-references)): a fixed date and time, a

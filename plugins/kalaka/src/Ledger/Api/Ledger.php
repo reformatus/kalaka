@@ -363,7 +363,6 @@ final class Ledger
             $line->method !== null && !$line->kind->carriesMethod() => 'The kind has no method.',
             $line->correction && !$line->kind->carriesMethod() => 'Only a manual payment or refund is a correction.',
             $line->correction && $line->method !== null => 'A correction has no method.',
-            $line->correction && self::noteText($line) === null => 'A correction needs its reason.',
             $line->note !== null && !$line->kind->mayHaveNote() => 'The kind has no note.',
             !self::noteFits(self::noteText($line)) => 'The note is not 1 to 500 characters.',
             default => null,

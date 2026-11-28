@@ -12,7 +12,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * field value; a `RequestSource` says which requests a registration has now.
  *
  * `id` names the request for the answer act and keys its answers: `aid` for the aid request, `offer:<offer key>`
- * for an offer. `label` is the source's own Hungarian name for it, shown to staff. [UNAPPROVED N1]
+ * for an offer. `label` is the source's own Hungarian name for it, shown to staff.
  */
 final readonly class Request
 {

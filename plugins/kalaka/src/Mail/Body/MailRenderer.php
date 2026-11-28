@@ -35,6 +35,7 @@ final class MailRenderer
 
     /**
      * @param string $mail the mail's key: an action mail's key
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @param ?int $lineId the ledger line that caused a "payment recorded" mail (its `payment.*` keys read it)
      * @throws SystemFailure an unknown mail (`unknown_mail`), a body without a revision, a stored layout
      *         without its one placeholder (`layout`), or
@@ -47,6 +48,7 @@ final class MailRenderer
         int $eventId,
         string $mail,
         RegistrationKey $registration,
+        \DateTimeImmutable $now,
         ?int $lineId = null,
     ): RenderedMail {
         $action = ActionMail::tryFrom($mail);
@@ -71,6 +73,7 @@ final class MailRenderer
         // Only the "payment recorded" mail reads a line: the `payment.*` keys are none in every other mail.
         $context = $this->values->context(
             $registration,
+            $now,
             MailValues::readsPasswordLink($body->content),
             $action === ActionMail::PaymentRecorded ? $lineId : null
         );
