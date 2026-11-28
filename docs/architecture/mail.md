@@ -10,9 +10,10 @@ title: Mail
   **body**, one to one. There are no "templates".
 - A **delivery** is one row in the send log: one mail to one registration (or
   address) on one occurrence: pending, sending, sent or failed. A pending
-  delivery may carry the error of an earlier attempt. **Nothing reads the deliveries
-  table except the sender:** no decision, condition or view depends on
-  whether a mail was sent.
+  delivery may carry the error of an earlier attempt. **Only the sender
+  decides on the deliveries table:** no decision, condition or view depends on
+  whether a mail was sent. Staff reads of it, such as the counts and the
+  listing of failed deliveries (`wp kalaka mail failed`), only show it.
 
 ## Five kinds of mail
 
@@ -56,7 +57,7 @@ record, the check-in act, and so on.
 - **Reminders are defined in code** by their module or plugin (e.g. an
   upcoming late fee). Admins configure the time base and the repeat interval;
   repeating is supported from the start.
-- **An event-wide layout** wraps mails, optional per mail. There is no
+- **An event-wide layout** wraps mails, optional per mail template. There is no
   site-wide layout.
 
 ### Late registrants and activation
@@ -101,7 +102,10 @@ activated.**
   came through; a field with no value for that registration reads as none,
   so a mail naming a field only one form holds still renders for everyone.
   A key that is not a participant field of the event stays an error. Actions and
-  reminders add their own blocks (e.g. a payment table).
+  reminders add their own blocks (e.g. a payment table). Besides
+  `registration.link`, a body may place a **page link** `page_<ID>.link`: the
+  registrant's own secret link to that published page, declared only while the
+  page is published.
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
 - **The body's title is the subject,** as plain text. Mail is sent as HTML

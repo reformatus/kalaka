@@ -96,11 +96,12 @@ reached; the grant defines who holds the view.**
     is logged, and re-activation restores a holder. On multisite, super admins
     pass every check.
 - **Actions that are not a column** (withdraw, remove, admit, record money,
-  view money, notes, audit history) are carried by the grant, not by
-  WordPress roles. An action is usable only on registrations inside the
-  filter of the same grant's view. Modules declare the actions they
-  offer ([Modules](modules-and-extensions.md#the-module-interface)). A grant
-  lists its actions one by one; there are no default bundles yet.
+  view money, send a manual mail, notes, audit history) are carried by the
+  grant, not by WordPress roles. An action is usable only on registrations
+  inside the filter of the same grant's view. Modules declare the actions
+  they offer
+  ([Modules](modules-and-extensions.md#the-module-interface)). A grant lists
+  its actions one by one; there are no default bundles yet.
 - **A grant holds a use case only by name:** the use case names an action
   the grant carries, or it is a field change with at least one target; in
   both cases every target is inside the grant's view. An event use case with
@@ -630,6 +631,9 @@ sort on the first two ([Views and grants](#views-and-grants)).
 There is no tariff snapshot, so saving money settings reaches every open
 registration through a preview and an apply, one transaction each
 ([Money](money.md#money-settings-apply)).
+
+Queuing a manual mail is one act, not a bulk change: one transaction for the
+batch, with the skipped registrations in its result.
 
 ## Cross-cutting rules
 

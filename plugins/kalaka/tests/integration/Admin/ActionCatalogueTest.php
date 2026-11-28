@@ -58,6 +58,7 @@ final class ActionCatalogueTest extends RunnerTestCase
                 'kalaka_admit_registration',
                 'kalaka_record_money',
                 'kalaka_view_money',
+                'kalaka_manual_mail',
                 'kalaka_notes',
                 'kalaka_audit_history',
             ],

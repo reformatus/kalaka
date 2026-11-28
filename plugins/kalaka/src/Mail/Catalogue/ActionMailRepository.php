@@ -73,7 +73,6 @@ final class ActionMailRepository extends EntityRepository
             'version' => $entity->version,
             'enabled' => $entity->enabled ? 1 : 0,
             'body_id' => $entity->bodyId,
-            'layout' => $entity->layout ? 1 : 0,
         ];
     }
 
@@ -84,7 +83,6 @@ final class ActionMailRepository extends EntityRepository
             ActionMail::tryFrom((string) $row['mail']),
             (int) $row['enabled'] === 1,
             $row['body_id'] === null ? null : (int) $row['body_id'],
-            (int) $row['layout'] === 1,
             (int) $row['version'],
             (string) $row['mail'],
         );

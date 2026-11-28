@@ -8,6 +8,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMailSettings;
@@ -34,7 +35,6 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         foreach ($settings['mails'] as $mail) {
             self::assertFalse($mail['enabled']);
             self::assertNull($mail['body_id']);
-            self::assertTrue($mail['layout']);
         }
     }
 
@@ -69,7 +69,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $event = $this->create();
         $body = $this->document($event, $this->paragraph('Szia'));
 
-        $settings = $this->switchOn($event, 'waitlisted', $body, false);
+        $settings = $this->switchOn($event, 'waitlisted', $body);
 
         self::assertSame(
             [
@@ -77,7 +77,6 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
                 'label' => 'Jelentkezés várólistára helyezve',
                 'enabled' => true,
                 'body_id' => $body,
-                'layout' => false,
             ],
             $settings['mails'][1]
         );
@@ -134,7 +133,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
     }
 
-    public function testALayoutOnlyEditOfAMailThatIsOnPassesWhateverItsBodysStatus(): void
+    public function testASaveThatChangesNothingOfAMailThatIsOnPassesWhateverItsBodysStatus(): void
     {
         global $wpdb;
         $event = $this->create();
@@ -144,11 +143,9 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $wpdb->update($wpdb->posts, ['post_status' => 'draft'], ['ID' => $body]);
         clean_post_cache($body);
 
-        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'layout' => false]);
         $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
 
         $mail = (new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0];
-        self::assertFalse($mail['layout']);
         self::assertTrue($mail['enabled']);
     }
 
@@ -165,8 +162,9 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
             try {
                 $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered'] + $change);
                 self::fail('Expected a refusal.');
-            } catch (RuleViolation $e) {
-                self::assertSame('A művelet nem hajtható végre.', $e->getMessage());
+            } catch (SystemFailure $e) {
+                self::assertSame('Váratlan hiba történt. Próbáld újra később.', $e->getMessage());
+                self::assertInstanceOf(\LogicException::class, $e->getPrevious());
             }
         }
         // A body of another post's facts does not count either.
@@ -176,12 +174,12 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
                 ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]
             );
             self::fail('Expected a refusal.');
-        } catch (RuleViolation) {
+        } catch (SystemFailure) {
             self::assertFalse((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['enabled']);
         }
 
         // What needs no body facts passes.
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'layout' => false]);
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
         $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
         self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
     }
@@ -197,7 +195,6 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
             'version' => 1,
             'enabled' => 1,
             'body_id' => null,
-            'layout' => 1,
         ]);
 
         $log = $this->capturedErrorLog(function () use ($event): void {
