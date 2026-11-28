@@ -272,9 +272,18 @@ never our prefix.
 ```mermaid
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
-  REG --> IN["Inside the transaction<br/>fee component · retention rule ·<br/>request source · decision ·<br/>confirmation threshold · date type ·<br/>condition · ledger line source ·<br/>action-mail act · assignment proposer"]
-  REG --> OUT["Outside the transaction<br/>field type · payment provider ·<br/>theme adapter · slot requirement ·<br/>seat claim source · periodic step ·<br/>site warning · seeder ·<br/>portal / admin section · view · view column · filterable fact"]
+  REG --> IN["Inside the transaction<br/>fee component · retention rule ·<br/>request source"]
+  REG --> OUT["Outside the transaction<br/>field type · payment provider ·<br/>slot requirement · seat claim source ·<br/>theme adapter · periodic step ·<br/>site warning · seeder"]
   REG --> DECL["Declarations<br/>payer kind · block host"]
+  REG -.-> FS
+  subgraph FS["Foreseen, not built"]
+    direction TB
+    FI["Inside: decision · confirmation threshold ·<br/>date type · condition · ledger line source ·<br/>action-mail act · assignment proposer"]
+    FO["Outside: portal / admin section · view ·<br/>view column · filterable fact"]
+  end
+  style FS stroke-dasharray: 5 5
+  style FI stroke-dasharray: 5 5
+  style FO stroke-dasharray: 5 5
 ```
 
 - **Extensions declare core in their `Requires Plugins` header,** so WordPress

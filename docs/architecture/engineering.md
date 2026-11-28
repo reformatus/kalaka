@@ -104,15 +104,16 @@ title: Engineering
   mail, …): schema-checked input, permission checks and REST access come from
   WordPress. A screen and the command line call the same ability. Admin table
   data stays on our own REST API.
-- **Block editor** for forms, field definitions and mail bodies; the
-  **Interactivity API** for public forms. The one exception is the
+- **Block editor** for forms and mail templates (field definitions: not built
+  yet); the **Interactivity API** for public forms. The one exception is the
   draft-claim popup: a `@wordpress/components` Modal, loaded only on a page
   with a pending claim (owner ruling 2026-11-17).
 - **Participant pages follow the site's theme, with only a neutral base
   of their own**, except the draft-claim popup, which keeps WordPress's
   Modal look. Kaláka content is authored only in the block editor (forms,
-  field definitions, mails, participant pages); a page builder only places a
-  form or a participant block, through its shortcode
+  mail templates, participant pages; field definitions too, not built yet);
+  a page builder only places a form or a participant block, through its
+  shortcode
   ([Forms](events-and-forms.md#forms-implementation)). Kaláka adds logic and
   dynamic data through its own blocks, and a block and its shortcode render
   the same way. Markup is

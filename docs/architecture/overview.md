@@ -107,22 +107,23 @@ analyses serve only as background.
 
 ## The big decisions
 
-A few choices shape almost everything else. Each is explained on its page;
-this list is where to start when a change seems to need one of them bent.
+A few choices shape almost everything else. Each row only points to the
+section that holds the rule; the binding wording lives on that page alone, so
+read it there before bending the decision.
 
-| Decision | What follows from it |
-|---|---|
-| **Every write is a use case** run by one runner: one transaction, the audit entry inside it ([Foundation](foundation.md#the-use-case-runner)) | No code writes a table directly; anything a person or the system does is audited, refused as a whole or done as a whole |
-| **Access to data is a view; holding it is a grant** ([Foundation](foundation.md#views-and-grants)) | Admin screens never read registrations around the view query; a new admin feature is a column, a filter or a grant action, never its own permission check |
-| **Facts, decisions and computed values** are separate kinds of state ([Foundation](foundation.md#facts-decisions-and-computed-values)) | Nobody sets a decision; nothing stores what can be computed; a view filters only on what is stored |
-| **No person records;** a registration is the identity ([Registrations](registrations-and-identity.md#identity-no-person-records)) | Two events are two registrations with their own data and money; accounts only own registrations |
-| **Participant fields belong to the event, and forms ask for them** ([Fields](events-and-forms.md#fields)) | Mails, views, conditions and money read fields by key, whatever form wrote them; a form can never quietly create a second copy of a field |
-| **One condition format and one evaluator** decide everything that is shown or offered ([Conditions](events-and-forms.md#conditions)) | Price tiers, offers, charges and set options carry no conditions of their own; who sees what is set up on the form, and the server re-checks it at submit |
-| **One seat rule** for every limited pool ([Foundation](foundation.md#facts-decisions-and-computed-values)) | A seat is taken only inside a registration's own act and never moves by itself; only the registrant's own submit is refused by a full pool |
-| **No tariff snapshot:** money is always computed from the current settings ([Money](money.md#money-settings-apply)) | Changing a price is a preview and an apply that reaches every open registration; the ledger records only differences |
-| **An append-only ledger per registration, with payers** ([Money](money.md#ledger)) | Money is never edited, only corrected by new lines; each payer's balance and confirmation are separate |
-| **No job queue;** each kind of deferred work gets the guarantee it needs ([Foundation](foundation.md#deferred-work)) | Mail is queued as deliveries and sent by one sender; time-based work waits for the 5-minute periodic run |
-| **Any load failure closes every event** ([Modules](modules-and-extensions.md#failure-isolation)) | A missing extension or a failed upgrade never runs half a site; there is no per-event dependency analysis |
+| Decision | Read | What it implies |
+|---|---|---|
+| Every write is a use case | [Foundation](foundation.md#the-use-case-runner) | Every change is audited and done as a whole or not at all |
+| Access to data is a view; holding it is a grant | [Foundation](foundation.md#views-and-grants) | A new admin feature extends the view or the grants |
+| Facts, decisions and computed values are separate kinds of state | [Foundation](foundation.md#facts-decisions-and-computed-values) | Know which kind a value is before storing or filtering on it |
+| No person records | [Registrations](registrations-and-identity.md#identity-no-person-records) | The registration is the identity |
+| Participant fields belong to the event | [Fields](events-and-forms.md#fields) | Forms ask for fields; they do not define a copy |
+| One condition format and one evaluator | [Conditions](events-and-forms.md#conditions) | Visibility and offers are decided in one place |
+| One seat rule for every limited pool | [Foundation](foundation.md#facts-decisions-and-computed-values) | Read the rule before touching a limited choice |
+| No tariff snapshot | [Money](money.md#money-settings-apply) | Price changes are previewed and applied |
+| An append-only ledger per registration, with payers | [Money](money.md#ledger) | Corrections are new lines |
+| No job queue | [Foundation](foundation.md#deferred-work) | Each kind of deferred work gets its own guarantee |
+| Any load failure closes every event | [Modules](modules-and-extensions.md#failure-isolation) | There is no per-event dependency analysis |
 
 ## Context
 
