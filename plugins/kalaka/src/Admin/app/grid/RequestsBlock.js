@@ -1,12 +1,14 @@
 /**
  * The requests block of the detail panel (slice B, "answer a request"), under the manual confirmation block: each
  * request of the registration with its state, and with `can.answer_request` the button that opens the answer
- * dialog. It shows only what the read carries: nothing without `can.answer_request` and nothing while the last
- * read failed. [UNAPPROVED N7]
+ * dialog. It shows only what the read carries: the block shows when the read carries requests (only holders of the
+ * answer ability get them), only the button needs `can.answer_request`, an inactive request shows its label
+ * with „–” as its state, and nothing shows while the last read failed.
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import AnswerDialog from './AnswerDialog';
+import NotApplicable from './NotApplicable';
 import { itemsOf, stateText } from './requests';
 import { REQUESTS } from './texts';
 
@@ -59,7 +61,9 @@ export default function RequestsBlock( { config, code, detail, stale, reload, on
 		focusOpener();
 	};
 
-	if ( ! can || ( items.length === 0 && notices.length === 0 ) ) {
+	// The read carries the requests only to a holder of the answer ability, so the block shows whenever it has items;
+	// `can.answer_request` (false while the registration is not registered, N655) only gives the button. [UNAPPROVED N7]
+	if ( items.length === 0 && notices.length === 0 ) {
 		return null;
 	}
 	return (
@@ -71,17 +75,27 @@ export default function RequestsBlock( { config, code, detail, stale, reload, on
 						{ items.map( ( item ) => (
 							<li key={ item.id }>
 								<span>
-									{ item.label }: { stateText( item, detail.requests.currency ) }
+									{ item.label }
+									{ item.state === 'inactive' ? (
+										<Fragment>
+											{ ': ' }
+											<NotApplicable text={ stateText( item, detail.requests.currency ) } />
+										</Fragment>
+									) : (
+										`: ${ stateText( item, detail.requests.currency ) }`
+									) }
 								</span>
-								<Button
-									variant="secondary"
-									onClick={ ( e ) => {
-										opener.current = e.currentTarget;
-										setOpen( item );
-									} }
-								>
-									{ item.state === 'awaiting' ? REQUESTS.answer : REQUESTS.change }
-								</Button>
+								{ can && item.state !== 'inactive' && (
+									<Button
+										variant="secondary"
+										onClick={ ( e ) => {
+											opener.current = e.currentTarget;
+											setOpen( item );
+										} }
+									>
+										{ item.state === 'awaiting' ? REQUESTS.answer : REQUESTS.change }
+									</Button>
+								) }
 							</li>
 						) ) }
 					</ul>
@@ -91,6 +105,7 @@ export default function RequestsBlock( { config, code, detail, stale, reload, on
 				<AnswerDialog
 					config={ config }
 					code={ code }
+					currency={ detail.requests.currency }
 					item={ open }
 					onClose={ () => {
 						setOpen( null );

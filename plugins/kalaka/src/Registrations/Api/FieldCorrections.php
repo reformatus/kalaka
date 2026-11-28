@@ -225,7 +225,7 @@ final class FieldCorrections
         RegistrationStatus $status,
         Context $context,
     ): array {
-        if ($status !== RegistrationStatus::Registered) {
+        if (!$status->isLive()) {
             return [];
         }
         foreach ($plan->free as $claim) {
@@ -245,7 +245,7 @@ final class FieldCorrections
         Context $context,
         bool $apply,
     ): array {
-        if ($status !== RegistrationStatus::Registered) {
+        if (!$status->isLive()) {
             return [];
         }
         $over = [];

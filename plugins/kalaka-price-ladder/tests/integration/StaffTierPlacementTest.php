@@ -251,7 +251,6 @@ final class StaffTierPlacementTest extends PriceLadderTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
         ]);
         $anna = $this->choosing('00A2', 'teljes');
         $this->pay($anna, '49500');

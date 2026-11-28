@@ -20,8 +20,6 @@ final class RegistrationCommandTest extends StaffEditTestCase
         if (defined('WP_CLI::IS_TEST_DOUBLE')) {
             \WP_CLI::reset();
         }
-        // The operator answers yes to the question unless a test has them decline.
-        \WP_CLI::$answersYes = true;
         global $wpdb;
         $options = wp_json_encode([
             ['value' => 'a', 'label' => 'A', 'retired_at' => null],
@@ -52,7 +50,6 @@ final class RegistrationCommandTest extends StaffEditTestCase
     public function tear_down(): void
     {
         wp_set_current_user(0);
-        \WP_CLI::$answersYes = false;
 
         parent::tear_down();
     }

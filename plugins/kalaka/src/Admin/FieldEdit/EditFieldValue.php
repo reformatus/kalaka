@@ -19,9 +19,8 @@ use Kalaka\Registrations\Api\RegistrationKey;
 /**
  * Staff correct one field value of one registration, with an optional reason (events-and-forms.md, "Changing
  * participant fields after submit"; foundation.md, "Views and grants"). A field change: it carries no action, so a
- * grant holds
- * it when the registration is inside its view, and the fine check inside `execute` needs the field's column
- * read-write (`Access::mayWrite()`); full access passes both. The value arrives already in its stored form
+ * grant holds it when the registration is inside its view, and the fine check inside `execute` needs the field's
+ * column read-write (`Access::mayWrite()`); full access passes both. The value arrives already in its stored form
  * (`PreparedEdit`, made by `FieldEditInput::prepare()` outside the run).
  *
  * Not a submission: nothing is added to the submission list; the latest write wins and every write is audited.
@@ -65,8 +64,7 @@ final class EditFieldValue implements AdminUseCase, PreviewableUseCase
 
     /**
      * `value` is the answer in the shape the field type takes (null clears), `expected` the stored value the
-     * screen showed (null: none; leave it out to skip the check), `reason` optional, at most 500
-     * characters.
+     * screen showed (null: none; leave it out to skip the check), `reason` optional, at most 500 characters.
      */
     public function inputSchema(): array
     {

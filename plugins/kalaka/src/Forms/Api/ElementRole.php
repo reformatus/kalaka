@@ -31,4 +31,6 @@ enum ElementRole: string
     case ErrorMessage = 'error_message';
     /** The form's submit button (rendered by the form front end). */
     case SubmitButton = 'submit_button';
+    /** The `body` of a page core renders itself (the card return page); beside the frame. [UNAPPROVED N826] */
+    case PageBody = 'page_body';
 }

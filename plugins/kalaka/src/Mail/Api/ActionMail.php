@@ -17,17 +17,35 @@ enum ActionMail: string
     case Waitlisted = 'waitlisted';
     case PaymentRecorded = 'payment_recorded';
     case Confirmed = 'confirmed';
-    case LinkRegenerated = 'link_regenerated';
+    case Answered = 'answered';
 
-    /** The catalogue's name of the mail: what causes it. */
+    /**
+     * Whether an act on this line queues this mail: the one declared list of the points that work (owner
+     * 2026-11-27, walkthrough 8.5; the screen shows only those as usable). A point that is not wired can be set
+     * up and switched on, but nothing sends it yet. Every point is wired now: the "payment recorded" mail is
+     * queued by the recording acts (`ActionMails::lineRecorded()`, #233). The PR that adds a producer adds its
+     * point here.
+     */
+    public function isWired(): bool
+    {
+        return match ($this) {
+            self::Registered, self::Waitlisted, self::PaymentRecorded, self::Confirmed, self::Answered => true,
+        };
+    }
+
+    /**
+     * The catalogue's name of the mail: what causes it. The label of `PaymentRecorded` changes the owner-approved
+     * „Befizetés rögzítve” (#162's N20), because the mail now covers refunds.
+     */
     public function label(): string
     {
         return match ($this) {
             self::Registered => 'Jelentkezés rögzítve',
             self::Waitlisted => 'Jelentkezés várólistára helyezve',
-            self::PaymentRecorded => 'Befizetés rögzítve',
+            self::PaymentRecorded => 'Pénzmozgás rögzítve',
             self::Confirmed => 'Jelentkezés véglegesítve',
-            self::LinkRegenerated => 'Személyes link lecserélve',
+            // [UNAPPROVED T12] the lektor's wording
+            self::Answered => 'Kérelem megválaszolva',
         };
     }
 }

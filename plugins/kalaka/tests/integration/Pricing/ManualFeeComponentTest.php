@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Pricing;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -116,7 +117,11 @@ final class ManualFeeComponentTest extends PricingTestCase
         $anna = $this->register('00A0');
         $this->record($anna, false, '3000', 'Teszt', 'f1');
 
-        $rows = $this->settings->preview($this->event, new ProposedMoneySettings($this->huf('45000')));
+        $rows = $this->settings->preview(
+            $this->event,
+            new ProposedMoneySettings($this->huf('45000')),
+            new CliActor(null)
+        );
 
         self::assertCount(1, $rows);
         self::assertInstanceOf(PreviewRow::class, $rows[0]);

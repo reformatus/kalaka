@@ -68,7 +68,6 @@ final class ParticipantFieldRecord
      * Refuses unless the module `$declarer` may declare this key as a field of `$type`: a `form` field of the same
      * type (it will be adopted), or an `extension` field of the same type that this declarer declared or no one is
      * recorded for. The one rule `ParticipantFields::checkDeclarable()` and `DeclareExtensionField` share.
-     * [UNAPPROVED N5]
      *
      * @throws FieldKeyHeld when the key is held by another kind of field, another type or another declarer
      */

@@ -10,7 +10,7 @@ use Kalaka\Forms\Api\ValidatedAnswers;
 /**
  * The one read of seat claims: every `SeatClaimSource` asked for the claims of the answers, in contribution order.
  * A registration submit asks it of the answers it validated, an additional form's submit of the values the
- * registration would hold after it (D7), a staff correction and a status act of the stored values. One claim
+ * registration would hold after it (its seat move), a staff correction and a status act of the stored values. One claim
  * per pool: when two sources claim the same pool, the first stays, so a submit takes one seat for it, not two.
  * Plain reads, outside any transaction.
  */
