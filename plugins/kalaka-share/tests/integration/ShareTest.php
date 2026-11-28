@@ -29,6 +29,7 @@ use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Pricing\SetManualConfirmation;
 use Kalaka\Registrations\Answer\AnswerRequest;
+use Kalaka\Registrations\Api\AidAbovePrice;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Share\Module;
@@ -303,7 +304,8 @@ final class ShareTest extends ShareTestCase
 
         $rows = $this->settings->preview(
             $this->event,
-            new ProposedMoneySettings(components: [$this->share->propose($this->event, false)])
+            new ProposedMoneySettings(components: [$this->share->propose($this->event, false)]),
+            new CliActor(null)
         );
 
         self::assertCount(1, $rows);
@@ -412,27 +414,61 @@ final class ShareTest extends ShareTestCase
         self::assertSame('0', $this->balance($key));
     }
 
-    public function testAidIsCappedAtTheParticipantsPartAfterTheShareAndNeverTouchesTheCongregation(): void
+    public function testAnAidAwardAboveTheParticipantsPartAfterTheShareIsRefusedAndTheLimitIsAccepted(): void
     {
         $aid = new Aid();
         $proposed = new ProposedMoneySettings(components: [$aid->propose($this->event, 'Teszt ösztöndíj')]);
         self::assertSame([], $this->settings->apply($this->event, $proposed, new CliActor(null))->failed());
         $this->applyShare();
 
-        // Shared 30 000 of 44 500: the participant's part is 14 500, and 20 000 of aid is capped there.
+        // Shared 30 000 of 44 500: the participant's part is 14 500, the most the answer act accepts as aid
+        // (`RequestSource::terms()` is measured after the share stage).
         $key = $this->registerSharing('00A0', 'shared', '30000');
         $this->writeValue($key, 'aid_can_pay', '5000');
+        try {
+            $this->answerAid($key, '20000');
+            self::fail('An award above the participant\'s part must be refused.');
+        } catch (AidAbovePrice) {
+            self::assertSame(['congregation 30000', 'participant -30000'], $this->shareLines($key));
+            self::assertSame('14500', $this->balance($key));
+        }
+
+        $this->answerAid($key, '14500');
+
+        self::assertSame(['congregation 30000', 'participant -30000'], $this->shareLines($key));
+        self::assertSame('0', $this->balance($key));
+        self::assertSame('30000', $this->congregationBalance($key));
+    }
+
+    public function testAnAwardGivenEarlierIsCappedWhenTheShareGrowsAndTheCongregationIsUntouched(): void
+    {
+        $aid = new Aid();
+        $proposed = new ProposedMoneySettings(components: [$aid->propose($this->event, 'Teszt ösztöndíj')]);
+        self::assertSame([], $this->settings->apply($this->event, $proposed, new CliActor(null))->failed());
+        $this->applyShare();
+
+        $key = $this->registerSharing('00A0', 'none');
+        $this->writeValue($key, 'aid_can_pay', '5000');
+        $this->answerAid($key, '10000');
+        self::assertSame('34500', $this->balance($key));
+
+        // The share grows to 40 000: the participant's part is 4 500 and the 10 000 of aid is capped there.
+        $this->answerShare($key, 'shared', '40000');
+
+        self::assertSame(['congregation 40000', 'participant -40000'], $this->shareLines($key));
+        self::assertSame('0', $this->balance($key));
+        self::assertSame('40000', $this->congregationBalance($key));
+    }
+
+    private function answerAid(RegistrationKey $key, string $amount): void
+    {
         $this->runner->run(new AnswerRequest(), [
             'event_id' => $key->eventId,
             'code' => $key->code,
             'request' => 'aid',
             'answer' => 'yes',
-            'amount' => '20000',
+            'amount' => $amount,
         ], new UserActor($this->fullAccessUser()));
-
-        self::assertSame(['congregation 30000', 'participant -30000'], $this->shareLines($key));
-        self::assertSame('0', $this->balance($key));
-        self::assertSame('30000', $this->congregationBalance($key));
     }
 
     public function testExtrasAndManualFeesAreNeverCoveredByTheShare(): void
