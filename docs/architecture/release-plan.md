@@ -40,8 +40,8 @@ what is dropped. The architecture pages say how things are built; this page says
    partner approval). A partner approves in a view of its own through the one
    "answer a request" act its grant carries, the act staff use, filtered to
    the partner's registrations. Until partners have their own views, IVK
-   staff record a partner's confirmation on its behalf, audited with a
-   reason.
+   staff record a partner's confirmation on its behalf, audited, with an
+   optional note.
 5. **Mail:** IVK's mails 1, 1O, 1V and 2 and the other action mails; the
    sender with its throttle; staff see which deliveries
    failed and can send a chosen mail to chosen registrations. Mail is never
@@ -148,7 +148,7 @@ after 11 days, so these must exist before the first registrants reach them:
 ### Nice to have
 
 - **The capacity exemption** for children under 13 who come with a parent.
-- **Support requests decided by staff,** reusing IVK's pending decisions.
+- **Support requests decided by staff,** reusing IVK's requests that await an answer.
 
 ### Order of sacrifice for opening day
 
@@ -164,7 +164,6 @@ each with its own registration form; "register for the other camp too" from
 the thank-you page as a single-use link copying the first registration's
 answers, each camp paid separately; the capacity exemption for children under
 13; the Támogatott tier quotas (FF 13, K 80); a deposit per camp (FF 10 000 Ft,
-K 20 000 Ft); K's extra-support request as a pending decision with the payment
-hold; late fees (FF 5 000 Ft, K 7 000 Ft); direct-pick program sets, groups and
+K 20 000 Ft); K's extra-support request as a request that awaits an answer; late fees (FF 5 000 Ft, K 7 000 Ft); direct-pick program sets, groups and
 lodging; file upload and the moral-certificate status; partner views;
 attendance sheets.

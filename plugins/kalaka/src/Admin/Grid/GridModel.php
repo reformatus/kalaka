@@ -54,7 +54,7 @@ final class GridModel
      * @return list<array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>, empty?: true
+     *     states?: array<string, string>, empty?: true, name?: true
      * }>
      */
     public function columns(HeldView $view, array $fields): array
@@ -183,7 +183,7 @@ final class GridModel
      * @return list<array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>, empty?: true
+     *     states?: array<string, string>, empty?: true, name?: true
      * }>
      */
     public function describe(array $columns, array $fields, int $eventId): array
@@ -369,6 +369,9 @@ final class GridModel
                 'labels' => array_map(static fn (string $m): string => $labels[$m] ?? $m, $chosen),
             ]];
         }
+        if ($column === 'awaits_answer') {
+            return [AggregateKind::Yes, [], ['kind' => 'count', 'member' => Texts::YES]];
+        }
         if (!str_starts_with($column, 'field:')) {
             return null;
         }
@@ -468,7 +471,7 @@ final class GridModel
      * @return array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>, empty?: true
+     *     states?: array<string, string>, empty?: true, name?: true
      * }
      */
     private function meta(string $column, array $fields, int $eventId): array
@@ -487,6 +490,18 @@ final class GridModel
             return $meta + [
                 'label' => $column === 'registered_at' ? Texts::REGISTERED_AT : Texts::SUBMITTED_AT,
                 'type' => 'time',
+            ];
+        }
+        if ($column === 'awaits_answer') {
+            // A core-derived yes/no column: shown, filtered and counted as a consent field is
+            // (stored '1' / '0'), but with three values: no value is N/A (the registration is not `registered`),
+            // shown as `na` („–”), different from „Nem”; there is no „Nincs válasz” and no N/A filter option.
+            // The title is Texts::AWAITS_ANSWER. [UNAPPROVED N690, T1120]
+            return $meta + [
+                'label' => Texts::AWAITS_ANSWER,
+                'type' => 'consent',
+                'options' => ['1' => Texts::YES, '0' => Texts::NO],
+                'na' => Texts::NOT_APPLICABLE,
             ];
         }
         if ($column === 'status') {
@@ -536,6 +551,11 @@ final class GridModel
         // existed).
         if ($type === 'choice' || $type === 'consent') {
             $meta['empty'] = true;
+        }
+        // The display name field's column says so, so the app can show the name beside the code (and keep both
+        // columns at the start of the table) without guessing which text column it is.
+        if ($field->type === self::NAME_TYPE) {
+            $meta['name'] = true;
         }
 
         return $meta;

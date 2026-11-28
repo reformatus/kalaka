@@ -78,7 +78,7 @@ SQL;
      * money.md, "Sponsor and church support" and foundation.md, "Facts": the answers to requests, a fact, one
      * row per answering act (never an upsert: each act has its own id, the key the "answered" mail takes, and its
      * own time). `request` is the request's id (`aid`, `offer:<key>`); the latest row per request is the current
-     * answer. `amount` and `currency` are set for aid, `note` is free text. [UNAPPROVED N1]
+     * answer. `amount` and `currency` are set for aid, `note` is free text.
      */
     private const ANSWERS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_answers (
@@ -161,13 +161,14 @@ SQL;
 
     public function schema(): Schema
     {
-        // Main's seats and drafts tables (#247, #181) and this branch's answers table: one version above both.
+        // 8: the union above both sides' 7. This branch took 6 for its answers, on #228's 5 for the seats;
+        // main's 7 adds #194's drafts. One version above both, holding every table.
         return new Schema(8, [
             self::REGISTRATIONS,
             self::FIELD_VALUES,
             self::SUBMISSIONS,
-            self::ANSWERS,
             self::SEATS,
+            self::ANSWERS,
             self::DRAFTS,
         ]);
     }
@@ -181,6 +182,7 @@ SQL;
             'kalaka_withdraw_registration',
             'kalaka_remove_registration',
             'kalaka_admit_registration',
+            'kalaka_regenerate_link',
             Requests::ANSWER,
         ];
     }
@@ -202,7 +204,7 @@ SQL;
         Abilities::register(
             new Answer\AnswerRequest(),
             'Kérelem megválaszolása',
-            'Egy jelentkező kérelmének megválaszolása: támogatási kérelem vagy jóváhagyásra váró támogatás.'
+            'Egy jelentkező támogatási kérelmének megválaszolása.'
         );
     }
 }

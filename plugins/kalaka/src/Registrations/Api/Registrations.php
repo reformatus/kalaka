@@ -113,7 +113,7 @@ final class Registrations
      * `$declarer` is the writing module's slug, the one it declared the field with (`kalaka-aid`, `kalaka-support`):
      * one writer rule, a field is written by its declarer's own code only. The field must be one the event
      * declares, and not a "system" field, which stores nothing (foundation.md, "Facts, decisions and computed
-     * values"). The caller owns the field's type: this does not check it. [UNAPPROVED N11] [UNAPPROVED N137]
+     * values"). The caller owns the field's type: this does not check it.
      *
      * TODO(CF3, #231): refuse a field whose `declared_by` is another declarer. The column and
      * `ParticipantField::$declaredBy` arrive with CF3; until then the declarer is required but not compared, so

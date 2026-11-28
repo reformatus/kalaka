@@ -345,13 +345,13 @@ such as lunch or a donation.
   it chose.
 - **Every time-dependent rule for a registration counts from the moment it
   last became `registered`** (`registered_at`, a personal fact), never from
-  "now" and never from the submit: payment due, everything. Payment due alone
-  also restarts at a later answer to a request. A price-ladder tier chosen at
-  submit is kept, also at an admission from the waitlist, at the tier's
-  current amount; any date guard on an early price is the form's condition on
-  `price_tier`'s options, checked at submit. A waitlisted registration is not
-  registered, so an admission from the waitlist counts from its admission. A
-  deadline's day ends at midnight in the site time zone
+  "now" and never from the submit: payment due, everything; payment due
+  alone also restarts at a later answer to a request. A price-ladder tier
+  chosen at submit is kept, also at an
+  admission from the waitlist, at the tier's current amount; any date guard on
+  an early price is the form's condition on `price_tier`'s options, checked at
+  submit. A waitlisted registration is not registered, so an admission from
+  the waitlist counts from its admission. A deadline's day ends at midnight in the site time zone
   ([Cross-cutting rules](foundation.md#cross-cutting-rules)).
 - **Personal facts still recompute automatically:** e.g. a price-ladder
   choice, the aid award, staff status (a field value written by the staff
@@ -364,7 +364,10 @@ such as lunch or a donation.
 - **Saving money settings is preview → confirm → apply**
   ([Bulk changes](foundation.md#bulk-changes)). The preview composes every
   `registered` and `waitlisted` registration with the proposed settings and
-  writes nothing, showing what each payer owes now and would owe. The apply
+  writes nothing, showing what each payer owes now and would owe, and how
+  many registrations would become confirmed and how many "confirmed" mails
+  would go (a dry run of [Confirmation](#confirmation) against the proposed
+  composition; a registration confirmed already is not counted). The apply
   saves the settings, then re-evaluates each of them in its own transaction,
   and the materializer writes the difference as `charge` lines. Its report
   lists the failed registrations, with retry and skip; a failed or skipped

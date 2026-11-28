@@ -87,8 +87,10 @@ final class MoneySettingsCommand
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
             $eventId = self::eventId($args);
-            self::check($eventId, self::actor());
-            $rows = $this->settings->preview($eventId, $this->document->proposed($eventId, self::file($assocArgs)));
+            $actor = self::actor();
+            self::check($eventId, $actor);
+            $proposed = $this->document->proposed($eventId, self::file($assocArgs));
+            $rows = $this->settings->preview($eventId, $proposed, $actor);
             $this->printRows($rows, self::format($assocArgs));
         });
     }
@@ -124,7 +126,7 @@ final class MoneySettingsCommand
             $actor = self::actor();
             self::check($eventId, $actor);
             $proposed = $this->document->proposed($eventId, self::file($assocArgs));
-            $rows = $this->settings->preview($eventId, $proposed);
+            $rows = $this->settings->preview($eventId, $proposed, $actor);
             $this->printRows($rows, self::format($assocArgs));
             \WP_CLI::confirm('Apply these settings to ' . count($rows) . ' registrations?', $assocArgs);
 

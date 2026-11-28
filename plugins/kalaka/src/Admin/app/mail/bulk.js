@@ -1,9 +1,10 @@
 /**
  * The grid's bulk action „Levél küldése” (piece 4): a DataViews action over the ticked rows, offered on a tab only
  * when the page's configuration says the tab carries the manual mail (full access, or a grant with
- * `kalaka_manual_mail`; the ability and the preview decide again on every call). The codes are the ticked rows'
- * keys; the dialog is the manual mail form in DataViews' own action modal. DataViews adds a menu with this one
- * action to every row as well. [UNAPPROVED N295]
+ * `kalaka_manual_mail`; the ability and the preview decide again on every call). The selection is the ticked rows'
+ * codes; the dialog is the manual mail form in DataViews' own action modal. DataViews adds a menu with this one
+ * action to every row as well. With nothing ticked the grid's slot passes the view with its filters and search
+ * instead of codes (`grid/selection.js`). [UNAPPROVED N295]
  *
  * @param {Object}   options
  * @param {boolean}  options.eligible    whether the tab carries the manual mail
@@ -23,7 +24,7 @@ import { GRIDACTION, MANUAL } from './texts';
  * dialog goes away after a send, however it was closed: not at the send (that would unmount the answer) and not in
  * the Bezárás button only.
  */
-function BulkDialog( { event, previewPath, items, closeModal, onSent, keys } ) {
+function BulkDialog( { event, previewPath, items, selection, closeModal, onSent, keys } ) {
 	const sent = useRef( false );
 	const done = useRef( onSent );
 	done.current = onSent;
@@ -40,7 +41,7 @@ function BulkDialog( { event, previewPath, items, closeModal, onSent, keys } ) {
 		<ManualMailForm
 			event={ event }
 			previewPath={ previewPath }
-			codes={ items.map( ( item ) => item.key ) }
+			selection={ selection || { codes: items.map( ( item ) => item.key ) } }
 			onClose={ closeModal }
 			onSent={ () => {
 				sent.current = true;
@@ -63,8 +64,10 @@ export function manualMailAction( { eligible, event, previewPath, onSent } ) {
 		icon: envelope,
 		supportsBulk: true,
 		isEligible: () => eligible,
-		RenderModal: ( { items, closeModal } ) => (
-			<BulkDialog event={ event } previewPath={ previewPath } items={ items } closeModal={ closeModal } onSent={ onSent } keys={ keys } />
+		// `selection` comes from the grid's own slot (the ticked rows' codes, or the view with its filters and search when
+		// nothing is ticked); DataViews' per-row menu passes only the row, which is its own code.
+		RenderModal: ( { items, selection, closeModal } ) => (
+			<BulkDialog event={ event } previewPath={ previewPath } items={ items } selection={ selection } closeModal={ closeModal } onSent={ onSent } keys={ keys } />
 		),
 	};
 }

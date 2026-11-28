@@ -62,7 +62,7 @@ export const BODIES = {
 	create: 'Létrehozás',
 	titleField: 'Tárgy',
 	titleEmpty: 'Add meg a tárgyat.',
-	status_publish: 'Közzétéve',
+	status_publish: 'Elérhető', // the lektor's wording, matching the editor's status
 	status_draft: 'Vázlat', // reworded per the lektor (core's word)
 	status_pending: 'Függőben',
 	status_private: 'Privát',
@@ -75,7 +75,7 @@ export const BODIES = {
 
 /** The failed deliveries tab. */
 export const TROUBLED = {
-	code: 'Jelentkezési kód', // the owner's ruling 2026-11-27: only the grid's own column keeps „Kód”
+	code: 'Jelentkező', // the column holds the code and the name beside it
 	mail: 'Levél',
 	manual: '%d. csoportos levél', // reworded per the lektor
 	status: 'Állapot', // approved
@@ -156,13 +156,19 @@ export const MANUAL = {
 	previewFail: 'A címzettek ellenőrzése nem sikerült.',
 	body: 'Levélsablon', // approved
 	pick: '– válassz –',
-	noBodies: 'Az eseménynek nincs közzétett levélsablonja.',
+	noBodies: 'Az eseménynek nincs elérhető levélsablonja.', // the lektor's wording
 	layout: 'Levélkeret használata', // „levélkeret” is approved
 	toQueue: 'A levelet %d jelentkező kapja meg.', // reworded per the lektor
 	toQueueNone: 'A levelet egy jelentkező sem kapja meg.', // reworded per the lektor
-	skipped: 'Nem kap levelet:',
+	// The ones who get no mail are told as per-status totals; their list is in a popup of its own, opened by a text button
+	// whose label never changes. The totals read „Kihagyva: 1 törölt, 1 lemondott” (a count and the
+	// lowercase status word below), the popup lists „00A1 · Kiss Anna – lemondott”.
+	// Lektor next.
+	skippedTotals: 'Kihagyva: %s',
+	skippedOpen: 'Kihagyottak listája',
+	skippedTitle: 'Kihagyott jelentkezők',
 	unknown: 'Ismeretlen kód:',
-	reason_withdrawn: 'visszavont', // approved status words, lowercase after a code (reworded per the lektor)
+	reason_withdrawn: 'lemondott', // status words, lowercase after a code; „lemondott” per the owner's rename (lektor 1, J9)
 	reason_removed: 'törölt',
 	tooMany: 'Egyszerre legfeljebb 1000 jelentkezőnek küldhető levél.',
 	send: 'Küldés',
@@ -173,7 +179,6 @@ export const MANUAL = {
 /** What a send answers. [UNAPPROVED T282] */
 export const RESULT = {
 	queued: '%d levél a küldési sorba került.',
-	skipped: '%d jelentkező kimaradt:',
 	// Reworded per the lektor. On a repeat this replaces the „%d levél a küldési sorba került.” line too.
 	repeat: 'Ez a levél korábban már a küldési sorba került (%d levél), ezért újabb levél nem került a sorba.',
 	paused: 'A levélküldés szünetel, ezért a levelek a küldési sorban várnak.',
@@ -188,15 +193,16 @@ export const BATCHES = {
 	created: 'Sorba állítva', // reworded per the lektor: the batch's creation time, not a delivery
 	by: 'Küldte',
 	queued: 'Sorba került',
-	skipped: 'Kimaradt',
+	skipped: 'Kihagyva',
 	layout: 'Levélkerettel',
 	none: 'Még nincs csoportos levél.', // reworded per the lektor
+	// The member list's disclosure button on a batch's card; the label never changes.
 	members: 'Jelentkezők',
 	open: '%d. csoportos levél részletei',
-	// After a code, lowercase, as the manual mail dialog writes it („16F5 – visszavont”); reworded per the lektor (pass 2).
+	// After a code, lowercase, as the manual mail dialog writes it („16F5 – lemondott”); reworded per the lektor (pass 2).
 	outcome_queued: 'sorba került',
-	outcome_skipped_withdrawn: 'kimaradt: visszavont',
-	outcome_skipped_removed: 'kimaradt: törölt',
+	outcome_skipped_withdrawn: 'kihagyva: lemondott', // the owner's rename (lektor 1, J11)
+	outcome_skipped_removed: 'kihagyva: törölt',
 	gone: '(törölt levélsablon)', // the subject of a batch whose body is trashed or missing
 };
 

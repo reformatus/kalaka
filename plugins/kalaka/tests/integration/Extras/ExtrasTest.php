@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Extras;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Pricing\Api\PreviewRow;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
@@ -134,7 +135,8 @@ final class ExtrasTest extends ExtrasTestCase
             $this->event,
             new ProposedMoneySettings(components: [
                 $this->extras->propose($this->event, [self::item('ebed', 'Ebéd', '3500')]),
-            ])
+            ]),
+            new CliActor(null)
         );
 
         self::assertCount(1, $rows);

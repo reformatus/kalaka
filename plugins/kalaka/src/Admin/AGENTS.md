@@ -72,7 +72,9 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `kalaka_views` (`master` 1): at most one per event (the unique key on
   `master_event`), written only through `ViewRepository`, by `CopyViews`
   (nothing in the grid writes it). Its name, filter and columns are stored
-  empty and never read. It is never listed, edited or deleted as a view. A
+  empty and never read. Its columns are composed by rule (owner 2026-11-27): every core column
+  (`ViewShape::CORE_COLUMNS`), every field key, every decision kind and every computed column
+  (`ViewShape::COMPUTED_COLUMNS`, today `awaits_answer`); a new column joins one of those lists, never a hand list. It is never listed, edited or deleted as a view. A
   grant on the master view keeps `view_id` null and never points at the master
   row.
 - The grid's ad hoc filters and search (`Narrowing`, S37) only narrow: the view query appends them to the held
@@ -97,11 +99,32 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   the read (its `can` included), and the server decides every call.
 - The detail read carries the registration's `requests` (with their latest answers and, for a refused offer, whether
   its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
-  access; `can.answer_request` says so. The answer act is `kalaka/answer-request` (Registrations); the panel's
+  access; `can.answer_request` says so, and is true only while the registration is `registered` (the grid
+  column's meaning: nothing awaits on a waitlisted, withdrawn or removed one). An unanswered request on such a
+  registration reads `inactive`, not `awaiting`; its answered ones keep their answers. The requests' money figures —
+  an item's `amount` and, for an aid request, `aid: {full_price, can_pay, asked, max_award}` from the request
+  source's `terms()` — follow the read's money gate (`can.view_money`), so a holder whose view/grant gives no money
+  fields reads the requests without them. The answer act is `kalaka/answer-request` (Registrations); the panel's
   block of requests only calls it.
-- A grid row carries `awaits_answer`, a bool computed per page by Registrations' `Requests::awaitsOf()` (one
-  statement for the page's field values, none without a request source); it is a row value, not a column, so it is
-  not filterable, sortable or summable.
+- "Awaits an answer" is a core-derived grid column, `awaits_answer`, like `status` and `serial`: a view lists it or
+  not, any view may (it tells that something awaits, not what), and it filters (yes or no, no „Nincs válasz”),
+  sorts (yes first descending) and counts (`yes`) like the other yes/no columns, all over the one SQL expression
+  `ViewQuery::awaiting()`. That is `Requests::awaitingCondition()`, three-valued (owner 2026-11-27, N/A is different
+  from „Nem”): for a `registered` registration it is yes when some request source's `awaitingRule()` (declarative;
+  core compiles it) holds and no otherwise; for every other status it is N/A, NULL in SQL, never false. A filter on
+  yes or no never matches N/A (`NOT` of NULL is NULL); N/A sorts with no value (last descending, first ascending);
+  the grid shows it as „–”. It is never a filter term or a counted-members column. A grid row carries
+  `awaits_answer` as true, false or null (N/A) from the same expression in the page's one statement, whether or not
+  the view lists the column.
+- The mail pages (`Mail\MailPages`, `app/mail/`) are full access's and decide no
+  access: they show only what the mail reads return, every change is an ability
+  call, and the page reads again after it; a typed or chosen draft is dropped
+  only when its act succeeded.
+- The grid's bulk action „Levél küldése” is offered on a tab only when the
+  page's configuration says the tab carries `ManualMails::GRANT_ACTION` (full
+  access: always); that is only an offer. It sends the ticked rows' codes as a
+  `{ codes }` selection, and the preview and `kalaka/send-manual-mail` decide
+  access again on every call (`kalaka_manual_mail`, inside the grant's view).
 - Staff correct a field value only through `kalaka/edit-field-value` (`FieldEdit\EditFieldValue`): a field change with
   no action, so rights are read-write columns of a held view and full access, never a new grant action. The field
   type turns the value into its stored form before the run (`FieldEditInput`), never inside it; no form condition is

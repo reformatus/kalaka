@@ -151,7 +151,7 @@ final class StatusBlockTest extends PortalTestCase
         self::assertStringContainsString('<strong>Fizetésre vár.</strong>', $this->statusBlock());
     }
 
-    public function testAwaitingAnAnswerShowsThePinkNoticeTheBoldAmountNoDeadlineAndNoTransfer(): void
+    public function testAwaitingAnAnswerShowsNoNoticeThePlainAmountNoDeadlineAndNoTransfer(): void
     {
         $key = $this->stored('12A3', at: '2026-11-20 10:00:00');
         $this->charge($key, '48000');
@@ -159,11 +159,9 @@ final class StatusBlockTest extends PortalTestCase
         $this->activate($key);
 
         $html = $this->statusBlock($read);
-        self::assertStringContainsString(
-            'has-pale-pink-background-color has-text-color has-black-color"><p><strong>Elbírálás alatt.</strong>'
-            . ' Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges összeget.</p></div>',
-            $html
-        );
+        self::assertStringNotContainsString('Elbírálás alatt', $html);
+        self::assertStringNotContainsString('has-pale-pink-background-color', $html);
+        self::assertStringContainsString('<strong>Fizetésre vár.</strong>', $html);
         self::assertStringNotContainsString('Lejárt', $html);
         self::assertStringContainsString(
             '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Még fizetendő</strong></th>'
@@ -179,7 +177,7 @@ final class StatusBlockTest extends PortalTestCase
         self::assertTrue($read->forActive()?->payment?->awaitsAnswer);
     }
 
-    public function testOnceAnsweredTheNoticeGoesAndTheDeadlineAndTheTransferBlockComeBack(): void
+    public function testOnceAnsweredTheDeadlineAndTheTransferBlockComeBack(): void
     {
         $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
         $this->charge($key, '48000');
@@ -195,9 +193,9 @@ final class StatusBlockTest extends PortalTestCase
         self::assertFalse($read->forActive()?->payment?->awaitsAnswer);
     }
 
-    public function testAConfirmedRegistrationStillAwaitingAnAnswerShowsTheNoticeNotTheGreenBox(): void
+    public function testAConfirmedRegistrationStillAwaitingAnAnswerShowsTheGreenBox(): void
     {
-        // Pins the order as built (M10, a box for the owner): awaiting an answer comes before confirmed.
+        // Owner 2026-11-27 (merge-queue Q6): the block has no overall under-review state, so confirmed shows.
         $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
         $this->charge($key, '48000');
         $this->pay($key, '48000');
@@ -206,8 +204,8 @@ final class StatusBlockTest extends PortalTestCase
         $this->activate($key);
 
         $html = $this->statusBlock($read);
-        self::assertStringContainsString('<strong>Elbírálás alatt.</strong>', $html);
-        self::assertStringNotContainsString('Visszaigazolva', $html);
+        self::assertStringContainsString('<strong>Visszaigazolva.</strong>', $html);
+        self::assertStringNotContainsString('Elbírálás alatt', $html);
     }
 
     public function testAnAnswerLaterThanTheRegistrationRestartsTheDueClock(): void

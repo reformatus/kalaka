@@ -86,6 +86,34 @@ final class ActionMailSendingTest extends MailBodyTestCase
         ]);
     }
 
+    public function testAWaitlistedRegistrationQueuesOnlyTheWaitlistMailAndAdmissionLiftsTheHold(): void
+    {
+        global $wpdb;
+        $event = $this->published();
+        $values = ['name' => 'Teszt Elek', 'email' => 'teszt@example.test', 'camps' => '["ff"]'];
+        $key = $this->registration($event, '12A3', $values, 'waitlisted');
+        foreach (['waitlisted', 'registered', 'answered', 'payment_recorded'] as $mail) {
+            $this->switchOn($event, $mail, $this->document($event, $this->paragraph('Szia')));
+        }
+
+        self::assertTrue($this->act($key, ActionMail::Waitlisted));
+        self::assertFalse($this->act($key, ActionMail::Answered));
+        self::assertFalse($this->act($key, ActionMail::PaymentRecorded));
+        self::assertFalse($this->act($key, ActionMail::Registered, 'c2'));
+        self::assertSame(['waitlisted'], array_column($this->deliveries(), 'mail'));
+
+        // Admission: the status is `registered` when the admission mail is decided, so nothing holds it; a held
+        // mail is not queued later by itself.
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['status' => 'registered'],
+            ['event_id' => $event, 'code' => '12A3'],
+        );
+        self::assertTrue($this->act($key, ActionMail::Registered, 'c3'));
+        self::assertTrue($this->act($key, ActionMail::Answered, 'c4'));
+        self::assertSame(['waitlisted', 'registered', 'answered'], array_column($this->deliveries(), 'mail'));
+    }
+
     public function testAnUnpublishedEventStillQueuesItsActionMails(): void
     {
         $event = $this->unpublished();

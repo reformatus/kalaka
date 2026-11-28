@@ -11,6 +11,7 @@ import apiFetch from '@wordpress/api-fetch';
 import { ManualMailForm } from '../../src/Admin/app/mail/ManualMailDialog';
 import { createKeys } from '../../src/Admin/app/mail/manual';
 import { MANUAL, RESULT } from '../../src/Admin/app/mail/texts';
+import { skippedTotals } from '../../src/Admin/app/mail/format';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( 'react' );
@@ -18,7 +19,7 @@ jest.mock( '@wordpress/components', () => {
 		delete rest.isBusy;
 		delete rest.accessibleWhenDisabled;
 		delete rest.variant;
-		return h( 'button', rest, children );
+		return h( 'button', { type: 'button', ...rest }, children );
 	};
 	const CheckboxControl = ( { label, checked, onChange } ) =>
 		h(
@@ -41,7 +42,7 @@ jest.mock( '@wordpress/components', () => {
 		);
 	const Notice = ( { children, status } ) => h( 'div', { 'data-notice': status }, children );
 	const Spinner = () => h( 'span', null, '…' );
-	const Modal = ( { children } ) => h( 'div', null, children );
+	const Modal = ( { children, title } ) => h( 'div', { 'data-modal': title }, children );
 	return { Button, CheckboxControl, SelectControl, Notice, Spinner, Modal };
 } );
 
@@ -94,7 +95,7 @@ async function render( props = {} ) {
 			createElement( ManualMailForm, {
 				event: 1,
 				previewPath: '/kalaka-admin/v1/events/1/mail/manual/preview',
-				codes: [ 'A1', 'A2', 'A3', 'A4' ],
+				selection: { codes: [ 'A1', 'A2', 'A3', 'A4' ] },
 				onClose: closed,
 				onSent: sent,
 				...props,
@@ -105,6 +106,13 @@ async function render( props = {} ) {
 
 const select = () => host.querySelector( 'select' );
 const submitButton = () => host.querySelector( 'button[type=submit]' );
+const opener = () => Array.from( host.querySelectorAll( 'button' ) ).find( ( b ) => b.textContent === MANUAL.skippedOpen );
+const popup = () => host.querySelector( '[data-modal]' );
+async function openSkipped() {
+	await act( async () => {
+		opener().click();
+	} );
+}
 const notices = ( status ) => Array.from( host.querySelectorAll( `[data-notice="${ status }"]` ) ).map( ( n ) => n.textContent );
 
 async function choose( value ) {
@@ -151,8 +159,30 @@ describe( 'the preview', () => {
 		expect( calls( 'preview' ) ).toHaveLength( 1 );
 		expect( calls( 'preview' )[ 0 ].data ).toEqual( { selection: { codes: [ 'A1', 'A2', 'A3', 'A4' ] } } );
 		expect( host.textContent ).toContain( 'A levelet 2 jelentkező kapja meg.' );
-		expect( host.textContent ).toContain( 'A3 – ' + MANUAL.reason_withdrawn );
-		expect( host.textContent ).toContain( 'A4 – ' + MANUAL.reason_removed );
+		// The skipped ones are told as per-status totals, not one by one; their list is in the popup.
+		expect( host.textContent ).toContain( 'Kihagyva: 1 törölt, 1 lemondott' );
+		expect( host.textContent ).not.toContain( 'A3' );
+		expect( popup() ).toBeNull();
+	} );
+
+	test( 'the list of the skipped is in a popup of its own, opened by a button whose label never changes', async () => {
+		await render();
+		expect( opener().textContent ).toBe( MANUAL.skippedOpen );
+		await openSkipped();
+		expect( popup().getAttribute( 'data-modal' ) ).toBe( MANUAL.skippedTitle );
+		expect( popup().textContent ).toContain( 'A3 – ' + MANUAL.reason_withdrawn );
+		expect( popup().textContent ).toContain( 'A4 – ' + MANUAL.reason_removed );
+		expect( opener().textContent ).toBe( MANUAL.skippedOpen );
+		// The opener sits inside the form but is no submit button: opening the list sends nothing.
+		expect( opener().getAttribute( 'type' ) ).toBe( 'button' );
+		expect( calls( 'send-manual-mail' ) ).toHaveLength( 0 );
+	} );
+
+	test( 'nobody skipped: no totals line and no opener', async () => {
+		route( { plan: { ...PLAN, skipped: [] } } );
+		await render();
+		expect( host.textContent ).not.toContain( 'Kihagyva' );
+		expect( opener() ).toBeUndefined();
 	} );
 
 	test( 'the choice is the published bodies the read returned, and none is chosen for the user', async () => {
@@ -264,7 +294,10 @@ describe( 'the answer', () => {
 		await choose( '20' );
 		await submit();
 		expect( host.textContent ).toContain( '2 levél a küldési sorba került.' );
-		expect( host.textContent ).toContain( 'A3 – ' + MANUAL.reason_withdrawn );
+		// The answer tells the skipped the same way: totals and the popup.
+		expect( host.textContent ).toContain( 'Kihagyva: 1 lemondott' );
+		await openSkipped();
+		expect( popup().textContent ).toContain( 'A3 – ' + MANUAL.reason_withdrawn );
 		expect( host.querySelector( 'form' ) ).toBeNull();
 		expect( notices( 'warning' ) ).toEqual( [] );
 	} );
@@ -328,16 +361,87 @@ describe( 'a double send across reopenings', () => {
 
 	test( 'another selection is another request', async () => {
 		const keys = createKeys();
-		await render( { keys, codes: [ 'A1', 'A2' ] } );
+		await render( { keys, selection: { codes: [ 'A1', 'A2' ] } } );
 		await choose( '20' );
 		await submit();
 		await act( async () => root.unmount() );
 		host.remove();
-		await render( { keys, codes: [ 'A1', 'A3' ] } );
+		await render( { keys, selection: { codes: [ 'A1', 'A3' ] } } );
 		await choose( '20' );
 		await submit();
 		const sent = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
 		expect( new Set( sent ).size ).toBe( 2 );
+	} );
+} );
+
+describe( 'code and name', () => {
+	test( 'a skipped registration is named with its code and name; without a name the code stands alone', async () => {
+		route( {
+			plan: {
+				...PLAN,
+				skipped: [ { code: 'A3', reason: 'withdrawn' }, { code: 'A4', reason: 'removed' } ],
+				names: { A3: 'Kiss Anna', A4: null },
+			},
+		} );
+		await render();
+		await openSkipped();
+		expect( popup().textContent ).toContain( 'A3 · Kiss Anna – lemondott' );
+		expect( popup().textContent ).toContain( 'A4 – ' + MANUAL.reason_removed );
+		expect( popup().textContent ).not.toContain( 'A4 ·' );
+	} );
+
+	test( 'the answer of a send lists codes only, so it takes the names from the preview names map', async () => {
+		route( {
+			plan: { ...PLAN, names: { A3: 'Kiss Anna' } },
+			send: () => Promise.resolve( { ...SENT, skipped: [ { code: 'A3', reason: 'withdrawn' } ] } ),
+		} );
+		await render();
+		await choose( '20' );
+		await submit();
+		await openSkipped();
+		expect( popup().textContent ).toContain( 'A3 · Kiss Anna – ' + MANUAL.reason_withdrawn );
+	} );
+} );
+
+describe( 'with nothing ticked: every row the filters and search leave', () => {
+	const ALL = { view: 0, grant: 0 };
+	const NARROWED = { view: 3, grant: 5, filters: [ { field: 'status', operator: 'isAny', value: [ 'registered' ] } ], search: 'kov' };
+
+	test( 'the preview asks with the view, the grant, the filters and the search, and the dialog gives the one count of who gets the mail', async () => {
+		route( { plan: { ...PLAN, count: 612 } } );
+		await render( { selection: NARROWED } );
+		expect( calls( 'preview' )[ 0 ].data ).toEqual( { selection: NARROWED } );
+		expect( host.textContent ).toContain( 'A levelet 2 jelentkező kapja meg.' );
+	} );
+
+	test( 'the dialog has no scope or help line of its own (the action bar\'s count prefix says what the button acts on)', async () => {
+		route( { plan: { ...PLAN, count: 612 } } );
+		await render( { selection: ALL } );
+		expect( host.textContent ).not.toContain( 'Nincs kijelölt' );
+		expect( host.textContent ).not.toContain( '612' );
+	} );
+
+	test( 'the send carries the same selection, with one request key per selection', async () => {
+		const keys = createKeys();
+		route( { plan: { ...PLAN, count: 3 } } );
+		await render( { keys, selection: NARROWED } );
+		await choose( '20' );
+		await submit();
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( { keys, selection: { ...NARROWED } } );
+		await choose( '20' );
+		await submit();
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( { keys, selection: { ...NARROWED, search: 'nagy' } } );
+		await choose( '20' );
+		await submit();
+		const sends = calls( 'send-manual-mail' );
+		expect( sends[ 0 ].data.input.selection ).toEqual( NARROWED );
+		expect( sends[ 0 ].data.input.codes ).toBeUndefined();
+		expect( sends[ 1 ].data.input.request_key ).toBe( sends[ 0 ].data.input.request_key );
+		expect( sends[ 2 ].data.input.request_key ).not.toBe( sends[ 0 ].data.input.request_key );
 	} );
 } );
 
@@ -351,5 +455,15 @@ describe( 'bodies with one subject', () => {
 			'Közlemény (22. levélsablon)',
 			'Más',
 		] );
+	} );
+} );
+
+describe( 'the totals of the skipped', () => {
+	test( 'one count and status word per status, in a fixed order, and any other reason as it is', () => {
+		expect( skippedTotals( [ { code: 'A', reason: 'withdrawn' }, { code: 'B', reason: 'removed' }, { code: 'C', reason: 'withdrawn' } ] ) ).toBe(
+			'1 törölt, 2 lemondott'
+		);
+		expect( skippedTotals( [ { code: 'A', reason: 'other' }, { code: 'B', reason: 'removed' } ] ) ).toBe( '1 törölt, 1 other' );
+		expect( skippedTotals( [] ) ).toBe( '' );
 	} );
 } );

@@ -71,7 +71,13 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
 - An action mail is decided only through `Api\ActionMails::due()` inside the
   acting use case, or inside the evaluation that use case runs (confirmed),
   which queues it only when the event has it switched on and
-  looks at nothing else (not the event's state).
+  looks at nothing else (not the event's state), except the one hold: while the
+  registration is `waitlisted` (inactive), `due()` queues only the waitlist
+  mail, for every other action mail, whoever asks; the status is read from the
+  registration there, once. The admission mail ("registered") is decided after
+  the status is `registered`, so it passes. A held mail is not queued later.
+  `ActionMails::isOn()` is the
+  plain read of that switch, for a preview that queues nothing.
 - The "payment recorded" mail is decided by `Api\ActionMails::lineRecorded()` in the use case that recorded the
   line: the participant's money in and out, a payment or a refund, by hand or online, and nothing for a
   correction, a charge, a replay or another payer's line (which lines: `Api\PaymentRecordedLines::announces()`, the one rule, which the mail's read of the line through `Portal\Api\MailMoney` uses too); its cause is the ledger line (`ledger_line`, the line's ID), and the mail reads that line at send time
@@ -134,12 +140,14 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   line queues it yet; `ActionMail::isWired()` is the one declared list of the
   points that work, the list the screen shows (a point that is not wired can be
   set up and switched on, but nothing sends it), and the PR that adds a producer
-  keeps it current. [UNAPPROVED R334] It has five action mails ("answered", keyed by the answer record of
-  Registrations' answer act, is the fifth, and a body may branch on `registration.awaits_answer`, a yes/no
-  choice with no display text). The mail
-  context takes `registration.code`, `registration.status` (with its word) and `registration.awaits_answer` from
+  keeps it current. [UNAPPROVED R334] It has five action mails; "answered",
+  keyed by the answer record of Registrations' answer act, is the fifth, and a
+  body may branch on `registration.awaits_answer`, a yes/no choice with no
+  display text. The mail context takes `registration.code`,
+  `registration.status` (with its word) and `registration.awaits_answer` from
   the one source, `Registrations::factsOf()`, and adds only the mail's own keys.
-  Admission from the waitlist sends "registered", and a body tells it apart with `registration.from_waitlist`.
+  Admission from the waitlist sends "registered", and a body tells it apart
+  with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.
 - No Mail use case reads WordPress data in its transaction. `UpdateActionMail`
@@ -181,6 +189,12 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
 - The pause lives in `kalaka_mail_states` (one row), written only by
   `PauseMail`, `ResumeMail`, `SetMailBudget` and `RecordDelivery`; only a person resumes. The
   warnings read it, never the deliveries table.
+  [UNAPPROVED R340] The hourly budget is also a WordPress setting that WordPress does not store
+  (`Pause\BudgetSetting`, group `kalaka_mail`, option `kalaka_mail_hourly_budget`): a screen saves it through
+  `options.php`, `get_option()` answers from the state row, the sanitize step runs `SetMailBudget` as the
+  saving user (a refusal is a settings error with the use case's text), `pre_update_option` hands back the old
+  value so a save through it writes no option row (the filters exist on the admin side only), and the group's
+  capability is full access.
 - Every Mail use case is site-level: only the system, WP-CLI and full access
   run it, except `kalaka/send-manual-mail`, an event use case carried by the
   grant action `kalaka_manual_mail` (`Api\ManualMails::GRANT_ACTION`) for the registrations its `selection` names,

@@ -68,7 +68,9 @@ reached; the grant defines who holds the view.**
     ([Facts and decisions](#facts-decisions-and-computed-values)), so they
     stay per-event indexed queries under the `EXPLAIN` test. A viewer's own
     filters, search and sorting, which are never stored (ad hoc narrowing),
-    may also use the computed sorszám
+    may also use the computed sorszám and a computed yes, no or N/A column whose
+    sources state it declaratively and core compiles to SQL ("awaits an
+    answer")
     ([Facts, decisions and computed values](#facts-decisions-and-computed-values)).
     A map lookup is expanded in SQL ("lunch option in the mapped options"); a
     congregation level matches the answer's stored path snapshot. PHP computes
@@ -97,9 +99,9 @@ reached; the grant defines who holds the view.**
     pass every check.
 - **Actions that are not a column** (withdraw, remove, admit, confirm without
   payment, record money, view money, answer a request, send a manual mail,
-  notes, audit history) are carried by the grant, not by WordPress roles. An
-  action is usable only on registrations inside the filter of the same grant's
-  view. Modules declare the actions they offer
+  regenerate link, notes, audit history) are carried by the grant, not by
+  WordPress roles. An action is usable only on registrations inside the
+  filter of the same grant's view. Modules declare the actions they offer
   ([Modules](modules-and-extensions.md#the-module-interface)). A grant lists
   its actions one by one; there are no default bundles yet.
 - **A grant holds a use case only by name:** the use case names an action
@@ -626,7 +628,9 @@ sort on the first two ([Views and grants](#views-and-grants)).
     ([Modules](modules-and-extensions.md#the-extension-surface)).
 - **Computed values are never stored:** balance, tallies, the tree's
   ancestors, a meal turn from the option map, the sorszám, whether a
-  registration awaits an answer. The one exception:
+  registration awaits an answer (yes or no while it is registered, N/A
+  otherwise; a grid column with filter, sort and count, compiled in SQL from
+  its sources' declarative rules). The one exception:
   a congregation answer keeps the path snapshot taken when it was answered.
 - **Reading order:** confirmation is checked once at the end of every pass,
   after money; whatever act caused the pass, the check is the same. It reads

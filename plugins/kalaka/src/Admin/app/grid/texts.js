@@ -9,9 +9,6 @@ export const GRID = {
 	copied: '%d sor a vágólapra másolva.',
 	copyFail: 'A másolás nem sikerült.',
 	perPage: 'Oldalanként',
-	more: 'Több',
-	moreLabel: 'További nézetek',
-	tabsLabel: 'Nézetek',
 	toolbar: 'Műveletek',
 	// The one reset (search, filters, sort and counting): DataViews' own, already approved „Visszaállítás”
 	// (`Translations::OVERRIDES`), so no new string.
@@ -25,6 +22,12 @@ export const GRID = {
 	unanswered: 'Nincs válasz',
 	// A failed table load, in the table's place.
 	loadFail: 'A táblázat betöltése nem sikerült.',
+	// The action bar's prefix before the buttons: what they act on. It never changes the buttons' own labels.
+	// The two narrowed states: a filter alone, and a search (with or without a filter).
+	prefixTotal: '%d összesen:',
+	prefixFiltered: '%d szűrt:',
+	prefixFound: '%d találat:',
+	prefixSelected: '%d kiválasztva:',
 	found: '%d jelentkező',
 	none: 'Nincs jelentkező',
 };
@@ -36,6 +39,8 @@ export const SUM = {
 	count: '%1$s: %2$d',
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
+	// The ticked count under the select-all checkbox, for screen readers (the cell shows the number only).
+	selected: '%d kiválasztva',
 	// The number in a sum cell opens the counting menu; its counting group and its screen-reader name.
 	counting: 'Számolás',
 	open: 'Összesítés: %s',
@@ -183,19 +188,21 @@ export const CONFIRM = {
 
 /**
  * The block of requests (slice B, "answer a request"): the heading, the state of each request, the buttons and the
- * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). Every string here is
- * unapproved until the owner ticks its box: [UNAPPROVED T3] the heading, [UNAPPROVED T4] „Válaszra vár”,
- * [UNAPPROVED T5] the states „Jóváhagyva” and „Elutasítva”, [UNAPPROVED T6] the award line, [UNAPPROVED T7] the
- * buttons, [UNAPPROVED T8] the dialog's title and fields, [UNAPPROVED T9] the snackbar, [UNAPPROVED T10] the full-offer
- * warning, [UNAPPROVED T11] the missing award. The amount field says Ft whatever the currency (T8).
+ * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). What is still open:
+ * [UNAPPROVED T7] the buttons, [UNAPPROVED T8] the dialog's title, fields, the aid figures and the cap's line,
+ * [UNAPPROVED T10] the full-offer warning and [UNAPPROVED T11] the missing award. The amount field says Ft
+ * whatever the currency (T8).
  */
+/** The spoken text next to a „–” (not applicable), so a screen reader tells it from „Nem”. */
+export const NOT_APPLICABLE_SPOKEN = 'Nem értelmezhető';
+
 export const REQUESTS = {
 	heading: 'Kérelmek',
 	awaiting: 'Válaszra vár',
 	approved: 'Jóváhagyva',
 	refused: 'Elutasítva',
-	award: 'Jóváhagyva (%s)', // [UNAPPROVED T6]
-	answer: 'Megválaszolás',
+	award: 'Jóváhagyva (%s)',
+	answer: 'Válasz',
 	change: 'Válasz módosítása',
 	dialogTitle: 'Kérelem megválaszolása',
 	answerField: 'Válasz',
@@ -203,10 +210,23 @@ export const REQUESTS = {
 	yes: 'Igen',
 	no: 'Nem',
 	amountField: 'Megítélt összeg (Ft)',
+	// The aid figures the answer dialog shows (owner 2026-11-27, walkthrough 6.8); the dialog's text box, T8,
+	// names them. [UNAPPROVED T8]
+	figures: {
+		full_price: 'Fizetendő összeg',
+		can_pay: 'Befizetni vállalt összeg',
+		asked: 'Kért támogatás',
+		max_award: 'Legfeljebb megítélhető támogatás',
+	},
+	// The cap's line, the same sentence the act refuses with (T1131), shown under the amount.
+	aidAbovePrice: 'A támogatás nem lehet több a fizetendő összegnél.',
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
-	// [UNAPPROVED T10]
-	full: 'Ennek a lehetőségnek már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
+	// [UNAPPROVED T8] the full offer's warning, in the lektor's words.
+	full: 'Ennek az ajánlatnak már minden helye betelt. Ha igennel válaszolsz, a létszám túllépi a keretet.',
 	awardEmpty: 'Add meg a megítélt összeget.',
-	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.', // [UNAPPROVED T257], as the confirmation's T45
+	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.',
+	// An inactive request's state: the same „–” as the grid's awaits column (Texts::NOT_APPLICABLE, T1120), which the
+	// read does not carry to the panel.
+	notApplicable: '–',
 };

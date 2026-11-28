@@ -48,13 +48,19 @@ export async function fetchPage(
 	return {
 		rows,
 		total: parseInt( response.headers.get( 'X-WP-Total' ) || '0', 10 ),
+		totalPages: parseInt( response.headers.get( 'X-WP-TotalPages' ) || '1', 10 ),
 	};
 }
 
-/** Every row the filters and search leave, in pages of the most one page may hold, in the given order. */
+/**
+ * Every row the filters and search leave: the grid's own rows read, page after page at the most one page may hold,
+ * with the same grant, filters, search and order, until the `X-WP-TotalPages` header says the last page is read. A
+ * failed page rejects the whole read (nothing partial is returned).
+ */
 export async function fetchAll( config, tab, sort = null, desc = false, narrow = null ) {
 	const rows = [];
-	for ( let page = 1; ; page++ ) {
+	let totalPages = 1;
+	for ( let page = 1; page <= totalPages; page++ ) {
 		const result = await fetchPage( config, tab, {
 			sort,
 			desc,
@@ -63,10 +69,9 @@ export async function fetchAll( config, tab, sort = null, desc = false, narrow =
 			narrow,
 		} );
 		rows.push( ...result.rows );
-		if ( ! result.rows.length || rows.length >= result.total ) {
-			return rows;
-		}
+		totalPages = result.totalPages;
 	}
+	return rows;
 }
 
 /**
