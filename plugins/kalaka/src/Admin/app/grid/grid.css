@@ -78,6 +78,8 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 /* The sum row inside DataViews' <thead>. */
 #kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
 #kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
+/* The frame cell under the sticky actions column is sticky too, so no sum shows through below the header. */
+#kalaka-grid thead tr.kg-sumtr td.kg-sumtd-actions { position: sticky; right: 0; }
 .kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
 
 /* The number is the counting menu's trigger: a generous target with no down arrow. A column that can count

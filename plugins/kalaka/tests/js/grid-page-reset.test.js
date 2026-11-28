@@ -29,6 +29,7 @@ jest.mock( '@wordpress/dataviews/wp', () => {
 	DataViews.FiltersToggled = () => null;
 	DataViews.Layout = () => null;
 	DataViews.Pagination = () => null;
+	DataViews.BulkActionToolbar = () => null;
 	return { DataViews };
 } );
 jest.mock( '../../src/Admin/app/grid/Tabs', () => ( { __esModule: true, default: () => null, tabUrl: () => '#' } ) );
@@ -44,6 +45,8 @@ jest.mock( '../../src/Admin/app/grid/SumRow', () => {
 	const { createElement: h } = require( '@wordpress/element' );
 	return { __esModule: true, default: ( { columns, menuFor } ) => h( 'div', null, menuFor( columns.find( ( c ) => c.column === 'status' ) ) ) };
 } );
+// The bulk action's dialog is the mail module's (its own test); the page imports it, so it is stood in for here.
+jest.mock( '../../src/Admin/app/mail/bulk', () => ( { manualMailAction: () => ( { id: 'mail' } ) } ) );
 jest.mock( '../../src/Admin/app/grid/api', () => ( {
 	fetchPage: jest.fn( () => Promise.resolve( { rows: [], total: 0 } ) ),
 	fetchSums: jest.fn( () => Promise.resolve( {} ) ),

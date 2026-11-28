@@ -159,6 +159,12 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
 - The pause lives in `kalaka_mail_states` (one row), written only by
   `PauseMail`, `ResumeMail`, `SetMailBudget` and `RecordDelivery`; only a person resumes. The
   warnings read it, never the deliveries table.
+  [UNAPPROVED R340] The hourly budget is also a WordPress setting that WordPress does not store
+  (`Pause\BudgetSetting`, group `kalaka_mail`, option `kalaka_mail_hourly_budget`): a screen saves it through
+  `options.php`, `get_option()` answers from the state row, the sanitize step runs `SetMailBudget` as the
+  saving user (a refusal is a settings error with the use case's text), `pre_update_option` hands back the old
+  value so a save through it writes no option row (the filters exist on the admin side only), and the group's
+  capability is full access.
 - Every Mail use case is site-level: only the system, WP-CLI and full access
   run it, except `kalaka/send-manual-mail`, an event use case carried by the
   grant action `kalaka_manual_mail` (`Api\ManualMails::GRANT_ACTION`) for the registrations its `selection` names,

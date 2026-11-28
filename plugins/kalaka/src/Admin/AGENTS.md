@@ -95,6 +95,15 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - The detail panel shows only what the registration detail read returns and
   never decides access: what it shows and which actions it offers come from
   the read (its `can` included), and the server decides every call.
+- The mail pages (`Mail\MailPages`, `app/mail/`) are full access's and decide no
+  access: they show only what the mail reads return, every change is an ability
+  call, and the page reads again after it; a typed or chosen draft is dropped
+  only when its act succeeded.
+- The grid's bulk action „Levél küldése” is offered on a tab only when the
+  page's configuration says the tab carries `ManualMails::GRANT_ACTION` (full
+  access: always); that is only an offer. It sends the ticked rows' codes as a
+  `{ codes }` selection, and the preview and `kalaka/send-manual-mail` decide
+  access again on every call (`kalaka_manual_mail`, inside the grant's view).
 - Staff correct a field value only through `kalaka/edit-field-value` (`FieldEdit\EditFieldValue`): a field change with
   no action, so rights are read-write columns of a held view and full access, never a new grant action. The field
   type turns the value into its stored form before the run (`FieldEditInput`), never inside it; no form condition is
