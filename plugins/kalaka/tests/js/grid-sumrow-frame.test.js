@@ -12,10 +12,12 @@ import { labelRowCheckboxes } from '../../src/Admin/app/grid/selectionLabels';
 
 window.IS_REACT_ACT_ENVIRONMENT = true;
 
+// The counting menu rides on the number in its sum cell, so a column that can count carries `members` (main's
+// ruling of 2026-11-27); the stand-in below is what the menu would be.
 const columns = [
-	{ column: 'code', label: 'Kód', numeric: false },
-	{ column: 'name', label: 'Név', numeric: false },
-	{ column: 'nights', label: 'Éjszakák', numeric: true },
+	{ column: 'code', label: 'Kód', numeric: false, members: [ { value: 'a', label: 'A' } ] },
+	{ column: 'name', label: 'Név', numeric: false, members: [ { value: 'a', label: 'A' } ] },
+	{ column: 'nights', label: 'Éjszakák', numeric: true, members: [ { value: 'a', label: 'A' } ] },
 ];
 const SUMS = { code: { members: [], count: 3 }, name: { members: [] }, nights: { members: [] } };
 
