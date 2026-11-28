@@ -28,8 +28,10 @@ title: Money
      participant's own part. Every request with a positive amount waits for a
      decision; automatic evaluation may come later. **The award is a
      participant field of source "extension,"** written only by the aid
-     extension's own use case, never by a form
-     ([Fields](events-and-forms.md#fields));
+     extension's own code, its request source, never by a form
+     ([Fields](events-and-forms.md#fields)); staff and partners answer aid and
+     offers alike through the one "answer a request" act, which calls the
+     request source's writer, so the extension stays the award's only writer;
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
 - **Extra charges and the donation are core,** two fee components at the
@@ -167,8 +169,8 @@ title: Money
   records; nobody sets it directly. It is not a status
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
   It is checked once at the end of every pass, after money: a payment, a
-  correction, a „Kedvezmény”, an apply, an admission or a restore all lead to
-  the same check.
+  correction, a „Kedvezmény”, an answer, an apply, an admission or a restore
+  all lead to the same check.
 - **The threshold** is a target per payer. Each payer with something owed must
   reach its own target. In core the target is the full amount; the deposit
   extension lowers it to the deposit through a typed point. Like every
@@ -176,7 +178,8 @@ title: Money
   ([Money settings apply](#money-settings-apply)). A payer's target is what
   the fee composition says it owes now, manual charges and discounts
   included; **nothing is due** when every payer's target is zero or below.
-  Confirmation reads payment facts, never charge lines.
+  Confirmation reads payment facts, never charge lines. A request that
+  awaits an answer does not block it: payments still count.
 - **The manual flag** ("may come without paying") is a fact: set with an
   optional reason, audited, carrying its own set time. Staff can always take it back,
   through staff's unconfirm; that is allowed also when payments or nothing

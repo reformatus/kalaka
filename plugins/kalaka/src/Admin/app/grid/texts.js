@@ -180,3 +180,42 @@ export const CONFIRM = {
 	saved: 'Befizetés nélküli visszaigazolás rögzítve.',
 	unconfirmed: 'Visszaigazolás visszavonva.',
 };
+
+/**
+ * The block of requests (slice B, "answer a request"): the heading, the state of each request, the buttons and the
+ * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). What is still open:
+ * [UNAPPROVED T7] the buttons, [UNAPPROVED T8] the dialog's title, fields, the aid figures and the cap's line,
+ * [UNAPPROVED T10] the full-offer warning and [UNAPPROVED T11] the missing award. The amount field says Ft
+ * whatever the currency (T8).
+ */
+export const REQUESTS = {
+	heading: 'Kérelmek',
+	awaiting: 'Válaszra vár',
+	approved: 'Jóváhagyva',
+	refused: 'Elutasítva',
+	award: 'Jóváhagyva (%s)',
+	answer: 'Válasz',
+	change: 'Válasz módosítása',
+	dialogTitle: 'Kérelem megválaszolása',
+	answerField: 'Válasz',
+	answerEmpty: 'Add meg a választ.',
+	yes: 'Igen',
+	no: 'Nem',
+	amountField: 'Megítélt összeg (Ft)',
+	// The aid figures the answer dialog shows (owner 2026-11-27, walkthrough 6.8); the dialog's text box, T8,
+	// names them. [UNAPPROVED T8]
+	figures: {
+		full_price: 'Fizetendő összeg',
+		can_pay: 'Befizetni vállalt összeg',
+		asked: 'Kért támogatás',
+		max_award: 'Legfeljebb megítélhető támogatás',
+	},
+	// The cap's line, the same sentence the act refuses with (T1131), shown under the amount.
+	aidAbovePrice: 'A támogatás nem lehet több a fizetendő összegnél.',
+	noteField: 'Megjegyzés',
+	saved: 'Válasz rögzítve.',
+	// [UNAPPROVED T8] the full offer's warning, in the lektor's words.
+	full: 'Ennek az ajánlatnak már minden helye betelt. Ha igennel válaszolsz, a létszám túllépi a keretet.',
+	awardEmpty: 'Add meg a megítélt összeget.',
+	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.',
+};

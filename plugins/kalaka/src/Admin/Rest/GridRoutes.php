@@ -133,7 +133,11 @@ final class GridRoutes
 
         $rows = [];
         foreach ($page->rows as $row) {
-            $rows[] = ['key' => $row->key->code, 'values' => (object) $row->values];
+            $rows[] = [
+                'key' => $row->key->code,
+                'values' => (object) $row->values,
+                'awaits_answer' => $row->awaitsAnswer,
+            ];
         }
         $response = new \WP_REST_Response($rows);
         $response->header('X-WP-Total', (string) $page->total);

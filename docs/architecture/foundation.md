@@ -96,10 +96,10 @@ reached; the grant defines who holds the view.**
     is logged, and re-activation restores a holder. On multisite, super admins
     pass every check.
 - **Actions that are not a column** (withdraw, remove, admit, confirm without
-  payment, record money, view money, send a manual mail, notes, audit
-  history) are carried by the grant, not by WordPress roles. An action is
-  usable only on registrations inside the filter of the same grant's view.
-  Modules declare the actions they offer
+  payment, record money, view money, answer a request, send a manual mail,
+  regenerate link, notes, audit history) are carried by the grant, not by
+  WordPress roles. An action is usable only on registrations inside the
+  filter of the same grant's view. Modules declare the actions they offer
   ([Modules](modules-and-extensions.md#the-module-interface)). A grant lists
   its actions one by one; there are no default bundles yet.
 - **A grant holds a use case only by name:** the use case names an action
@@ -580,8 +580,10 @@ sort on the first two ([Views and grants](#views-and-grants)).
   audited writes.
   - **A field value is a fact,** whatever writes it. By the participant
     field's source ([Fields](events-and-forms.md#fields)): answers copied
-    from a form's submission; a staff write; or an extension's own use case,
-    the only writer of its fields (e.g. the award of adjudicated aid, an
+    from a form's submission; a staff write; or the declaring extension's
+    own code (its use cases, or the request source core's answer act calls),
+    the only writer of its fields (e.g. the award of adjudicated aid or an
+    offer's approval, written when staff or a partner answer a request; an
     organizer's act).
   - **A participant field of source "system" is not a fact.** It only
     declares a decision under a key, read-only; the decision record stays
@@ -623,7 +625,8 @@ sort on the first two ([Views and grants](#views-and-grants)).
     writes the records
     ([Modules](modules-and-extensions.md#the-extension-surface)).
 - **Computed values are never stored:** balance, tallies, the tree's
-  ancestors, a meal turn from the option map, the sorszám. The one exception:
+  ancestors, a meal turn from the option map, the sorszám, whether a
+  registration awaits an answer. The one exception:
   a congregation answer keeps the path snapshot taken when it was answered.
 - **Reading order:** confirmation is checked once at the end of every pass,
   after money; whatever act caused the pass, the check is the same. It reads

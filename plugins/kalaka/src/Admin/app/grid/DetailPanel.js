@@ -20,6 +20,7 @@ import * as api from './api';
 import { unconfirmBlocked, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
+import RequestsBlock from './RequestsBlock';
 import { StatusRow } from './PanelRows';
 import { tabClicks } from './panel';
 import { PANEL } from './texts';
@@ -169,6 +170,16 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				<p className="kg-none" role="status">
 					{ PANEL.loading }
 				</p>
+			) }
+			{ detail && (
+				<RequestsBlock
+					config={ config }
+					code={ code }
+					detail={ detail }
+					stale={ !! problem }
+					reload={ reload }
+					onSaved={ onSaved }
+				/>
 			) }
 			{ showsTabs && (
 				<TabPanel

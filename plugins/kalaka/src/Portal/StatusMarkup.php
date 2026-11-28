@@ -68,13 +68,7 @@ final class StatusMarkup
             return $html . '</section>';
         }
         $confirmed = $view->confirmation !== null && $view->confirmation->confirmed;
-        if ($payment->held) {
-            $state = self::box(
-                '<p><strong>Elbírálás alatt.</strong> Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges'
-                . ' összeget.</p>',
-                'pale-pink'
-            );
-        } elseif ($payment->overdue) {
+        if ($payment->overdue) {
             $state = self::box('<p><strong>Lejárt a fizetési határidő.</strong></p>', 'pale-pink');
         } elseif ($confirmed) {
             // SQ-8: the text on handling an overpayment is the stakeholders'; until then the table's
@@ -136,7 +130,7 @@ final class StatusMarkup
 
         $balance = $participant->balance;
         $due = $balance->roundedUpToPayableUnit();
-        $payableNow = $due->isPositive() && !$payment->held;
+        $payableNow = $due->isPositive() && !$payment->awaitsAnswer;
         if ($balance->isNegative() && !$balance->countsAsZero()) {
             $html .= self::moneyRow('Túlfizetés', '', $balance->negated(), false, 'kalaka-rule');
         } else {

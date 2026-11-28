@@ -10,7 +10,7 @@ use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the tables of the module (S15's three, #247's seats and S74's drafts, schema 7). */
+/** AC1: the tables of the module (S15's three, #247's seats, #232's answers and S74's drafts, schema 8). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -42,6 +42,19 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'submit_token' => 'varchar(22) null',
             'answers_hash' => 'varchar(64) null',
         ],
+        'kalaka_answers' => [
+            'id' => 'bigint(20) unsigned',
+            'event_id' => 'bigint(20) unsigned',
+            'code' => 'varchar(16)',
+            'request' => 'varchar(64)',
+            'approved' => 'tinyint(1) unsigned',
+            'amount' => 'decimal(26,8) null',
+            'currency' => 'char(3) null',
+            'note' => 'varchar(500) null',
+            'answered_at' => 'datetime(6)',
+            'answered_by' => 'bigint(20) unsigned null',
+        ],
+
         'kalaka_seats' => [
             'event_id' => 'bigint(20) unsigned',
             'code' => 'varchar(16)',
@@ -74,6 +87,9 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         'kalaka_field_values.field_key' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.submit_token' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.answers_hash' => 'utf8mb4_nopad_bin',
+        'kalaka_answers.request' => 'utf8mb4_nopad_bin',
+        'kalaka_answers.currency' => 'utf8mb4_nopad_bin',
+
         'kalaka_seats.pool' => 'utf8mb4_nopad_bin',
         'kalaka_drafts.claim_hash' => 'utf8mb4_nopad_bin',
         'kalaka_drafts.resolved_claim' => 'utf8mb4_nopad_bin',
@@ -84,7 +100,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(7, (int) get_option('kalaka_schema_registrations'));
+        self::assertSame(8, (int) get_option('kalaka_schema_registrations'));
         self::assertSame([], LoadState::current()->failures);
 
         foreach (self::COLUMNS as $table => $expected) {
@@ -125,7 +141,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         global $wpdb;
 
         $tables = (new Module())->schema()->tables;
-        self::assertCount(5, $tables);
+        self::assertCount(6, $tables);
         foreach ($tables as $statement) {
             $statement = str_replace('{prefix}', $wpdb->prefix, $statement);
             self::assertSame(1, preg_match('/CREATE TABLE\s+(\S+)/', $statement, $match));
@@ -182,11 +198,11 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     }
 
     /**
-     * A site at schema 3 (S15's `owner_user_id`) upgrades to 7: #247's seats and S74's drafts are created and
-     * the registrations keep their owner. Real tables under a prefix of their own, dropped after; creating them
-     * commits the harness transaction, so the version option is put back by hand.
+     * A site at schema 3 (S15's `owner_user_id`) upgrades to 8: #247's seats, #232's answers and S74's drafts
+     * are created and the registrations keep their owner. Real tables under a prefix of their own, dropped
+     * after; creating them commits the harness transaction, so the version option is put back by hand.
      */
-    public function testAnUpgradeFromThreeAddsTheSeatsAndTheDraftsAndKeepsTheOwnerAccount(): void
+    public function testAnUpgradeFromThreeAddsTheSeatsTheAnswersAndTheDraftsAndKeepsTheOwnerAccount(): void
     {
         global $wpdb;
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -213,8 +229,8 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
 
             $upgrader->upgrade($module);
 
-            self::assertSame(7, (int) get_option($option));
-            foreach (['kalaka_seats', 'kalaka_drafts'] as $table) {
+            self::assertSame(8, (int) get_option($option));
+            foreach (['kalaka_seats', 'kalaka_answers', 'kalaka_drafts'] as $table) {
                 self::assertSame(
                     $wpdb->prefix . $table,
                     $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->prefix . $table))
@@ -230,13 +246,14 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
                 'kalaka_field_values',
                 'kalaka_submissions',
                 'kalaka_seats',
+                'kalaka_answers',
                 'kalaka_drafts',
             ];
             foreach ($tables as $table) {
                 $wpdb->query($wpdb->prepare('DROP TABLE IF EXISTS %i', $wpdb->prefix . $table));
             }
             $wpdb->prefix = $prefix;
-            update_option($option, 7);
+            update_option($option, 8);
         }
     }
 

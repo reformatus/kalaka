@@ -12,6 +12,7 @@ use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
 use Kalaka\Pricing\Api\FeeComponent;
+use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\SeatClaimSource;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
@@ -39,6 +40,9 @@ final class Contributions
 
     /** @var list<PeriodicStep> */
     private array $periodicSteps = [];
+
+    /** @var list<RequestSource> */
+    private array $requestSources = [];
 
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
@@ -190,6 +194,26 @@ final class Contributions
     public function periodicSteps(): array
     {
         return $this->periodicSteps;
+    }
+
+    /**
+     * Where requests come from: an inside point (modules-and-extensions.md, "The extension surface"). A module
+     * that has requests to answer (support offers, aid) says which a registration has and writes the answer to
+     * its own field.
+     */
+    public function requestSource(RequestSource $source): void
+    {
+        $this->requestSources[] = $source;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<RequestSource>
+     */
+    public function requestSources(): array
+    {
+        return $this->requestSources;
     }
 
     /**

@@ -19,7 +19,10 @@ use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Pricing\CoreFeeComponents;
+use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
+use Kalaka\Tests\Integration\Registrations\AnswerPool;
+use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /** S22 and S38: the detail read of one registration, through views and grants. */
 final class RegistrationDetailTest extends RegistrationDetailTestCase
@@ -41,6 +44,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         ];
         $rules->add($confirmation, true);
         $rules->add(new TestRule('payment_hold', ['held' => 'Zárolva'], label: 'Fizetési zárolás'), true);
+        $rules->add(new TestRule('sample_kind', ['held' => 'Zárolva'], label: 'Minta döntés'), true);
 
         return new Decisions(rules: $rules);
     }
@@ -55,7 +59,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->addValue('00A0', 'email', 'teszt.elek@example.com');
         $this->addValue('00A0', 'szuletesi_datum', '2009-04-17');
         $this->addDecision('00A0', 'confirmation', 'unconfirmed');
-        $this->addDecision('00A0', 'payment_hold', 'held');
+        $this->addDecision('00A0', 'sample_kind', 'held');
 
         $recorder = $this->namedUser('Teszt Könyvelő');
         $charge = $this->addLine('charge', '60000', 'charge:1', overrides: [
@@ -115,8 +119,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                     [
-                        'kind' => 'payment_hold',
-                        'label' => 'Fizetési zárolás',
+                        'kind' => 'sample_kind',
+                        'label' => 'Minta döntés',
                         'state' => 'held',
                         'state_label' => 'Zárolva',
                         'marks' => [],
@@ -225,6 +229,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
         self::assertSame(
             [
+                'answer_request' => true,
                 'view_money' => true,
                 'record_money' => true,
                 'record_charge' => true,
@@ -367,6 +372,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
             [
+                'answer_request' => false,
                 'view_money' => false,
                 'record_money' => false,
                 'record_charge' => false,
@@ -529,6 +535,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
             [
+                'answer_request' => false,
                 'view_money' => false,
                 'record_money' => false,
                 'record_charge' => false,
@@ -548,6 +555,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertArrayHasKey('money', $shown);
         self::assertSame(
             [
+                'answer_request' => false,
                 'view_money' => true,
                 'record_money' => false,
                 'record_charge' => false,
@@ -566,6 +574,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         $cases = [
             'kalaka_record_money' => [
+                'answer_request' => false,
                 'view_money' => true,
                 'record_money' => true,
                 'record_charge' => true,
@@ -797,6 +806,23 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         }
     }
 
+    /**
+     * `can.answer_request` holds only while the registration is registered, as the answer act refuses any other
+     * status; the grant alone is not enough.
+     *
+     * @dataProvider statuses
+     */
+    public function testAnswerRequestIsOfferedOnlyOnARegisteredRegistration(string $status): void
+    {
+        $this->addRegistration('00A0', $status);
+        $partner = $this->plainUser();
+        $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $registered = $status === 'registered';
+
+        self::assertSame($registered, $this->detail($partner)['can']['answer_request']);
+        self::assertSame($registered, $this->detail($this->admin->userId)['can']['answer_request']);
+    }
+
     /** D14: `registration.confirmed` is always there, for a holder without the money-view too. */
     public function testTheDetailAlwaysCarriesWhetherTheRegistrationIsConfirmed(): void
     {
@@ -996,5 +1022,152 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             self::assertNull($read['registration']['unconfirm_reconfirms']);
             self::assertStringNotContainsString('secret component message', (string) wp_json_encode($read));
         }
+    }
+
+    /**
+     * Slice B: the requests, with their latest answers, show only to a holder of the answer action of a grant whose
+     * view holds the registration, or full access; `can.answer_request` says whether the action is carried.
+     */
+    public function testTheRequestsShowToTheHolderOfTheAnswerActionOnly(): void
+    {
+        global $wpdb;
+        $this->addRegistration('00A0');
+        $this->addValue('00A0', 'support', 'church');
+        $this->addValue('00A0', 'aid_asked', '12000');
+        $read = fn (int $user, ?AnswerPool $pool = null): array => (new RegistrationDetail(
+            requests: new Requests([new TestRequestSource(pool: $pool ?? new AnswerPool($this->event))]),
+        ))->of(new UserActor($user), $this->event, '00A0');
+
+        $partner = $this->plainUser();
+        $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        $expected = [
+            'currency' => 'HUF',
+            'items' => [
+                [
+                    'id' => 'offer:church',
+                    'kind' => 'offer',
+                    'label' => 'Egyházi támogatás',
+                    'state' => 'awaiting',
+                    'amount' => null,
+                    'answered_at' => null,
+                    'seat_full' => false,
+                ],
+                [
+                    'id' => 'aid',
+                    'kind' => 'aid',
+                    'label' => 'Támogatási kérelem',
+                    'state' => 'awaiting',
+                    'amount' => null,
+                    'answered_at' => null,
+                    'seat_full' => false,
+                    'aid' => null,
+                ],
+            ],
+        ];
+        self::assertSame($expected, $read($this->admin->userId)['requests']);
+        // The partner holds the answer action but no money view: the requests come without a figure — no
+        // `amount` on an item and no `aid` context on the aid one ().
+        $blind = $expected;
+        $blind['items'][1]['amount'] = null;
+        unset($blind['items'][1]['aid']);
+        self::assertSame($blind, $read($partner)['requests']);
+        self::assertTrue($read($partner)['can']['answer_request']);
+        $without = $read($viewer);
+        self::assertArrayNotHasKey('requests', $without);
+        self::assertFalse($without['can']['answer_request']);
+
+        // An answer: a refused offer with a full pool warns; an aid award shows its amount; the aid "no" is 0.
+        foreach ([['offer:church', 0, null], ['aid', 1, '9000.00000000']] as [$request, $approved, $amount]) {
+            $wpdb->insert($wpdb->prefix . 'kalaka_answers', [
+                'event_id' => $this->event,
+                'code' => '00A0',
+                'request' => $request,
+                'approved' => $approved,
+                'amount' => $amount,
+                'currency' => $amount === null ? null : 'HUF',
+                'answered_at' => '2026-12-04 09:00:00.000000',
+            ]);
+            // The source's answer field is the truth: the act writes it beside the record.
+            $this->addValue(
+                '00A0',
+                $request === 'aid' ? 'aid_award' : 'support_answer',
+                $request === 'aid' ? '9000' : 'refused'
+            );
+        }
+        // A refused offer in a pool with no free place: the warning before a "yes".
+        $full = new AnswerPool($this->event, 0);
+        $items = $read($partner, $full)['requests']['items'];
+        self::assertSame(['refused', 'approved'], array_column($items, 'state'));
+        // The award is a money figure: the partner reads the states and the seat warning, never the amount.
+        self::assertSame([null, null], array_column($items, 'amount'));
+        self::assertSame(['2026-12-04T09:00:00Z', '2026-12-04T09:00:00Z'], array_column($items, 'answered_at'));
+        self::assertSame([true, false], array_column($items, 'seat_full'));
+        self::assertSame([false, false], array_column($read($partner)['requests']['items'], 'seat_full'));
+        // A holder with the money view reads the award.
+        $money = $this->plainUser();
+        $this->grant($money, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER, 'kalaka_view_money']);
+        self::assertSame(
+            [null, '9000.00000000'],
+            array_column($read($money, $full)['requests']['items'], 'amount')
+        );
+    }
+
+    public function testTheAidItemCarriesTheFullPriceWhatTheyCanPayAndTheAidAskedNothingOnAnOffer(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addValue('00A0', 'support', 'church');
+        $this->addValue('00A0', 'aid_asked', '12000');
+        $read = fn (int $price): RegistrationDetail => new RegistrationDetail(
+            requests: new Requests([
+                new TestRequestSource(fullPrice: $price, pool: new AnswerPool($this->event)),
+            ]),
+        );
+
+        $items = fn (int $price): array => $read($price)
+            ->of(new UserActor($this->admin->userId), $this->event, '00A0')['requests']['items'];
+
+        // Nothing stated: the full price and no amount they can pay, so nothing asked is known.
+        $aid = $items(30000)[1]['aid'];
+        self::assertSame(
+            ['full_price' => '30000.00000000', 'can_pay' => null, 'asked' => null, 'max_award' => '30000.00000000'],
+            $aid
+        );
+        self::assertArrayNotHasKey('aid', $items(30000)[0], 'an offer carries no aid context');
+
+        $this->addValue('00A0', 'aid_can_pay', '18000');
+        self::assertSame(
+            [
+                'full_price' => '30000.00000000',
+                'can_pay' => '18000.00000000',
+                'asked' => '12000.00000000',
+                'max_award' => '30000.00000000',
+            ],
+            $items(30000)[1]['aid']
+        );
+        // A holder of the answer action without the money fields reads the request with no aid context at all
+        // with the money view they read the same figures as full access does.
+        $partner = $this->plainUser();
+        $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $asPartner = $read(30000)->of(new UserActor($partner), $this->event, '00A0');
+        self::assertFalse($asPartner['can']['view_money']);
+        self::assertArrayNotHasKey('aid', $asPartner['requests']['items'][1]);
+        $seeing = $this->plainUser();
+        $this->grant($seeing, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER, 'kalaka_view_money']);
+        $asSeeing = $read(30000)->of(new UserActor($seeing), $this->event, '00A0');
+        self::assertTrue($asSeeing['can']['view_money']);
+        self::assertSame('12000.00000000', $asSeeing['requests']['items'][1]['aid']['asked']);
+        // They can pay more than the price: nothing asked, never below zero.
+        self::assertSame(
+            [
+                'full_price' => '10000.00000000',
+                'can_pay' => '18000.00000000',
+                'asked' => '0.00000000',
+                'max_award' => '10000.00000000',
+            ],
+            $items(10000)[1]['aid']
+        );
     }
 }

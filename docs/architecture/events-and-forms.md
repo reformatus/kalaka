@@ -326,12 +326,12 @@ flowchart TB
   - **staff:** a column admins add that no participant fills in; staff
     write it through views, and it may also appear in an additional form;
   - **extension:** written only by an extension's own use case, e.g. the
-    award of adjudicated aid ([Money](money.md#core-money-scope)), unless
-    the extension declares the field form-writable (off by default); only
-    then may a form hold its key, and only then may staff correct it
-    through views. A form that joins an extension's choice
-    field offers only options the extension declared, any subset of them,
-    and never adds one;
+    award of adjudicated aid ([Money](money.md#core-money-scope)), or by the
+    request source that core's answer act calls, unless the extension
+    declares the field form-writable (off by default); only then may a form
+    hold its key, and only then may staff correct it through views. A form
+    that joins an extension's choice field offers only options the extension
+    declared, any subset of them, and never adds one;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth

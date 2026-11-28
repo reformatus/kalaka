@@ -11,4 +11,7 @@ enum SeatAct: string
     case Admission = 'admission';
     case Restore = 'restore';
     case Placement = 'placement';
+
+    /** Answering a request (offers and aid alike): the act takes or frees the offer's seat. [UNAPPROVED N4] */
+    case Answer = 'answer';
 }

@@ -26,13 +26,19 @@ use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RequestKind;
+use Kalaka\Registrations\Api\RequestState;
+use Kalaka\Registrations\Api\Requests;
+use Kalaka\Registrations\Api\Seats;
 
 /**
  * The admin detail read of one registration (the data of `GET kalaka-admin/v1/events/{event}/registrations/{code}`).
  * Everything in it goes through views and grants: the registration data is read through `ViewQuery` for the
  * views that hold the registration (`Access::holding()`), or full access, so it shows only what their columns
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
- * The manual confirmation flag shows behind the same gate as the money. [UNAPPROVED Access] [UNAPPROVED N11]
+ * The manual confirmation flag shows behind the same gate as the money. The requests (and whether they are
+ * answered) show only to a holder of the answer action of a grant whose view holds the registration.
+ * [UNAPPROVED Access]
  */
 final class RegistrationDetail
 {
@@ -47,6 +53,8 @@ final class RegistrationDetail
         private readonly LineNames $lineNames = new LineNames(),
         private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
         private readonly Confirmations $confirmations = new Confirmations(),
+        private readonly Requests $requests = new Requests(),
+        private readonly Seats $seats = new Seats(),
     ) {
     }
 
@@ -124,7 +132,12 @@ final class RegistrationDetail
             $read['registration']['manual_confirmation'] = $this->manualConfirmationPart($key);
             $read['money'] = $this->moneyPart($key, $event->currency->value);
         }
+        $answer = $carried(Requests::ANSWER);
+        if ($answer) {
+            $read['requests'] = $this->requestsPart($key, $event->currency->value, $viewMoney);
+        }
         $read['can'] = [
+            'answer_request' => $answer && $registered,
             'view_money' => $viewMoney,
             'record_money' => $record,
             // A manual charge or discount is offered only while the registration is registered ([UNAPPROVED]).
@@ -209,6 +222,79 @@ final class RegistrationDetail
         }
 
         return $part;
+    }
+
+    /**
+     * The registration's requests with their latest answers, for the answer act's block: `state` is `awaiting`
+     * while the source's answer field holds none (the field is the truth), else the act's record says
+     * `approved` or `refused`; `amount` is the aid award as text (0 for a refused aid request), null for an offer
+     * and before an answer; `seat_full` is true for a refused offer whose pool is full now, the warning before a
+     * "yes" that would go over the limit (B1). An aid item also carries `aid`, the money context (`aidTerms()`).
+     * No hold is read: awaiting is
+     * computed.
+     *
+     * The money figures — the item's `amount` and an aid item's `aid` — follow the read's money gate (owner
+     * 2026-11-27, the access sweep): a holder of the answer action whose view and grant give no money fields reads
+     * the requests without them, so no figure reaches a holder the view/grant does not give the money fields.
+     *
+     * @return array{currency: string, items: list<array<string, mixed>>}
+     */
+    private function requestsPart(RegistrationKey $key, string $currency, bool $viewMoney): array
+    {
+        $items = [];
+        foreach ($this->requests->states($key) as $state) {
+            $answer = $state->answer;
+            $pool = $state->source->seatPool($state->request);
+            $item = [
+                'id' => $state->request->id,
+                'kind' => $state->request->kind->value,
+                'label' => $state->request->label,
+                'state' => $state->awaits() ? 'awaiting' : ($answer?->approved === true ? 'approved' : 'refused'),
+                'amount' => $viewMoney ? $answer?->amount?->amount() : null,
+                'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
+                'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
+                    && $pool !== null && $this->seats->wouldOverfill($pool, $key),
+            ];
+            if ($state->request->kind === RequestKind::Aid && $viewMoney) {
+                $item['aid'] = $this->aidTerms($key, $state);
+            }
+            $items[] = $item;
+        }
+
+        return ['currency' => $currency, 'items' => $items];
+    }
+
+    /**
+     * The aid request's money context, from the source's `terms()`: `full_price` (what the participant has to pay
+     * before the aid), `can_pay` (what they stated, null when none) and `asked` (the difference, never below
+     * zero) and `max_award` (the most an award can be: the full price today, named apart so the rule can change),
+     * money amounts as text in the read's currency, formatted as the item's `amount`; the dialog computes nothing:
+     * it hints `asked` and warns above `max_award`, which the act refuses. The part follows the read's money gate,
+     * as the item's `amount` does (`requestsPart()`): answering sets a money amount, but the figures are only for a
+     * holder whose view/grant gives the money fields. Null when the source gives no terms or a fee component
+     * fails.
+     *
+     * @return ?array{full_price: string, can_pay: ?string, asked: ?string, max_award: string}
+     */
+    private function aidTerms(RegistrationKey $key, RequestState $state): ?array
+    {
+        try {
+            $terms = $state->source->terms(
+                $key,
+                $state->request,
+                $state->values,
+                Runner::current()->clock()->now()
+            );
+        } catch (FeeComponentFailed) {
+            return null;
+        }
+
+        return $terms === null ? null : [
+            'full_price' => $terms->fullPrice->amount(),
+            'can_pay' => $terms->canPay?->amount(),
+            'asked' => $terms->asked()?->amount(),
+            'max_award' => $terms->maxAmount()->amount(),
+        ];
     }
 
     /**

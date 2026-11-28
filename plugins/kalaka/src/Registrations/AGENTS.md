@@ -15,7 +15,9 @@ the waitlist and reference codes
   and [Quota places](../../../../docs/architecture/money.md#quota-places) (`Api\Seats`),
   the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access),
   the owner account of [Accounts on the registration form](../../../../docs/architecture/registrations-and-identity.md#accounts-on-the-registration-form).
-- foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order).
+- foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order),
+  the answer to a request of [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values).
+- money.md: the answer act of [Sponsor and church support](../../../../docs/architecture/money.md#sponsor-and-church-support).
 
 ## Invariants
 
@@ -103,7 +105,8 @@ the waitlist and reference codes
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.
 - `Api\RegistrationFacts` is a registration's fact source after submit (the
-  one availability base): the event's values, the code, the status and when
+  one availability base), built only by `Registrations::factsOf()`: the event's values, the code, the status
+  (with its word, `RegistrationStatus::word()`, the text a mail shows too), `registration.awaits_answer` and when
   it last became `registered` (`registered_at`, null while it is not), which
   every time-dependent rule counts from, never the submit. It
   holds values only; field values join in S25, over #181's participant-field
@@ -248,4 +251,45 @@ the waitlist and reference codes
   keys, and compares the registration's state against a fingerprint inside, and only in `check()`, which takes
   the run's `Context` and refuses a run that does not hold the registration), so Admin, which may not use the
   "Registration data" layer, reaches registration data only through the view query still.
+
+- Requests and their answers (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions and
+  computed values"; slice B). A request is named by a `RequestSource` a module contributes (an inside point); core
+  ships none, so with no source every read is empty and costs no statement.
+  - The one act that answers a request is `AnswerRequest` (`kalaka/answer-request`, action
+    `kalaka_answer_request`), for offers and aid alike, used by staff and by a partner (a grant holder whose view
+    holds only their registrations); the runner checks the target against the view. The one action gates every
+    request kind: a holder may answer any offer and award aid, up to the full price, on the registrations in the view.
+  - An answer is a fact with two writes in one act: one `kalaka_answers` row per answering act (append-only,
+    never an upsert: its id is the key the "answered" mail takes, `AnswerRead::subject()`; it records who, when,
+    the note), and the answer as the source's own participant field value, written by the source
+    (`RequestSource::writeAnswer()`, called by the act) through `Registrations::writeValue()`, so the source
+    stays that field's only writer. `writeValue()` takes the writing module's declarer (`kalaka-aid`,
+    `kalaka-support`): one writer rule, a field is written by its declarer's own code only (the refusal of
+    another declarer's field completes when CF3 #231 stores `declared_by`). It refuses a run that does not hold
+    the registration, a key the event does not declare and a "system" field.
+  - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same
+    amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
+    award of 0 Ft: an absent answer awaits, a zero is an answer. The note, a "yes" to an offer's
+    reason included, is always optional.
+  - "Awaits an answer" is computed, never stored (`Requests::awaits()`, batched `awaitsOf()`): a request whose
+    source says it is not answered (`RequestSource::isAnswered()`, read from the source's own answer field: an
+    offer's `<key>_answer`, the aid award, empty = awaiting, "0" = refused), for a registration that is not
+    withdrawn or removed. The field is the truth: the `kalaka_answers` rows record the act (who, when, the note,
+    `lastAnsweredAt`, the mail key) and decide nothing else; a request re-stated after an answer reads as
+    answered until staff answer again. It is `registration.awaits_answer` in the fact source, and it
+    hides the due date and the transfer block in Portal. It never blocks confirmation.
+  - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits
+    until admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`);
+    `awaits_answer` stays computed for it. A refusing offer answer frees the offer's seat and a "yes" after a
+    refusal takes one again. Both use slice A's one seat rule, `Seats`: the request source builds its pool
+    (`RequestSource::seatPool(): ?SeatPool`; null, as for aid, means no limit and no seat call), so core never
+    parses a pool key, and the act locks it before the registration lock. A full pool never refuses the "yes":
+    `retake()` answering `SeatOutcome::Over` is `over_limit`, and the detail read's `seat_full` is
+    `Seats::wouldOverfill()`.
+  - An aid "yes" above the full price the participant has to pay is refused with `AidAbovePrice` (a
+    `RuleViolation`, code `kalaka_aid_over_price`) and nothing is written. The price comes from the request source's
+    `RequestSource::terms()` (`RequestTerms`: `fullPrice`, `canPay`; the most an award can be is `maxAmount()`, the
+    full price today); a source with no terms (an offer) sets no cap. The detail read shows the same terms.
+  - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
+    confirmation, then mail) follows in the same run.
 - Only Registrations writes its tables.
