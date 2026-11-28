@@ -179,8 +179,7 @@ final class EventPage
         int $number,
         string $opens = '',
         string $window = ''
-    ): string
-    {
+    ): string {
         $id = 'kalaka-figure-' . $key;
         $html = '<li><span id="' . esc_attr($id) . '">' . esc_html($label) . '</span>: <strong>' . $number
             . '</strong>';
