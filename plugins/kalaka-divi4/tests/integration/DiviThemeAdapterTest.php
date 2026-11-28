@@ -179,6 +179,51 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         );
     }
 
+    public function testAMoneyTableInTheContentIsTheStatusBlockOrTheShortcode(): void
+    {
+        self::assertTrue(Module::holdsMoneyTable('<!-- wp:kalaka/status /-->'));
+        self::assertTrue(Module::holdsMoneyTable('[et_pb_section][et_pb_text][kalaka_status][/et_pb_text]'));
+        self::assertFalse(Module::holdsMoneyTable('<!-- wp:kalaka/transfer /-->[kalaka_transfer]'));
+        self::assertFalse(Module::holdsMoneyTable('<!-- wp:paragraph --><p>kalaka_status</p><!-- /wp:paragraph -->'));
+    }
+
+    /** The adapter's CSS of a page with the given content, under Divi 4 ('' when none is enqueued). */
+    private function divi4Css(string $content): string
+    {
+        $post = self::factory()->post->create(['post_content' => $content]);
+        $this->go_to((string) get_permalink($post));
+        // A fresh style queue: the tests share WordPress's global one.
+        $GLOBALS['wp_styles'] = null;
+        $template = static fn (): string => 'Divi';
+        add_filter('template', $template);
+        try {
+            (new Module(self::divi('4.27.4')))->enqueue();
+        } finally {
+            remove_filter('template', $template);
+        }
+
+        return wp_style_is('kalaka-divi4', 'enqueued')
+            ? implode('', (array) wp_styles()->get_data('kalaka-divi4', 'after'))
+            : '';
+    }
+
+    public function testUnderDivi4AStatusPageGetsTheMoneyTablesRowLineAndNothingOfTheForm(): void
+    {
+        $css = $this->divi4Css('<!-- wp:kalaka/status /-->');
+
+        // Divi's `#eee` line of a `td`, on the row header too; not on the rows core separates itself.
+        self::assertSame(
+            '.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}',
+            $css
+        );
+    }
+
+    public function testAFormPageGetsNoMoneyTableRule(): void
+    {
+        self::assertStringNotContainsString('kalaka-money', $this->divi4Css('[kalaka_form id="8"]'));
+        self::assertStringContainsString('et_pb_contact_form', $this->divi4Css('[kalaka_form id="8"]'));
+    }
+
     public function testAPageWithoutAFormGetsNoStylesheet(): void
     {
         $post = self::factory()->post->create(['post_content' => 'Nincs itt űrlap.']);

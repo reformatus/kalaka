@@ -49,7 +49,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
             [
                 ['registered', 'Jelentkezés rögzítve'],
                 ['waitlisted', 'Jelentkezés várólistára helyezve'],
-                ['payment_recorded', 'Befizetés rögzítve'],
+                ['payment_recorded', 'Pénzmozgás rögzítve'],
                 ['confirmed', 'Jelentkezés véglegesítve'],
                 ['answered', 'Kérelem megválaszolva'],
             ],

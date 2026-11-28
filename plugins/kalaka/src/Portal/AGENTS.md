@@ -33,8 +33,13 @@ page, and the account area
 - The participant blocks show only the participant payer's side: totals,
   owed lines, money movements with their notes, and the transfer amount; the
   money table is read for every status. A balance below zero shows as an
-  overpayment, never as a negative amount to pay. Only the amount still due is bold, and
-  only while it is payable now (above zero, not awaiting an answer).
+  overpayment, never as a negative amount to pay. Only the last row is bold:
+  „Még fizetendő”, or „Túlfizetés” when overpaid, whether or not anything is payable now.
+- The money table is built from `ParticipantMoney` alone (`StatusMarkup`; the mail look is `MailMarkup`, reached
+  through `Api\MailMoney`), with the owner's words in `MoneyWords`; the owed lines are the read's, signed, the base
+  price included. The page's movement details (type, method, day, the whole note) are the native `title` tooltip of the info
+  mark and of a shortened note, never a popover. Whether a money table shows is one rule, `RegistrationStatusView::showsMoney()`, read by the page
+  and by the mail's money block: none for a waitlisted registration.
 - The transfer block renders nothing unless the registration is `registered`,
   its event is published, no request awaits an answer, the participant's balance is
   above zero after rounding up to the payable unit, and the event's bank
@@ -47,8 +52,10 @@ page, and the account area
   later of the two counts) and whether a request awaits an answer (then there
   is no due date). Portal assembles none of these itself.
 - The blocks have no look of their own: core preset classes and `portal.css`,
-  which is structural only; the texts read correctly without either. Every
-  text is the frozen spec's or approved.
+  which is structural only (the money table's emphasis is `em` and `strong` in
+  its markup; a theme's row lines and colours are the theme adapter's); the
+  texts read correctly without either. Every text is the frozen spec's or
+  approved.
 - The leave block `kalaka/leave` (`[kalaka_leave]`) is page content only and renders nothing unless there is
   an active registration or a logged-in account, or while the site is closed (the transfer block's rule). It
   is one form with one button that posts the page's own address as `return_url` to

@@ -6,6 +6,7 @@ namespace Kalaka\Mail\Body;
 
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\DateText;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\Forms;
@@ -14,7 +15,10 @@ use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\Values;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Mail\RecipientUnavailable;
+use Kalaka\Portal\Api\MailMoney;
+use Kalaka\Portal\Api\MovementType;
 use Kalaka\Registrations\Api\Accounts;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -74,12 +78,25 @@ final class MailValues
      */
     public const AWAITS_ANSWER = RegistrationFacts::AWAITS_ANSWER;
 
+    /**
+     * The money movement behind a "payment recorded" mail, read from its cause, the ledger line (owner topic 15, Q7).
+     * `payment.amount` is the amount without a sign; `payment.direction` a choice of `in` or `out`, with the text
+     * „Befizetés” or „Visszafizetés”; `payment.method` a choice, the method's word („Átutalás”, „Készpénz”,
+     * „Bankkártya” or „Online”); `payment.date` the value day, as the date sentences of a page read.
+     * They are declared in every mail and none outside "payment recorded". [UNAPPROVED T6]
+     */
+    public const PAYMENT_AMOUNT = 'payment.amount';
+    public const PAYMENT_DIRECTION = 'payment.direction';
+    public const PAYMENT_METHOD = 'payment.method';
+    public const PAYMENT_DATE = 'payment.date';
+
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
         private readonly SecretLinks $links = new SecretLinks(),
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
         private readonly Accounts $accounts = new Accounts(),
+        private readonly MailMoney $money = new MailMoney(),
     ) {
     }
 
@@ -136,6 +153,10 @@ final class MailValues
             self::AWAITS_ANSWER => ValueType::Choice,
             self::ACCOUNT_UNVERIFIED => ValueType::Choice,
             self::ACCOUNT_PASSWORD_LINK => ValueType::Text,
+            self::PAYMENT_AMOUNT => ValueType::Number,
+            self::PAYMENT_DIRECTION => ValueType::Choice,
+            self::PAYMENT_METHOD => ValueType::Choice,
+            self::PAYMENT_DATE => ValueType::Date,
             ...array_fill_keys(
                 array_map(
                     static fn (int $page): string => 'page_' . $page . '.link',
@@ -188,6 +209,7 @@ final class MailValues
      * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @param bool $passwordLink whether the body reads `account.password_link`: only then is a link made
      * @param list<int> $pages the pages whose link the body places (`pageLinks()`): only those links are made
+     * @param ?int $lineId the ledger line that caused a "payment recorded" mail: the `payment.*` keys read it
      * @throws SystemFailure no such registration (`no_registration`) or event (`no_event`), a slot form that
      *         is not usable now, or a field of a type no longer contributed
      */
@@ -195,7 +217,8 @@ final class MailValues
         RegistrationKey $key,
         \DateTimeImmutable $now,
         bool $passwordLink = false,
-        array $pages = []
+        array $pages = [],
+        ?int $lineId = null,
     ): ValueContext {
         $record = $this->read($key);
         $link = $this->links->url($key, home_url('/'));
@@ -253,7 +276,40 @@ final class MailValues
                 ? Value::none(ValueType::Choice)
                 : EventValues::yesNo($unverified),
             self::ACCOUNT_PASSWORD_LINK => self::text($setPassword ?? ''),
+            ...$this->payment($key, $lineId),
         ]);
+    }
+
+    /**
+     * The `payment.*` values of the movement a "payment recorded" mail is about: all four, none when the mail has
+     * no line (any other mail) or the line is not a movement.
+     *
+     * @return array<string, Value>
+     */
+    private function payment(RegistrationKey $key, ?int $lineId): array
+    {
+        $read = $lineId === null ? null : $this->money->movement($key, $lineId);
+        if ($read === null) {
+            return [
+                self::PAYMENT_AMOUNT => Value::none(ValueType::Number),
+                self::PAYMENT_DIRECTION => Value::none(ValueType::Choice),
+                self::PAYMENT_METHOD => Value::none(ValueType::Choice),
+                self::PAYMENT_DATE => Value::none(ValueType::Date),
+            ];
+        }
+        $movement = $read->row;
+        $amount = $movement->amount->isNegative() ? $movement->amount->negated() : $movement->amount;
+        $out = $movement->type === MovementType::Refund;
+        $method = $read->methodId;
+
+        return [
+            self::PAYMENT_AMOUNT => Value::number($amount->amount(), MoneyText::of($amount)),
+            self::PAYMENT_DIRECTION => Value::choice([$out ? 'out' : 'in'], MailMoney::typeWord($movement->type)),
+            self::PAYMENT_METHOD => $method === null
+                ? Value::none(ValueType::Choice)
+                : Value::choice([$method], (string) $movement->methodLabel),
+            self::PAYMENT_DATE => Value::date($movement->valueDay, DateText::of($movement->valueDay)),
+        ];
     }
 
     /**

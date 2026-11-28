@@ -7,6 +7,7 @@ namespace Kalaka\Mail\Api;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\RecordedLine;
 use Kalaka\Mail\Catalogue\ActionMailRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -25,6 +26,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  */
 final class ActionMails
 {
+    /** The cause type of the "payment recorded" mail: the ledger line, whose ID is the cause's key. */
+    public const LINE_CAUSE = 'ledger_line';
+
     public function __construct(
         private readonly ActionMailRepository $mails = new ActionMailRepository(),
         private readonly MailQueue $queue = new MailQueue(),
@@ -61,5 +65,31 @@ final class ActionMails
         }
 
         return $this->queue->add($context, $registration, $action->value, MailKind::Action, $cause);
+    }
+
+    /**
+     * The "payment recorded" mail (mail.md, "Five kinds of mail"), decided by the use case that recorded the
+     * line, keyed by the line: money in and money out, by hand or online (a payment or a refund), the paid entry
+     * of a „Díj” or a „Kedvezmény” ticked „Azonnal befizetve” included. A correction, a charge itself (a „Díj” or a
+     * „Kedvezmény” is a fact and its charge line), a replay of a line already written and a line of a payer other
+     * than the participant send none: the registrant sees only the participant's side (Portal), and the mail's
+     * table would not list that line. [UNAPPROVED N16] [UNAPPROVED N1165] The one rule of which lines mail, for
+     * every act that records a payment fact. Queued only when the event has the mail switched on.
+     *
+     * @return bool whether a delivery was queued
+     */
+    public function lineRecorded(Context $context, RecordedLine $recorded): bool
+    {
+        $line = $recorded->line;
+        if (!$recorded->inserted || !PaymentRecordedLines::announces($line->kind, $line->payer, $line->correction)) {
+            return false;
+        }
+
+        return $this->due(
+            $context,
+            ActionMail::PaymentRecorded,
+            $line->registration,
+            new Subject(self::LINE_CAUSE, $line->registration->eventId, (string) $line->id)
+        );
     }
 }

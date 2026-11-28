@@ -20,6 +20,7 @@ use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\PayerKind;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
+use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 
@@ -39,6 +40,7 @@ abstract class RecordManualEntry implements AdminUseCase
         private readonly Events $events = new Events(),
         private readonly Registrations $registrations = new Registrations(),
         private readonly PayerKinds $payerKinds = new PayerKinds(),
+        private readonly ActionMails $mails = new ActionMails(),
     ) {
     }
 
@@ -206,6 +208,10 @@ abstract class RecordManualEntry implements AdminUseCase
                 ]
             );
         }
+
+        // The "payment recorded" mail: queued for a payment or a refund, never for a correction (the one rule is
+        // `ActionMails::lineRecorded()`), keyed by the line, so a replay queues nothing.
+        $this->mails->lineRecorded($context, $recorded);
 
         return ['id' => $recorded->line->id];
     }

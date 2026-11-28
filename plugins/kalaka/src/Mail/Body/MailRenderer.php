@@ -36,6 +36,7 @@ final class MailRenderer
     /**
      * @param string $mail the mail's key: an action mail's key
      * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
+     * @param ?int $lineId the ledger line that caused a "payment recorded" mail (its `payment.*` keys read it)
      * @throws SystemFailure an unknown mail (`unknown_mail`), a body without a revision, a stored layout
      *         without its one placeholder (`layout`), or
      *         what `Values::render()` and the context throw
@@ -47,7 +48,8 @@ final class MailRenderer
         int $eventId,
         string $mail,
         RegistrationKey $registration,
-        \DateTimeImmutable $now
+        \DateTimeImmutable $now,
+        ?int $lineId = null,
     ): RenderedMail {
         $action = ActionMail::tryFrom($mail);
         if ($action === null) {
@@ -61,7 +63,13 @@ final class MailRenderer
             throw new BodyUnusable('no_body ' . $mail);
         }
 
-        return $this->renderBody($eventId, $setting->bodyId, $registration, $now);
+        return $this->renderBody(
+            $eventId,
+            $setting->bodyId,
+            $registration,
+            $now,
+            $action === ActionMail::PaymentRecorded ? $lineId : null
+        );
     }
 
     /**
@@ -69,6 +77,8 @@ final class MailRenderer
      * `render()` does once it has found the body, and what a manual mail (`Manual\MailBatch`) renders.
      *
      * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
+     * @param ?int $lineId the ledger line a "payment recorded" mail reads: `render()` passes it only for that
+     *        mail, so the `payment.*` keys are none in every other mail and in a manual one
      * @throws SystemFailure a body without a revision, a stored layout without its one placeholder (`layout`),
      *         or what `Values::render()` and the context throw
      * @throws BodyUnusable the body's own problem, as `render()`
@@ -77,7 +87,8 @@ final class MailRenderer
         int $eventId,
         int $bodyId,
         RegistrationKey $registration,
-        \DateTimeImmutable $now
+        \DateTimeImmutable $now,
+        ?int $lineId = null
     ): RenderedMail {
         $body = $this->posts->published($bodyId, $eventId);
         try {
@@ -87,13 +98,20 @@ final class MailRenderer
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw BodyUnusable::of($e);
         }
+        // Only the "payment recorded" mail reads a line: the `payment.*` keys are none in every other mail.
         $context = $this->values->context(
             $registration,
             $now,
             MailValues::readsPasswordLink($body->content),
-            MailValues::pageLinks($body->content)
+            MailValues::pageLinks($body->content),
+            $lineId
         );
-        $html = $this->renderer->render($body->content, $context);
+        MailInProgress::push($registration);
+        try {
+            $html = $this->renderer->render($body->content, $context);
+        } finally {
+            MailInProgress::pop();
+        }
         $version = 'b' . $body->revision;
         // Whether the levélkeret wraps the mail is the template's own flag.
         $layout = $body->usesFrame ? $this->layouts->of($eventId) : null;

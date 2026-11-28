@@ -126,23 +126,11 @@ final class StatusRead
             }
         }
 
-        // SB-13: itemised only when every line has a label; otherwise the totals alone.
-        $lines = [];
-        foreach ($summary->chargeLinesOf(Payer::PARTICIPANT) as $line) {
-            $label = $this->labels->labelOf($line);
-            if ($label === null) {
-                $lines = [];
-                break;
-            }
-            $lines[] = new PaymentLine($label, $line->amount->isNegative() ? -1 : 1, $line->amount->isNegative()
-                ? $line->amount->negated() : $line->amount);
-        }
-
         // Overdue only while something is still payable, the same rule as the deadline line (SB-3).
         $owes = $participant->balance->roundedUpToPayableUnit()->isPositive();
         $overdue = $owes && !$confirmed && !$awaits && $due !== null && $now >= $due;
 
-        return new PaymentView($participant, $lines, $others, $awaits, $due, $overdue);
+        return new PaymentView($participant, $others, $awaits, $due, $overdue);
     }
 
     /** SB-4: registered, the event open, not awaiting an answer, a balance above zero after rounding, and bank details set. */
