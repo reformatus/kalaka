@@ -26,6 +26,8 @@ title: Modules and extensions
   the organization directory, the congregation picker and the support offers
   ([Money](money.md#sponsor-and-church-support)). Core holds no organization
   data.
+- **The congregation share is its own extension plugin, `kalaka-share`**
+  ([Money](money.md#congregation-share)).
 
 ```mermaid
 flowchart LR
@@ -307,7 +309,7 @@ flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer ·<br/>request source"]
   REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · slot requirement · seat claim source"]
-  REG --> DECL["Declarations<br/>payer kind · block host"]
+  REG --> DECL["Declarations<br/>payer kind (its appliesTo read runs inside; contained in reads) · block host"]
 ```
 
 - **Extensions declare core in their `Requires Plugins` header,** so WordPress
@@ -331,7 +333,18 @@ flowchart LR
   - A **slot requirement** names participant fields the event's registration
     form must hold, required and outside any condition (the price ladder
     requires `price_tier`); a form without one is closed until fixed.
-  - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
+  - A **payer kind** is declared (e.g. "congregation"), with an ID and a
+    label, through a `PayerKindSource` (`Contributions::payerKindSource()`),
+    which also says per event whether the kind applies: its `appliesTo()` is a
+    plain read of the module's own setting that runs inside the record use
+    cases, in the admin detail read and in the participant status read (it fires
+    no hooks and writes nothing).
+    In a record use case, inside the transaction, a throw rolls the use case
+    back; in a read, outside it, a throw is caught: that kind is
+    treated as not applying and the failure is only logged, as `ThemeAdapters`
+    does; the stored failure record of
+    [Failure isolation](#failure-isolation) is not built yet for any
+    contribution. The source runs no other code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, and its own blocks
     that no other editor offers, for a post type or a block editor context.

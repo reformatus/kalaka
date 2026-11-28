@@ -10,6 +10,7 @@
 		"./plugins/kalaka-woocommerce",
 		"./plugins/kalaka-price-ladder",
 		"./plugins/kalaka-aid",
+		"./plugins/kalaka-share",
 		"./plugins/kalaka-deposits"
 	],
 	"mappings": {
