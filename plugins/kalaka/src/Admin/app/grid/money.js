@@ -148,7 +148,9 @@ export function buildCall( event, entry, can ) {
 	};
 	if ( kind === 'correction' ) {
 		input.direction = entry.direction;
-		input.reason = entry.note;
+		if ( entry.note ) {
+			input.reason = entry.note; // optional (J13)
+		}
 	} else if ( kind === 'charge' || kind === 'discount' ) {
 		input.title = entry.title;
 		if ( entry.completed ) {

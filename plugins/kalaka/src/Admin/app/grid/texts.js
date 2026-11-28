@@ -59,6 +59,9 @@ export const PANEL = {
 	panel: 'Jelentkező részletei',
 	close: 'Bezárás',
 	tabsLabel: 'Részletek',
+	// The two new tabs: „Adatok” was the field list's heading (T230), „Kérelmek” the requests block's (T3). [UNAPPROVED T951] [UNAPPROVED T952]
+	tabFields: 'Adatok',
+	tabRequests: 'Kérelmek',
 	tabMoney: 'Pénzügyek',
 	// The confirmation row's two words: the confirmation decision's own state labels, as `ConfirmationRule` declares
 	// them and the grid's cells already show.
@@ -197,13 +200,17 @@ export const CONFIRM = {
 export const NOT_APPLICABLE_SPOKEN = 'Nem értelmezhető';
 
 export const REQUESTS = {
-	heading: 'Kérelmek',
 	awaiting: 'Válaszra vár',
 	approved: 'Jóváhagyva',
 	refused: 'Elutasítva',
 	award: 'Jóváhagyva (%s)',
 	answer: 'Válasz',
 	change: 'Válasz módosítása',
+	// The two buttons' screen-reader names, naming the request: „Válasz: <kérelem>”. [UNAPPROVED T961] [UNAPPROVED T962]
+	answerLabel: 'Válasz: %s',
+	changeLabel: 'Válasz módosítása: %s',
+	// The pointer of a request's field group on „Adatok”: it opens that request on „Kérelmek”. [UNAPPROVED T960]
+	goTo: 'Ugrás a kérelemhez',
 	dialogTitle: 'Kérelem megválaszolása',
 	answerField: 'Válasz',
 	answerEmpty: 'Add meg a választ.',
@@ -229,4 +236,70 @@ export const REQUESTS = {
 	// An inactive request's state: the same „–” as the grid's awaits column (Texts::NOT_APPLICABLE, T1120), which the
 	// read does not carry to the panel.
 	notApplicable: '–',
+	// The „Kérelmek” tab with no request, in the pattern of the money tab's „Még nincs tétel.”. [UNAPPROVED T1308]
+	none: 'Még nincs kérelem.',
+};
+
+/**
+ * The four status acts of the detail panel (S39 on #247). Every visible string is unapproved until the owner ticks
+ * its box (T700..T723, the renamed ones T953..T959), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás”
+ * (CONFIRM) and the generic failure (MONEY.saveFail). The „full” warning and the server's refusals are shown with
+ * the server's own text (the preview's `warnings`, the error's `message`) and are not here.
+ */
+export const STATUS_ACTS = {
+	// The four buttons. [UNAPPROVED T700] [UNAPPROVED T703]; withdraw and remove are T953 and T954
+	admit: 'Felvétel a várólistáról',
+	withdraw: 'Megjelölés lemondottként', // [UNAPPROVED T953] J1
+	remove: 'Megjelölés töröltként', // [UNAPPROVED T954] J2
+	restore: 'Jelentkezés visszaállítása',
+	// The dialog titles. [UNAPPROVED T704] [UNAPPROVED T707]; withdraw and remove are T955 and T956
+	admitTitle: 'Jelentkezés felvétele a várólistáról',
+	withdrawTitle: 'Megjelölés lemondottként', // [UNAPPROVED T955] J3
+	removeTitle: 'Megjelölés töröltként', // [UNAPPROVED T956] J4
+	restoreTitle: 'Jelentkezés visszaállítása',
+	// What will happen. [UNAPPROVED T708] [UNAPPROVED T710] [UNAPPROVED T711]; withdraw is T957
+	admitBody: 'A jelentkezés rögzített állapotba kerül.',
+	withdrawBody: 'A jelentkezés lemondott állapotba kerül. A várólistáról senki sem kerül be automatikusan.', // [UNAPPROVED T957] J5 (J6, T710, keeps its word „törölt”)
+	removeBody: 'A jelentkezés törölt állapotba kerül. A várólistáról senki sem kerül be automatikusan.',
+	restoreBody: 'A jelentkezés rögzített állapotba kerül.',
+	// Under the admit dialog's warning. [UNAPPROVED T713]
+	serialEnd: 'A felvett jelentkező az utolsó sorszámot kapja.',
+	// The snackbars. [UNAPPROVED T714] [UNAPPROVED T717]; withdraw and remove are T958 and T959
+	admitted: 'Jelentkezés felvéve a várólistáról.',
+	withdrawn: 'Jelentkezés lemondottként megjelölve.', // [UNAPPROVED T958] J7
+	removed: 'Jelentkezés töröltként megjelölve.', // [UNAPPROVED T959] J8
+	restored: 'Jelentkezés visszaállítva.',
+	// The money section's heading (the earlier prototype's S16). [UNAPPROVED T718]
+	moneyHeading: 'Pénzügyi hatás',
+	// Under the money table of withdraw and remove (S23): nothing is paid back by the act. [UNAPPROVED T719]
+	noAutomaticRefund: 'Nincs automatikus visszafizetés.',
+	// The capacity line of a seat with a limit (S24): the pool's label, then `taken_after` and `limit` from the
+	// preview's `seats`. „mentés után” as the money table's „Tartozás mentés után”. [UNAPPROVED T720]
+	capacity: '%1$s – foglalt helyek mentés után: %2$d / %3$d',
+	// The same line for a seat the server gives no label, so no dash starts it. [UNAPPROVED T723]
+	capacityUnlabelled: 'Foglalt helyek mentés után: %1$d / %2$d',
+	// The retention sentence under the money table of withdraw and remove, by the preview's `retention`
+	// (the earlier prototype's S18 and S17). [UNAPPROVED T721] [UNAPPROVED T722]
+	retentionAll: 'Az esemény a befizetett összeget teljes egészében megtartja.',
+	retentionNone: 'Az esemény nem tartja meg a befizetett összeget.',
+};
+
+/**
+ * Staff editing of a registration's field values (B5-2 on #249). Every string is unapproved until the owner ticks
+ * its box (T230..T233), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and its length message
+ * (CONFIRM, its length message), the generic failure (MONEY.saveFail), „Nincs válasz” (GRID.unanswered), „–” (an empty value, MONEY's
+ * preview dash) and the „full” warning (the preview's `warnings`, the server's text). Server refusals are shown
+ * with the server's own text.
+ */
+export const FIELDS = {
+	// The button of a writable field. [UNAPPROVED T231]
+	edit: 'Szerkesztés',
+	// The button's screen-reader name, „Szerkesztés: <mező>”. [UNAPPROVED T233]
+	editLabel: 'Szerkesztés: %s',
+	// The snackbar after a save, also after an answer that changed nothing. [UNAPPROVED T232]
+	saved: 'Az adat mentve.',
+	// An empty value in the list (reused: the preview's dash).
+	empty: '–',
+	// The „Adatok” tab with no field, in the pattern of the money tab's „Még nincs tétel.”. [UNAPPROVED T1307]
+	none: 'Még nincs adat.',
 };
