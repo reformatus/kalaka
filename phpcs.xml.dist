@@ -27,6 +27,10 @@
     <file>plugins/kalaka-price-ladder/kalaka-price-ladder.php</file>
     <file>plugins/kalaka-price-ladder/uninstall.php</file>
     <file>plugins/kalaka-price-ladder/tests</file>
+    <file>plugins/kalaka-aid/src</file>
+    <file>plugins/kalaka-aid/kalaka-aid.php</file>
+    <file>plugins/kalaka-aid/uninstall.php</file>
+    <file>plugins/kalaka-aid/tests</file>
     <file>plugins/kalaka-deposits/tests</file>
     <file>bin</file>
     <arg name="extensions" value="php"/>

@@ -8,6 +8,7 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\ParticipantFields\Api\FieldDecimalsHeld;
 use Kalaka\ParticipantFields\Api\FieldKeyHeld;
@@ -26,6 +27,9 @@ use Kalaka\Pricing\CoreFeeComponents;
  */
 final class SettingsDocument
 {
+    /** The code of core's `ItemChosen`: an item a save would remove is chosen by open registrations. [UNAPPROVED N699] */
+    private const ITEM_CHOSEN = 'kalaka_item_chosen';
+
     public function __construct(
         private readonly MoneySettings $settings = new MoneySettings(),
         private readonly CoreFeeComponents $components = new CoreFeeComponents(),
@@ -125,6 +129,17 @@ final class SettingsDocument
                     'The settings of "' . $id . '" are refused: a key they declare is held by a participant field of '
                     . 'the event that code may not take over (a staff or system field, a field of another type, '
                     . 'or another declarer\'s field).',
+                    $refused
+                );
+                throw $error;
+            } catch (RuleViolation $refused) {
+                // By code, not by type: only an item chosen by open registrations is named here; any other
+                // rule violation goes on to the command's boundary as it is.
+                if ($refused->errorCode() !== self::ITEM_CHOSEN) {
+                    throw $refused;
+                }
+                $error = new CommandFailure(
+                    'The settings of "' . $id . '" are refused: an offer is selected by open registrations.',
                     $refused
                 );
                 throw $error;

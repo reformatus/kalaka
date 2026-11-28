@@ -14,7 +14,8 @@ namespace Kalaka\ParticipantFields\Api;
  * `system`, `formWritable` whether a form may hold its key, and `forms` the forms of the event that hold it
  * now (trashed ones not): `ParticipantFields::of()` names none, `Forms::participantFields()` adds them
  * (`withForms()`). `moneyRelevant` is whether its value is locked after the first write (declared by an extension
- * for its field, or by the block type for a form field).
+ * for its field, or by the block type for a form field). `declaredBy` is the slug of the extension that declared
+ * an `extension` field (null for any other source, or a row stored before the slug existed).
  */
 final readonly class ParticipantField
 {
@@ -41,6 +42,7 @@ final readonly class ParticipantField
         public array $forms = [],
         public array $settings = [],
         public bool $moneyRelevant = false,
+        public ?string $declaredBy = null,
     ) {
     }
 
@@ -63,6 +65,7 @@ final readonly class ParticipantField
             $forms,
             $this->settings,
             $this->moneyRelevant,
+            $this->declaredBy,
         );
     }
 

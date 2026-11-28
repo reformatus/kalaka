@@ -110,17 +110,15 @@ final class Registrations
      * Writes one field value from the extension that declared the field (events-and-forms.md, "Fields": the source
      * "extension"; foundation.md: a field value is a fact whatever writes it), e.g. the answer to a request.
      * Inside a use case's run, with the registration locked by it; the value is the field type's stored form.
-     * `$declarer` is the writing module's slug, the one it declared the field with (`kalaka-aid`, `kalaka-support`):
+     * `$declarer` is the writing module's ID, the one it declared the field with (`aid`, `support`):
      * one writer rule, a field is written by its declarer's own code only. The field must be one the event
      * declares, and not a "system" field, which stores nothing (foundation.md, "Facts, decisions and computed
      * values"). The caller owns the field's type: this does not check it.
-     *
-     * TODO(CF3, #231): refuse a field whose `declared_by` is another declarer. The column and
-     * `ParticipantField::$declaredBy` arrive with CF3; until then the declarer is required but not compared, so
-     * this completes at the restack onto CF3.
+     * A field another declarer holds (`declared_by`, CF3) is refused: a field is written by its declarer's own code
+     * only. [UNAPPROVED N357]
      *
      * @throws SystemFailure when the run does not hold the registration, the declarer is empty, the event has no
-     *                       such active field, or the field is a "system" one
+     *                       such active field, the field is a "system" one, or another declarer holds it
      */
     public function writeValue(
         RegistrationKey $key,
@@ -150,6 +148,10 @@ final class Registrations
         }
         if ($declared->source === ParticipantField::SOURCE_SYSTEM) {
             $error = new SystemFailure(null, new \LogicException('A system field stores no value.'));
+            throw $error;
+        }
+        if ($declared->declaredBy !== null && $declared->declaredBy !== $declarer) {
+            $error = new SystemFailure(null, new \LogicException('Another declarer holds the participant field.'));
             throw $error;
         }
         $stored = $this->values->findForUpdate(

@@ -194,7 +194,8 @@ the waitlist and reference codes
   (`DraftClaimRefused`).
 - A seat is a fact (`kalaka_seats`, one row per registration and pool), written only through `Api\Seats`,
   and only inside an act that holds the registration's row: the registrant's submit, an additional form's submit
-  (a `registered` registration's, which also frees seats), an admission, a restore or staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
+  (a `registered` registration's, which also frees seats), an admission, a restore, staff placing or an answer to an
+  offer request. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
   before the seats are counted, so two acts for the last seat serialise and the second counts the first. A pool
   at a lock level before the registration row (a quota row) is locked before the registration row is:
   a submit locks and checks its quota pools before the registration is written, in `Seats::inLockOrder()` (by
@@ -254,7 +255,9 @@ the waitlist and reference codes
 
 - Requests and their answers (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions and
   computed values"; slice B). A request is named by a `RequestSource` a module contributes (an inside point); core
-  ships none, so with no source every read is empty and costs no statement.
+  ships none, so with no source every read is empty and costs no statement. Each `Request` a source builds names its
+  participant fields as stored keys: `askFields` (what the participant asks with) and `answerField` (where its
+  answer is written), which the admin detail groups by.
   - The one act that answers a request is `AnswerRequest` (`kalaka/answer-request`, action
     `kalaka_answer_request`), for offers and aid alike, used by staff and by a partner (a grant holder whose view
     holds only their registrations); the runner checks the target against the view. The one action gates every
@@ -263,9 +266,9 @@ the waitlist and reference codes
     never an upsert: its id is the key the "answered" mail takes, `AnswerRead::subject()`; it records who, when,
     the note), and the answer as the source's own participant field value, written by the source
     (`RequestSource::writeAnswer()`, called by the act) through `Registrations::writeValue()`, so the source
-    stays that field's only writer. `writeValue()` takes the writing module's declarer (`kalaka-aid`,
-    `kalaka-support`): one writer rule, a field is written by its declarer's own code only (the refusal of
-    another declarer's field completes when CF3 #231 stores `declared_by`). It refuses a run that does not hold
+    stays that field's only writer. `writeValue()` takes the writing module's declarer (`aid`,
+    `support`): one writer rule, a field is written by its declarer's own code only (it refuses a field
+    whose `declared_by` is another declarer). It refuses a run that does not hold
     the registration, a key the event does not declare and a "system" field.
   - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same
     amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
@@ -291,8 +294,10 @@ the waitlist and reference codes
     admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`); `awaits_answer`
     is N/A for it (neither yes nor no) and yes again by itself at admission. A refusing offer answer frees the
     offer's seat and a "yes" after a refusal takes one again. Both use slice A's one seat rule, `Seats`: the request
-    source builds its pool (`RequestSource::seatPool(): ?SeatPool`; null, as for aid, means no limit and no seat
-    call), so core never parses a pool key, and the act locks it before the registration lock. A full pool never
+    source builds its pool (`RequestSource::seatPool(RegistrationKey, Request): ?SeatPool`; the key is passed so a
+    source whose pools belong to an event can find the pool; null, as for aid, means the source takes no seat for the
+    request and there is no seat call; an offer with no quota still has a pool, with no limit), so core never parses
+    a pool key, and the act locks it before the registration lock. A full pool never
     refuses the "yes": `retake()` answering `SeatOutcome::Over` is `over_limit`, and the detail read's `seat_full` is
     `Seats::wouldOverfill()`.
   - An aid "yes" above the full price the participant has to pay is refused with `AidAbovePrice` (a

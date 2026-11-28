@@ -42,6 +42,8 @@ final class RequestTest extends TestCase
         $request = new Request($id, RequestKind::Offer, 'Teszt');
 
         self::assertSame($id, $request->id);
+        self::assertSame([], $request->askFields);
+        self::assertNull($request->answerField);
     }
 
     public function testEachAnsweringActHasItsOwnSubjectKeyedByItsId(): void

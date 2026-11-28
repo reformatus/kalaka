@@ -46,11 +46,14 @@ interface RequestSource
     public function awaitingRule(int $eventId): ?AwaitingRule;
 
     /**
-     * The seat pool an offer's seat comes from, or null when the request has no limit (an aid request, an offer
-     * with no quota). The source builds its own pool, so core never parses a pool key; the answer act passes it to
-     * `Seats` and the detail read asks `Seats::wouldOverfill()` of it. [UNAPPROVED N4]
+     * The seat pool an offer's seat comes from, or null when the source takes no seat for this request at all (an
+     * aid request). An offer with no quota still has a pool, one with no limit, so a refusal always frees its seat
+     * and a "yes" after it always takes one. The source builds its own pool, so core never parses a pool key; the
+     * registration's key is passed so a source whose pools belong to an event can find the pool. The answer act
+     * passes the pool to `Seats` and the detail read asks `Seats::wouldOverfill()` of it. A plain read.
+     * [UNAPPROVED N4, N1198, N1199]
      */
-    public function seatPool(Request $request): ?SeatPool;
+    public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool;
 
     /**
      * What an aid request is measured against, now: the full price the participant has to pay before the aid and
