@@ -45,11 +45,17 @@ page, and the account area
 - The blocks have no look of their own: core preset classes and `portal.css`,
   which is structural only; the texts read correctly without either. Every
   text is the frozen spec's or approved, except the registrant's withdrawal
-  (T765 to T775, T991, T992, marked `[UNAPPROVED]` in `StatusMarkup`), a prototype until the
+  (T765 to T775, T992 and T1303 to T1306, marked `[UNAPPROVED]` in `StatusMarkup`), a prototype until the
   owner approves it.
 - The registrant's withdrawal is presentation only: `StatusMarkup` shows the
-  button on the server's `can.withdraw` and a confirmation step whose post is the
-  confirmed act; the page decides nothing and holds no rule. [UNAPPROVED N765 to N779, N1026 to N1031]
+  button on the server's `can.withdraw` and a confirmation, in a WordPress Modal opened by script or, without
+  script, as a section on the page's own confirm address, whose post is the confirmed act; once the registration
+  has closed the option is simply gone, with no hint; the page decides nothing and holds no rule.
+  [UNAPPROVED N765 to N779, N1333 to N1349]
+- Interactive confirmations open in a WordPress components Modal, and the page is not re-rendered in place
+  (owner, 2026-11-28). The Modal's script (`Blocks/status/view.js`) holds no text and no rule: every string and
+  the post's address ride on the start form as data (`data-kalaka-withdraw`), written by `StatusMarkup`. The start
+  form stays a plain GET to the confirm address, which is the no-script way. [UNAPPROVED R370]
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
 - The participant's own withdrawal (`POST kalaka-portal/v1/withdraw`, `Rest\WithdrawRoute`; `Api\Withdrawal`)

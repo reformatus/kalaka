@@ -9,6 +9,7 @@
 		"html": false
 	},
 	"editorScript": "file:./index.js",
+	"viewScript": "file:./view.js",
 	"style": "kalaka-portal",
 	"render": "file:./render.php"
 }

@@ -42,17 +42,23 @@ final class StatusMarkup
     /** [UNAPPROVED T768] Leaves the confirmation step without acting (core's own „Mégsem”, the owner's wording). */
     public const WITHDRAW_CANCEL = 'Mégsem';
 
-    /** [UNAPPROVED T769] The money line, first part: the preview's `paid`. */
+    /** The money line's „Befizetve:” (the approved first half of T769; the cases below are [UNAPPROVED T1304 to T1306]). */
     public const WITHDRAW_PAID = 'Befizetve:';
 
-    /** [UNAPPROVED T769] The money line, second part: the preview's `owed_after`, when it is zero or above. */
-    public const WITHDRAW_OWED_AFTER = 'A lemondás után még fizetendő:';
+    /** [UNAPPROVED T1303] Case (a): nothing was paid (registered; a waitlisted one shows no line). */
+    public const WITHDRAW_NOTHING_PAID = 'Még nem fizettél be semmit, ezért a lemondás után nem kell fizetned.';
 
-    /**
-     * [UNAPPROVED T775] The money line, second part when the preview's `owed_after` is below zero (a surplus):
-     * the lektor's sentence; "túlfizetés" is the money table's approved row label.
-     */
-    public const WITHDRAW_SURPLUS = 'A lemondás után túlfizetésed lesz:';
+    /** [UNAPPROVED T1304] Case (b): paid, and all of it is kept; follows „Befizetve: X.”. */
+    public const WITHDRAW_KEPT_ALL = 'Ezt az összeget megtartjuk.';
+
+    /** [UNAPPROVED T1305] Case (c): paid, part kept; follows „Befizetve: X.”, then the kept amount and a full stop. */
+    public const WITHDRAW_KEPT_PART = 'Ebből megtartunk:';
+
+    /** [UNAPPROVED T1305] Case (c), second sentence: then the surplus amount and a full stop. */
+    public const WITHDRAW_SURPLUS_REST = 'A többi túlfizetés lesz:';
+
+    /** [UNAPPROVED T1306] Case (d): paid, nothing kept; follows „Befizetve: X.”. */
+    public const WITHDRAW_KEPT_NONE = 'Ebből semmit nem tartunk meg, az egész összeg túlfizetés lesz.';
 
     /** [UNAPPROVED T772] Stands in the confirmation of a registered one when the preview gave nothing. */
     public const WITHDRAW_NO_MONEY = 'A befizetett összeget most nem tudjuk megmutatni.';
@@ -75,18 +81,10 @@ final class StatusMarkup
 
     /**
      * [UNAPPROVED T992] `kalaka_withdraw_closed`: the registration closed between the confirmation page and the press.
-     * The lektor's wording may depend on whether the hint (T991) shows with it after the reload (it does).
+     * It stands alone: once the registration has closed the page shows no withdrawal option, no hint (the owner,
+     * 2026-11-28).
      */
     public const WITHDRAW_CLOSED = 'A jelentkezés időközben lezárult, ezért a lemondás nem sikerült.';
-
-    /**
-     * [UNAPPROVED T991] Where the withdrawal button would be, once registration has closed
-     * (`can.withdrawUnavailable === 'registration_closed'`): plain text in the theme's paragraph style.
-     * Alternative, for the record only: „A jelentkezés lezárult, ezért ezt a jelentkezést már csak a szervezők
-     * tudják lemondani.”
-     */
-    public const WITHDRAW_AFTER_CLOSE = 'A jelentkezés lezárult, ezért ezt a jelentkezést itt már nem tudod lemondani.'
-        . ' Ha mégsem tudsz részt venni, jelezd a szervezőknek.';
 
     private const MINUS = "\u{2212}";
 
@@ -205,12 +203,15 @@ final class StatusMarkup
     }
 
     /**
-     * The registrant's own withdrawal [UNAPPROVED N765 to N779]: the button while `can.withdraw`;
-     * on the page's own confirm request (`?kalaka_withdraw=confirm`) the confirmation step in its place, a plain form
-     * that works without script (the post is the confirmed act). „Mégsem” is a button of an empty GET form back to the
-     * page: a link to an in-page fragment is taken over by Divi's smooth-scroll script. A refused post's text, by code.
-     * With nothing to show it renders nothing. The money line comes from the preview's values only, never from the
-     * page's own rules (N773).
+     * The registrant's own withdrawal [UNAPPROVED N765 to N779]: the button while `can.withdraw`. With script the
+     * button opens the confirmation in a WordPress Modal (R370): its texts ride on the button's form as data
+     * (`data-kalaka-withdraw`), so the script holds no string, and the page is not re-rendered. Without script
+     * the form is a plain GET to the page's own confirm request (`?kalaka_withdraw=confirm`), which shows the
+     * same confirmation in place of the button, a plain POST form (the post is the confirmed act). „Mégsem” there
+     * is a button of an empty GET form back to the page: a link to an in-page fragment is taken over by Divi's
+     * smooth-scroll script. A refused post's text shows by code. After the registration has closed no option
+     * shows at all. With nothing to show it renders nothing. The money line comes from the preview's values
+     * only, never from the page's own rules (N773).
      */
     private static function withdraw(?WithdrawOffer $offer): string
     {
@@ -223,12 +224,7 @@ final class StatusMarkup
         if ($offer->canWithdraw && $text === self::WITHDRAW_UNAVAILABLE) {
             $text = null;
         }
-        // [UNAPPROVED N1026] T991: the hint stands where the button would be, after the registration has closed.
-        // [UNAPPROVED N1028] On the confirm request after the close there is no confirmation: the hint shows instead.
-        $hint = !$offer->canWithdraw && $offer->unavailable === 'registration_closed'
-            ? '<p class="kalaka-withdraw-closed">' . esc_html(self::WITHDRAW_AFTER_CLOSE) . '</p>'
-            : '';
-        if (!$offer->canWithdraw && $text === null && $hint === '') {
+        if (!$offer->canWithdraw && $text === null) {
             return '';
         }
         $error = $text === null
@@ -240,15 +236,25 @@ final class StatusMarkup
         $open = '<div id="kalaka-withdraw" class="kalaka-withdraw" style="'
             . esc_attr('--kalaka-error-color: ' . $colour) . '">';
         if (!$offer->canWithdraw) {
-            // [UNAPPROVED N1027] The hint and a refusal show together, the hint first; the refusal keeps the fragment
-            // and focus (N779). [UNAPPROVED N1030] Any refusal code shows under the hint as it is.
-            return $open . $hint . $error . '</div>';
+            // A refusal stands alone where no button is left (N1027, N1030).
+            return $open . $error . '</div>';
         }
         // A refused post comes back to the error (N779: the fragment moves focus to it, so it is read out).
         $returnUrl = $offer->returnUrl;
         $errorUrl = $returnUrl . '#kalaka-withdraw-error';
         if (!$offer->confirming) {
-            return $open . '<form method="get" action="' . esc_url($returnUrl . '#kalaka-withdraw-question') . '">'
+            $dialog = wp_json_encode([
+                'question' => self::WITHDRAW_QUESTION,
+                'money' => self::withdrawMoneyLine($offer),
+                'confirm' => self::WITHDRAW_CONFIRM,
+                'cancel' => self::WITHDRAW_CANCEL,
+                'action' => $offer->actionUrl,
+                'code' => $offer->code,
+                'returnUrl' => $errorUrl,
+            ]);
+
+            return $open . '<form method="get" action="' . esc_url($returnUrl . '#kalaka-withdraw-question') . '"'
+                . ' data-kalaka-withdraw="' . esc_attr($dialog === false ? '' : $dialog) . '">'
                 . '<button type="submit" name="kalaka_withdraw" value="confirm"' . $class . $describedBy . '>'
                 . esc_html(self::WITHDRAW_BUTTON) . '</button></form>' . $error . '</div>';
         }
@@ -267,34 +273,53 @@ final class StatusMarkup
             . $error . '</div>';
     }
 
-    /**
-     * The confirmation's money line [UNAPPROVED N773]: only what the preview sent. Nothing when nothing was paid and
-     * the preview was fine; a stated gap when a registered one's preview gave nothing (no value is made up).
-     */
     private static function withdrawMoney(WithdrawOffer $offer): string
     {
+        $line = self::withdrawMoneyLine($offer);
+
+        return $line === null ? '' : '<p class="kalaka-withdraw-money">' . esc_html($line) . '</p>';
+    }
+
+    /**
+     * The confirmation's money line [UNAPPROVED N773, T1303 to T1306]: how much of what was paid is kept, from the
+     * preview's values only. Nobody owes more after withdrawing (the retention is held to what was paid), so
+     * `owed_after` is never above zero; below zero it is the surplus. The kept amount is `paid` less that
+     * surplus (the preview carries no kept figure of its own, and `paid + owed_after` is its identity), so the two
+     * printed parts always add up to `paid`.
+     *
+     *  - (a) nothing paid (a waitlisted registration shows no line);
+     *  - (b) paid, nothing of it a surplus: all kept (also if `owed_after` were above zero, which cannot happen);
+     *  - (c) paid, a surplus below `paid`: part kept, the rest a surplus;
+     *  - (d) paid, a surplus of all of it: nothing kept.
+     *
+     * A registered one whose preview gave nothing gets T772; a waitlisted one gets nothing. Null: no line.
+     */
+    public static function withdrawMoneyLine(WithdrawOffer $offer): ?string
+    {
         if ($offer->paid === null) {
-            return $offer->previewFailed
-                ? '<p class="kalaka-withdraw-money">' . esc_html(self::WITHDRAW_NO_MONEY) . '</p>'
-                : '';
+            return $offer->previewFailed ? self::WITHDRAW_NO_MONEY : null;
         }
         if (!$offer->paid->isPositive()) {
-            return '';
+            return $offer->waitlisted ? null : self::WITHDRAW_NOTHING_PAID;
         }
-        $line = self::WITHDRAW_PAID . ' ' . MoneyText::of($offer->paid) . '.';
-        if ($offer->owedAfter !== null) {
-            // The money table's rounding rules (#233): a surplus only when it does not count as zero; the amount
-            // owed is rounded up to the payable unit and never below zero.
-            if ($offer->owedAfter->isNegative() && !$offer->owedAfter->countsAsZero()) {
-                $line .= ' ' . self::WITHDRAW_SURPLUS . ' ' . MoneyText::of($offer->owedAfter->negated()) . '.';
-            } else {
-                $due = $offer->owedAfter->roundedUpToPayableUnit();
-                $shown = $due->isPositive() ? $due : Money::zero($due->currency());
-                $line .= ' ' . self::WITHDRAW_OWED_AFTER . ' ' . MoneyText::of($shown) . '.';
+        $paid = $offer->paid;
+        $line = self::WITHDRAW_PAID . ' ' . MoneyText::of($paid) . '.';
+        $surplus = Money::zero($paid->currency());
+        if ($offer->owedAfter !== null && $offer->owedAfter->isNegative() && !$offer->owedAfter->countsAsZero()) {
+            $surplus = $offer->owedAfter->negated();
+            if ($surplus->isGreaterThan($paid)) {
+                $surplus = $paid;
             }
         }
+        if (!$surplus->isPositive()) {
+            return $line . ' ' . self::WITHDRAW_KEPT_ALL;
+        }
+        if (!$surplus->isLessThan($paid)) {
+            return $line . ' ' . self::WITHDRAW_KEPT_NONE;
+        }
 
-        return '<p class="kalaka-withdraw-money">' . esc_html($line) . '</p>';
+        return $line . ' ' . self::WITHDRAW_KEPT_PART . ' ' . MoneyText::of($paid->minus($surplus)) . '. '
+            . self::WITHDRAW_SURPLUS_REST . ' ' . MoneyText::of($surplus) . '.';
     }
 
     /**

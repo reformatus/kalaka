@@ -18,6 +18,10 @@ use Kalaka\Pricing\SetRetention;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Portal\ParticipantBlocks;
+use Kalaka\Portal\StatusMarkup;
+use Kalaka\Portal\Api\WithdrawOffer;
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\Api\WithdrawStale;
 use Kalaka\Portal\Api\WithdrawUnavailable;
@@ -354,9 +358,19 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         $_GET['kalaka_withdraw'] = '';
         $open = ParticipantBlocks::status();
         self::assertStringContainsString('Jelentkezés lemondása', $open);
-        // The first button is a plain GET to the page's own confirm step; only the confirmed form posts to the route.
+        // The start button stays a plain GET to the page's own confirm step (the no-script way, N1334); with script it
+        // opens the Modal from the data on its form, whose texts and money line are the server's (R370).
         self::assertStringContainsString('#kalaka-withdraw-question', $open);
-        self::assertStringNotContainsString('Biztosan lemondod', $open);
+        self::assertStringNotContainsString('Biztosan lemondod a jelentkezésedet?</h3>', $open);
+        self::assertSame(1, preg_match('/data-kalaka-withdraw="([^"]*)"/', $open, $found));
+        $data = json_decode(html_entity_decode($found[1]), true);
+        self::assertSame('Biztosan lemondod a jelentkezésedet?', $data['question']);
+        self::assertSame('Lemondom a jelentkezést', $data['confirm']);
+        self::assertSame('Mégsem', $data['cancel']);
+        self::assertSame(rest_url('kalaka-portal/v1/withdraw'), $data['action']);
+        self::assertSame('00A0', $data['code']);
+        // Nothing paid, registered: case (a).
+        self::assertSame(StatusMarkup::WITHDRAW_NOTHING_PAID, $data['money']);
 
         $_GET['kalaka_withdraw'] = 'confirm';
         $confirm = ParticipantBlocks::status();
@@ -364,16 +378,93 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertStringContainsString(rest_url('kalaka-portal/v1/withdraw'), $confirm);
         unset($_GET['kalaka_withdraw']);
 
+        // After the close the option is simply gone: no button, no hint, no confirmation (the owner, 2026-11-28).
         $this->closesAt('2026-12-01 08:00:00');
         $closed = ParticipantBlocks::status();
         self::assertStringNotContainsString('Jelentkezés lemondása', $closed);
-        self::assertStringContainsString(
-            'A jelentkezés lezárult, ezért ezt a jelentkezést itt már nem tudod lemondani.',
-            $closed
-        );
+        self::assertStringNotContainsString('kalaka-withdraw', $closed);
+        self::assertStringNotContainsString('lemondani', $closed);
+        $_GET['kalaka_withdraw'] = 'confirm';
+        self::assertStringNotContainsString('Biztosan lemondod', ParticipantBlocks::status());
+        unset($_GET['kalaka_withdraw']);
 
         ActiveRegistrationState::set(null, false);
         self::assertStringNotContainsString('Jelentkezés lemondása', ParticipantBlocks::status());
+    }
+
+    private static function line(
+        ?string $paid,
+        ?string $owedAfter,
+        bool $waitlisted = false,
+        bool $failed = false,
+    ): ?string {
+        $money = static fn (?string $amount): ?Money => $amount === null ? null : Money::of($amount, Currency::HUF);
+
+        return StatusMarkup::withdrawMoneyLine(new WithdrawOffer(
+            true,
+            'x',
+            'y',
+            '00A0',
+            paid: $money($paid),
+            owedAfter: $money($owedAfter),
+            previewFailed: $failed,
+            waitlisted: $waitlisted,
+        ));
+    }
+
+    /** The four money cases of the confirmation, by the preview's values (T1303 to T1306). */
+    public function testTheMoneyLineSaysHowMuchOfWhatWasPaidIsKept(): void
+    {
+        $nbsp = "\u{00A0}";
+        // (a) nothing paid: a line for a registered one, none for a waitlisted one.
+        self::assertSame(StatusMarkup::WITHDRAW_NOTHING_PAID, self::line('0', '0'));
+        self::assertNull(self::line('0', '0', waitlisted: true));
+        // (b) paid and all kept: nothing is owed after (or, cannot happen, a little: still all kept).
+        self::assertSame(
+            "Befizetve: 20{$nbsp}000{$nbsp}Ft. Ezt az összeget megtartjuk.",
+            self::line('20000', '0')
+        );
+        self::assertStringEndsWith(StatusMarkup::WITHDRAW_KEPT_ALL, (string) self::line('20000', '5000'));
+        self::assertStringEndsWith(StatusMarkup::WITHDRAW_KEPT_ALL, (string) self::line('20000', '-0.001'));
+        // (c) part kept: the two parts add up to what was paid.
+        self::assertSame(
+            "Befizetve: 30{$nbsp}000{$nbsp}Ft. Ebből megtartunk: 10{$nbsp}000{$nbsp}Ft. "
+            . "A többi túlfizetés lesz: 20{$nbsp}000{$nbsp}Ft.",
+            self::line('30000', '-20000')
+        );
+        // (d) nothing kept: the whole payment is a surplus (also if the surplus were reported above what was paid).
+        $none = "Befizetve: 3{$nbsp}000{$nbsp}Ft. " . StatusMarkup::WITHDRAW_KEPT_NONE;
+        self::assertSame($none, self::line('3000', '-3000'));
+        self::assertSame($none, self::line('3000', '-3500'));
+        // A registered one whose preview gave nothing: T772; a waitlisted one: nothing.
+        self::assertSame(StatusMarkup::WITHDRAW_NO_MONEY, self::line(null, null, failed: true));
+        self::assertNull(self::line(null, null));
+    }
+
+    /** The money line the status block hands the Modal, from the data on the start form. */
+    private function dialogMoney(string $markup): string
+    {
+        self::assertSame(1, preg_match('/data-kalaka-withdraw="([^"]*)"/', $markup, $found));
+        $data = json_decode(html_entity_decode($found[1]), true);
+
+        return (string) ($data['money'] ?? '');
+    }
+
+    public function testTheBlockSaysAllIsKeptOrNothingIsKeptByTheEventsRetention(): void
+    {
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['state' => 'published'], ['id' => $this->event]);
+        \Kalaka\Foundation\ObjectCache::clear();
+        $this->closesAt(null);
+        ActiveRegistrationState::set($this->key('00A0'), false);
+        $this->pay('00A0', '3000');
+        $kept = ParticipantBlocks::status();
+        self::assertStringEndsWith(StatusMarkup::WITHDRAW_KEPT_ALL, $this->dialogMoney($kept));
+
+        $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'nothing']);
+        \Kalaka\Foundation\ObjectCache::clear();
+        self::assertStringEndsWith(StatusMarkup::WITHDRAW_KEPT_NONE, $this->dialogMoney(ParticipantBlocks::status()));
+        ActiveRegistrationState::set(null, false);
     }
 
     private function closesAt(?string $at): void

@@ -38,6 +38,9 @@ final class ParticipantBlocks
     /** The handle of `portal.css`, named by both blocks' `style`. */
     public const STYLE = 'kalaka-portal';
 
+    /** The handle `register_block_type` gives the status block's `viewScript` (the withdrawal's Modal, R370). */
+    public const DIALOG_SCRIPT = 'kalaka-status-view-script';
+
     /** While the site is closed it shows the closed site's text, like a form. */
     public static function status(): string
     {
@@ -92,7 +95,8 @@ final class ParticipantBlocks
         $paid = null;
         $owedAfter = null;
         $previewFailed = false;
-        if ($confirming) {
+        // The Modal opens with no request, so the preview is taken whenever the button shows (N1333).
+        if ($canWithdraw) {
             try {
                 $preview = (new Withdrawal())->run(ActiveRegistration::current(), $view->key->code, true);
                 $currency = (new Events())->find($view->key->eventId)?->currency;
@@ -109,6 +113,9 @@ final class ParticipantBlocks
             } catch (\Throwable) {
                 $previewFailed = $view->status === RegistrationStatus::Registered;
             }
+        }
+        if ($canWithdraw) {
+            self::enqueueDialog();
         }
         $buttonClass = '';
         $attribute = FieldMarkup::classAttribute(ElementRole::SubmitButton, 'wp-element-button');
@@ -129,8 +136,22 @@ final class ParticipantBlocks
             $paid,
             $owedAfter,
             $previewFailed,
-            $view->can->withdrawUnavailable,
+            $view->status === RegistrationStatus::Waitlisted,
         );
+    }
+
+    /**
+     * The script that opens the withdrawal's confirmation in a WordPress Modal (R370), and core's component styles
+     * it needs on the page. A block's `viewScript` is enqueued only for the block, so the shortcode's render
+     * enqueues it here; without `build/` it is not registered and the no-script way is the only way (N1334).
+     */
+    private static function enqueueDialog(): void
+    {
+        if (!wp_script_is(self::DIALOG_SCRIPT, 'registered')) {
+            return;
+        }
+        wp_enqueue_script(self::DIALOG_SCRIPT);
+        wp_enqueue_style('wp-components');
     }
 
     /**
