@@ -264,6 +264,18 @@ final class Statements
         $this->run($this->prepare('DROP TABLE IF EXISTS %i', [$table]));
     }
 
+    /**
+     * A schema step's drop of a column dbDelta cannot drop; a column the table does not have is left alone, so
+     * the step is safe to run again.
+     */
+    public function dropColumnIfExists(string $table, string $column): void
+    {
+        if ($this->select($this->prepare('SHOW COLUMNS FROM %i LIKE %s', [$table, $column])) === []) {
+            return;
+        }
+        $this->run($this->prepare('ALTER TABLE %i DROP COLUMN %i', [$table, $column]));
+    }
+
     /** A table name with the WordPress prefix. */
     public function prefixed(string $name): string
     {

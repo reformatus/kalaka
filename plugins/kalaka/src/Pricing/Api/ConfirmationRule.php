@@ -38,9 +38,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  *   unconfirms (the owner's ruling 2026-11-19); a lower threshold can confirm at the next evaluation. That
  *   transition is followed, in the same answer, by the rule's own second check: the flag is revoked by then, so
  *   payments that reach every threshold, or nothing due, confirm the registration again in the same pass. A
- *   later payment or correction that reaches the threshold confirms again too. [UNAPPROVED N9, N12, N16]
+ *   later payment or correction that reaches the threshold confirms again too. [UNAPPROVED N9, N12]
  * - No record is the base state: a `registered` registration with none reads `unconfirmed`, derived, never
- *   written (`defaultState()`, the owner's ruling 2026-11-19); other statuses read no state. [UNAPPROVED N7]
+ *   written (`defaultState()`, the owner's ruling 2026-11-19); other statuses read no state.
  * - Withdrawal or removal closes the sequence: a `confirmed` registration that is no longer `registered` gets
  *   `unconfirmed`, so a restore or admission writes a new `confirmed` record if it qualifies and the old one is
  *   never revived.
@@ -79,6 +79,15 @@ final class ConfirmationRule implements DecisionRule
         return [self::CONFIRMED => 'Visszaigazolva', self::UNCONFIRMED => 'Nincs visszaigazolva'];
     }
 
+    /** The marks of the grid and the detail (UX's table, the owner's Q51 (b)). */
+    public function marks(): array
+    {
+        return [
+            self::CONFIRMED => ['icon' => 'yes-alt', 'tone' => 'ok'],
+            self::UNCONFIRMED => ['icon' => 'marker', 'tone' => ''],
+        ];
+    }
+
     /** No record reads `unconfirmed`, and only a `registered` registration has a confirmation state. */
     public function defaultState(): DecisionDefault
     {
@@ -110,6 +119,37 @@ final class ConfirmationRule implements DecisionRule
         };
     }
 
+    /**
+     * A dry run of the rule's `confirmed` transition against a given composition (the money settings preview's
+     * proposed one): whether a `registered` registration that is not confirmed now would be confirmed, by its
+     * payments or its manual flag, by the same check `decide()` makes (`qualifiesBy()`). It reads payment facts
+     * and the flag, writes nothing and never looks at the current confirmation state: the caller leaves out a
+     * registration that is confirmed already.
+     *
+     * @throws FeeComponentFailed when a component throws or returns something invalid
+     */
+    public function wouldConfirm(ComposedFee $composed, \DateTimeImmutable $now): bool
+    {
+        if ($composed->facts->status !== RegistrationStatus::Registered) {
+            return false;
+        }
+        $key = $composed->facts->registration;
+        $flag = $this->flags->find($key);
+        $below = [];
+        $reached = $this->reached($composed, $this->ledger->paymentFactsOf($key), $now, $below);
+
+        return self::qualifiesBy($reached, $flag !== null && $flag->isSet() ? $flag : null);
+    }
+
+    /**
+     * The one check of an unconfirmed registration, shared by `decide()` and the dry run: the payments reach
+     * every required threshold (or nothing is due), or the manual flag is set.
+     */
+    private static function qualifiesBy(PaymentFact|bool $reached, ?ManualConfirmationRecord $flag): bool
+    {
+        return $reached !== false || $flag !== null;
+    }
+
     public function decide(DecisionInput $input): array
     {
         $key = $input->registration;
@@ -134,7 +174,7 @@ final class ConfirmationRule implements DecisionRule
         }
 
         // The second check, run in a row with the flag already revoked: payments that reach every threshold, or
-        // nothing due, confirm the registration again at once. [UNAPPROVED N16]
+        // nothing due, confirm the registration again at once.
         return [
             new Transition(
                 self::UNCONFIRMED,
@@ -246,6 +286,9 @@ final class ConfirmationRule implements DecisionRule
         ?ManualConfirmationRecord $flag,
         DecisionInput $input,
     ): ?Transition {
+        if (!self::qualifiesBy($reached, $flag)) {
+            return null;
+        }
         $candidates = [];
         if ($reached instanceof PaymentFact) {
             $candidates[] = [$reached->valueAt(), new Subject('ledger_line', $key->eventId, (string) $reached->id)];
@@ -254,9 +297,6 @@ final class ConfirmationRule implements DecisionRule
         }
         if ($flag !== null) {
             $candidates[] = [$flag->setAt, new Subject('manual_confirmation', $key->eventId, $key->code)];
-        }
-        if ($candidates === []) {
-            return null;
         }
         usort($candidates, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $floor = $this->unconfirmations->find($key)?->unconfirmedAt;

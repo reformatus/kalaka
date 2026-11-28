@@ -6,7 +6,6 @@ namespace Kalaka\Assignments;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
-use Kalaka\Foundation\Api\Time\Instant;
 
 /**
  * The only writer of `kalaka_assignment_sets`. A set is audited on its own subject (`assignment_set`, its
@@ -57,8 +56,6 @@ final class SetRepository extends EntityRepository
             'time_slot' => $entity->timeSlot,
             'required' => $entity->required ? 1 : 0,
             'mode' => $entity->mode->value,
-            'window_opens_at' => $entity->windowOpensAt === null ? null : Instant::toStorage($entity->windowOpensAt),
-            'window_closes_at' => $entity->windowClosesAt === null ? null : Instant::toStorage($entity->windowClosesAt),
             'published' => $entity->published ? 1 : 0,
             'request_field_key' => $entity->requestFieldKey,
         ];

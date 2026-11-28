@@ -12,11 +12,13 @@ use Kalaka\Forms\Engine\Condition\ConditionEvaluator;
 use Kalaka\Forms\Engine\Condition\ConditionParser;
 use Kalaka\Forms\Engine\Condition\ContextScope;
 use Kalaka\Forms\Engine\Condition\DeclaredScope;
+use Kalaka\Forms\Engine\Condition\FormScope;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Module\Contributions;
 use PHPUnit\Framework\TestCase;
 
 /**
- * [UNAPPROVED N694] `time.now` as the left key of a comparison: "show this until 2026-12-01 18:00".
+ * `time.now` as the left key of a comparison: "show this until 2026-12-01 18:00".
  */
 final class ConditionLeftNowTest extends TestCase
 {
@@ -101,6 +103,27 @@ final class ConditionLeftNowTest extends TestCase
         $parsed = (new ConditionParser())->parse($condition, new DeclaredScope(['x' => ValueType::Text]));
 
         self::assertSame([Facts::NOW], $parsed->keys());
+    }
+
+    /** @return iterable<string, array{string, bool}> operator, whether it holds at 2026-12-01 18:00:00 */
+    public static function formOperators(): iterable
+    {
+        yield 'equals' => ['equals', true];
+        yield 'lessThan' => ['lessThan', false];
+    }
+
+    /** @dataProvider formOperators */
+    public function testItParsesAndEvaluatesInAFormsScope(string $operator, bool $expected): void
+    {
+        $facts = new ValueContext([Facts::NOW => self::local('2026-12-01 18:00:00')]);
+        $condition = ['match' => 'all', 'items' => [
+            ['key' => Facts::NOW, 'operator' => $operator, 'value' => '2026-12-01T18:00:00+01:00'],
+        ]];
+
+        $parsed = (new ConditionParser())->parse($condition, new FormScope([], new Contributions(), []));
+
+        self::assertSame([Facts::NOW], $parsed->keys());
+        self::assertSame($expected, (new ConditionEvaluator())->holds($parsed, $facts));
     }
 
     /** @return iterable<string, array{mixed}> */

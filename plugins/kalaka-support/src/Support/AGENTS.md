@@ -93,7 +93,8 @@ It holds the directory, the congregation picker and the support offers.
 - An offer's seats are `Seats` under the pool `offer.<key>`, at the quota lock level (`OfferSeatPool`, the row
   of the offer), for every offer, limited or not (a chosen offer always holds its seat row): `OfferClaims` gives
   a submit's claims and `pools()` the pools of the form variable; the answer act frees and takes the seat through
-  core's `SeatOfferSeats` (over `Seats::retake()`, like admission and restore). This module takes and frees a seat nowhere else, and writes nothing of
+  core's `Seats` (`release()`; `retake()` with `SeatAct::Answer`, like admission and restore) for the pool
+  `OfferRequests::seatPool()` hands it. This module takes and frees a seat nowhere else, and writes nothing of
   `kalaka_seats`.
 - A selection is written only by a submit (which takes the seat) and by the answer act. An additional form may
   write an offer key too: CF4 takes the offer's seat first under its pool's lock and releases a dropped one.

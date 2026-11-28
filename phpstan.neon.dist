@@ -22,6 +22,11 @@ parameters:
         - plugins/kalaka-aid/src
         - plugins/kalaka-aid/kalaka-aid.php
         - plugins/kalaka-aid/uninstall.php
+        - plugins/kalaka-deposits/src
+        - plugins/kalaka-deposits/kalaka-deposits.php
+        - plugins/kalaka-deposits/uninstall.php
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - plugins/kalaka-support/vendor/autoload.php
@@ -30,4 +35,5 @@ parameters:
         - plugins/kalaka-woocommerce/vendor/autoload.php
         - plugins/kalaka-price-ladder/vendor/autoload.php
         - plugins/kalaka-aid/vendor/autoload.php
+        - plugins/kalaka-deposits/vendor/autoload.php
         - phpstan-bootstrap.php

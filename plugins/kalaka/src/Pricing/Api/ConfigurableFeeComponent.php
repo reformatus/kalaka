@@ -11,7 +11,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
  * A fee component whose settings can be written down as plain data and read back: what the money settings
  * file of `wp kalaka money-settings` carries per component ID (money.md, "Money settings apply"). The data
  * is JSON-ready (strings, numbers, booleans, null, lists and maps); a component's own `Api` reads it, so
- * core knows nothing of a component's settings. [UNAPPROVED N1]
+ * core knows nothing of a component's settings.
  */
 interface ConfigurableFeeComponent extends FeeComponent
 {

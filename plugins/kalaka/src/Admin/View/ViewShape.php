@@ -98,8 +98,19 @@ final readonly class ViewShape
     }
 
     /**
-     * The master view: no filter, `code`, `status` and `serial`, every given field key as a read-write
-     * column, then every given decision kind.
+     * The columns core provides itself, which are not fields or decisions. Every one of them is a column a view may
+     * list, and the master view lists all of them (the owner's rule, 2026-11-27: the master view shows everything
+     * available): a new core column is added to one of these lists, and so reaches the master view by rule.
+     * `CORE_COLUMNS` come first in the master view, `COMPUTED_COLUMNS` (core-computed yes/no values, like "awaits an
+     * answer") after the last decision column. [advisor, not owner: the position]
+     */
+    public const CORE_COLUMNS = ['code', 'status', 'serial', 'registered_at', 'submitted_at'];
+
+    public const COMPUTED_COLUMNS = ['awaits_answer'];
+
+    /**
+     * The master view: no filter, every core column (`CORE_COLUMNS`), every given field key as a read-write
+     * column, every given decision kind, then every computed column (`COMPUTED_COLUMNS`).
      *
      * @param list<string> $fieldKeys
      * @param list<string> $decisionKinds
@@ -107,16 +118,18 @@ final readonly class ViewShape
      */
     public static function master(array $fieldKeys, array $decisionKinds): self
     {
-        $columns = [
-            ['column' => 'code', 'write' => false],
-            ['column' => 'status', 'write' => false],
-            ['column' => 'serial', 'write' => false],
-        ];
+        $columns = [];
+        foreach (self::CORE_COLUMNS as $column) {
+            $columns[] = ['column' => $column, 'write' => false];
+        }
         foreach ($fieldKeys as $key) {
             $columns[] = ['column' => 'field:' . $key, 'write' => true];
         }
         foreach ($decisionKinds as $kind) {
             $columns[] = ['column' => 'decision:' . $kind, 'write' => false];
+        }
+        foreach (self::COMPUTED_COLUMNS as $column) {
+            $columns[] = ['column' => $column, 'write' => false];
         }
 
         return self::of([], $columns);
@@ -402,7 +415,7 @@ final readonly class ViewShape
 
     private static function validColumn(string $column): bool
     {
-        if (in_array($column, ['code', 'status', 'serial', 'registered_at', 'submitted_at', 'awaits_answer'], true)) {
+        if (in_array($column, [...self::CORE_COLUMNS, ...self::COMPUTED_COLUMNS], true)) {
             return true;
         }
         if (str_starts_with($column, 'field:')) {

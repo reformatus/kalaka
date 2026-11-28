@@ -10,6 +10,7 @@ use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\LineLabels;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Portal\StatusMarkup;
+use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Requests;
@@ -54,7 +55,7 @@ final class StatusBlockTest extends PortalTestCase
 
         $html = $this->statusBlock();
         self::assertStringContainsString(
-            '<p>Azonosító: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
+            '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
             . '<p><strong>Fizetésre vár.</strong></p><h3>Pénzügyek</h3><table class="kalaka-money"><tbody>',
             $html
         );
@@ -67,7 +68,7 @@ final class StatusBlockTest extends PortalTestCase
         // Registered 2026-11-30 in Budapest + 7 days.
         self::assertStringContainsString('<p class="kalaka-deadline">Fizetési határidő: 2026. december 7.</p>', $html);
         self::assertSame(
-            'Jelentkezésem állapota Azonosító: 12A3 Fizetésre vár. Pénzügyek Fizetendő összesen 51 000 Ft'
+            'Jelentkezésem állapota Jelentkezési kód: 12A3 Fizetésre vár. Pénzügyek Fizetendő összesen 51 000 Ft'
             . ' Befizetve 20 000 Ft Még fizetendő 31 000 Ft Fizetési határidő: 2026. december 7. ' . self::NOTE,
             self::text($html)
         );
@@ -144,7 +145,7 @@ final class StatusBlockTest extends PortalTestCase
         self::assertStringContainsString('<strong>Fizetésre vár.</strong>', $this->statusBlock());
     }
 
-    public function testAwaitingAnAnswerShowsThePinkNoticeThePlainAmountNoDeadlineAndNoTransfer(): void
+    public function testAwaitingAnAnswerShowsNoNoticeThePlainAmountNoDeadlineAndNoTransfer(): void
     {
         $key = $this->stored('12A3', at: '2026-11-20 10:00:00');
         $this->charge($key, '48000');
@@ -152,11 +153,9 @@ final class StatusBlockTest extends PortalTestCase
         $this->activate($key);
 
         $html = $this->statusBlock($read);
-        self::assertStringContainsString(
-            'has-pale-pink-background-color has-text-color has-black-color"><p><strong>Elbírálás alatt.</strong>'
-            . ' Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges összeget.</p></div>',
-            $html
-        );
+        self::assertStringNotContainsString('Elbírálás alatt', $html);
+        self::assertStringNotContainsString('has-pale-pink-background-color', $html);
+        self::assertStringContainsString('<strong>Fizetésre vár.</strong>', $html);
         self::assertStringNotContainsString('Lejárt', $html);
         self::assertStringContainsString(
             '<tr class="kalaka-rule"><th scope="row">Még fizetendő</th><td class="kalaka-sign"></td>'
@@ -170,7 +169,7 @@ final class StatusBlockTest extends PortalTestCase
         self::assertTrue($read->forActive()?->payment?->awaitsAnswer);
     }
 
-    public function testOnceAnsweredTheNoticeGoesAndTheDeadlineAndTheTransferBlockComeBack(): void
+    public function testOnceAnsweredTheDeadlineAndTheTransferBlockComeBack(): void
     {
         $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
         $this->charge($key, '48000');
@@ -186,9 +185,9 @@ final class StatusBlockTest extends PortalTestCase
         self::assertFalse($read->forActive()?->payment?->awaitsAnswer);
     }
 
-    public function testAConfirmedRegistrationStillAwaitingAnAnswerShowsTheNoticeNotTheGreenBox(): void
+    public function testAConfirmedRegistrationStillAwaitingAnAnswerShowsTheGreenBox(): void
     {
-        // Pins the order as built (M10, a box for the owner): awaiting an answer comes before confirmed.
+        // Owner 2026-11-27 (merge-queue Q6): the block has no overall under-review state, so confirmed shows.
         $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
         $this->charge($key, '48000');
         $this->pay($key, '48000');
@@ -197,8 +196,32 @@ final class StatusBlockTest extends PortalTestCase
         $this->activate($key);
 
         $html = $this->statusBlock($read);
-        self::assertStringContainsString('<strong>Elbírálás alatt.</strong>', $html);
-        self::assertStringNotContainsString('Visszaigazolva', $html);
+        self::assertStringContainsString('<strong>Visszaigazolva.</strong>', $html);
+        self::assertStringNotContainsString('Elbírálás alatt', $html);
+    }
+
+    public function testAnAnswerLaterThanTheRegistrationRestartsTheDueClock(): void
+    {
+        // Registered 2026-11-20: due 2026-11-27 (23:00 UTC). Answered 2026-11-30 12:00 UTC: due 2026-12-07.
+        $key = $this->stored('12A3', at: '2026-11-20 10:00:00');
+        $this->charge($key, '48000');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+        $this->answered($key, TestRequestSource::OFFER);
+
+        self::assertSame('2026-12-07 23:00:00', $read->forActive()?->payment?->paymentDue?->format('Y-m-d H:i:s'));
+        self::assertStringContainsString('Fizetési határidő: 2026. december 7.', $this->statusBlock($read));
+    }
+
+    public function testAnAnswerEarlierThanTheRegistrationLeavesTheDueClockOnTheRegisteredTime(): void
+    {
+        $key = $this->stored('12A3', at: '2026-12-01 10:00:00');
+        $this->charge($key, '48000');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+        $this->answered($key, TestRequestSource::OFFER);
+
+        self::assertSame('2026-12-08 23:00:00', $read->forActive()?->payment?->paymentDue?->format('Y-m-d H:i:s'));
     }
 
     /** A request on the registration (a test source), and the read that sees it. */
@@ -213,7 +236,7 @@ final class StatusBlockTest extends PortalTestCase
             'value' => 'church',
         ]);
 
-        return new StatusRead(requests: new Requests([new TestRequestSource()]));
+        return new StatusRead(registrations: new Registrations(requests: new Requests([new TestRequestSource()])));
     }
 
     /** An answering act's record, written behind the use case. */
@@ -306,7 +329,7 @@ final class StatusBlockTest extends PortalTestCase
 
         self::assertSame(
             '<section class="kalaka-status"><h2>Jelentkezésem állapota</h2>'
-            . '<p>Azonosító: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
+            . '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
             . '<div class="wp-block-group has-background has-very-light-gray-background-color has-text-color'
             . ' has-black-color"><p><strong>Várólistán vagy.</strong> Amíg nem kerülsz be, nem kell fizetned.</p>'
             . '</div></section>',

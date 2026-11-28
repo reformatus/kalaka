@@ -106,6 +106,11 @@ final class OfferRequests implements RequestSource
         return null;
     }
 
+    /**
+     * The offer's own pool, for every offer, limited or not (an unlimited one has a pool with no limit, so a refusal
+     * always frees its seat and a "yes" after it always takes one); the registration's key names the event, which
+     * the request does not. Null only for a request that is no offer of the event. [UNAPPROVED N1198, N1199]
+     */
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
     {
         $key = self::keyOf($request);

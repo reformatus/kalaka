@@ -29,10 +29,4 @@ final class PayerKinds
 
         return [new PayerKind(Payer::PARTICIPANT, self::PARTICIPANT_LABEL)];
     }
-
-    /** The label of a payer-kind ID; null when nothing declares it. */
-    public function label(string $id): ?string
-    {
-        return $id === Payer::PARTICIPANT ? self::PARTICIPANT_LABEL : null;
-    }
 }

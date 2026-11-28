@@ -27,6 +27,8 @@ use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\Request;
+use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Pricing\Cli\SettingsDocument;
 use Kalaka\Support\Offers\OfferClaims;
@@ -331,6 +333,28 @@ final class OffersTest extends OffersTestCase
         self::assertTrue($again['over_limit']);
         self::assertTrue($this->holds($anna, 'keret'));
         self::assertSame('22000', $this->balance($anna));
+    }
+
+    public function testAnUnlimitedOfferHasAPoolForTheAnswerActSoARefusalFreesItsSeatAndAYesTakesOne(): void
+    {
+        $this->applyOffers([self::offer('szabad', '1000', request: true)]);
+        $anna = $this->register('00A0');
+        $this->holdSeat($anna, 'szabad');
+        $this->writeValue($anna, 'szabad', '1');
+        $request = new Request(OfferRequests::PREFIX . 'szabad', RequestKind::Offer, 'Szabad');
+
+        $pool = (new OfferRequests())->seatPool($anna, $request);
+        self::assertInstanceOf(OfferSeatPool::class, $pool);
+        self::assertNull($pool->limit());
+        $unknown = new Request(OfferRequests::PREFIX . 'nincs', RequestKind::Offer, 'Nincs');
+        self::assertNull((new OfferRequests())->seatPool($anna, $unknown));
+
+        $this->answer($anna, 'szabad', 'no');
+        self::assertFalse($this->holds($anna, 'szabad'));
+
+        $again = $this->answer($anna, 'szabad', 'yes');
+        self::assertFalse($again['over_limit']);
+        self::assertTrue($this->holds($anna, 'szabad'));
     }
 
     public function testReleaseAllFreesAnOfferSeat(): void

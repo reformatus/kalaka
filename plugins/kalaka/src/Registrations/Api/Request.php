@@ -12,7 +12,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * field value; a `RequestSource` says which requests a registration has now.
  *
  * `id` names the request for the answer act and keys its answers: `aid` for the aid request, `offer:<offer key>`
- * for an offer. `label` is the source's own Hungarian name for it, shown to staff. [UNAPPROVED N1]
+ * for an offer. `label` is the source's own Hungarian name for it, shown to staff.
  *
  * `askFields` are the participant field keys the participant asks it with (an offer's consent field, the aid
  * request's `aid_can_pay`), and `answerField` is the participant field key its answer is written to (null when
@@ -29,7 +29,7 @@ final readonly class Request
         public array $askFields = [],
         public ?string $answerField = null,
     ) {
-        if (preg_match('/^[a-z][a-z0-9_]*(:[a-z0-9_.-]+)?$/', $id) !== 1 || strlen($id) > 64) {
+        if (preg_match('/^[a-z][a-z0-9_]*(:[a-z0-9_.-]+)?$/D', $id) !== 1 || strlen($id) > 64) {
             throw new InvalidInput();
         }
     }

@@ -16,11 +16,11 @@ use Kalaka\Registrations\FieldValue\FieldValueRepository;
  * the answer says ("no", or an award of 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record
  * the act (who, when, the note, the mail's key) and decide nothing else. Only a `registered` registration awaits
  * an answer: a waitlisted, withdrawn or removed one awaits nothing, and a waitlisted one awaits again by itself
- * at admission, when its request becomes answerable. [UNAPPROVED N10] [UNAPPROVED N136] [UNAPPROVED N690]
+ * at admission, when its request becomes answerable. [UNAPPROVED N690]
  *
  * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
  * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field
- * values); the grid asks in SQL instead (`awaitingCondition()`). [UNAPPROVED N1] [UNAPPROVED N2]
+ * values); the grid asks in SQL instead (`awaitingCondition()`).
  */
 final class Requests
 {
@@ -40,28 +40,16 @@ final class Requests
     }
 
     /**
-     * The registration's requests that need an answer now, each with its latest answer. A plain read.
+     * The registration's requests that need an answer now, each with whether its source says it is answered and
+     * its latest answer record. A plain read.
      *
      * @return list<RequestState>
      */
     public function states(RegistrationKey $registration): array
     {
-        $sources = $this->sources ?? Contributions::current()->requestSources();
-        if ($sources === []) {
-            return [];
-        }
-
-        $values = [];
-        foreach ($this->values->forRegistration($registration) as $value) {
-            $values[$value->fieldKey] = $value->value;
-        }
-        $owned = $this->requestsOf($registration, $values, $sources);
-        if ($owned === []) {
-            return [];
-        }
-
+        [$owned, $rows, $values] = $this->read($registration);
         $latest = [];
-        foreach ($this->answers->forRegistration($registration) as $answer) {
+        foreach ($rows as $answer) {
             $latest[$answer->request] = $answer;
         }
         $states = [];
@@ -79,21 +67,52 @@ final class Requests
     }
 
     /**
-     * Whether the registration awaits an answer: it is `registered` and some source's `AwaitingRule` holds over its
-     * field values, evaluated in PHP with `AwaitingRule::matches()`. The rule is the one definition
+     * The requests the registration has now, keyed by id with their source, every answer row of it in the order
+     * they were given, and its field values. With no source, or no request, nothing more is read.
+     *
+     * @return array{
+     *     0: array<string, array{0: Request, 1: RequestSource}>,
+     *     1: list<AnswerRead>,
+     *     2: array<string, string>
+     * }
+     */
+    private function read(RegistrationKey $registration): array
+    {
+        $sources = $this->sources ?? Contributions::current()->requestSources();
+        if ($sources === []) {
+            return [[], [], []];
+        }
+
+        $values = [];
+        foreach ($this->values->forRegistration($registration) as $value) {
+            $values[$value->fieldKey] = $value->value;
+        }
+        $owned = $this->requestsOf($registration, $values, $sources);
+        if ($owned === []) {
+            return [[], [], $values];
+        }
+
+        return [$owned, $this->answers->forRegistration($registration), $values];
+    }
+
+    /**
+     * Whether the registration awaits an answer, in three values: null (N/A) unless it is `registered`; otherwise
+     * true when some source's `AwaitingRule` holds over its field values, evaluated in PHP with
+     * `AwaitingRule::matches()`, else false. N/A is not "no": a waitlisted, withdrawn or removed registration has
+     * no request state at all (owner 2026-11-27, walkthrough 6.2 b, 6.3, 6.6). The rule is the one definition
      * `awaitingCondition()` compiles to SQL, with the same `registered` gate, so the fact, the grid column and the
      * detail panel mean one thing; the panel's `states()` read the sources' `requestsOf()` and `isAnswered()`,
      * which the rule must mean exactly. A waitlisted registration awaits nothing and awaits again by itself at
      * admission. One statement (the field values, which hold every answer); none with no source or for a
      * registration that is not registered. [UNAPPROVED N690]
      */
-    public function awaits(RegistrationKey $registration, RegistrationStatus $status): bool
+    public function awaits(RegistrationKey $registration, RegistrationStatus $status): ?bool
     {
+        if ($status !== RegistrationStatus::Registered) {
+            return null;
+        }
         $sources = $this->sources ?? Contributions::current()->requestSources();
-        if (
-            $sources === []
-            || $status !== RegistrationStatus::Registered
-        ) {
+        if ($sources === []) {
             return false;
         }
 
@@ -111,14 +130,16 @@ final class Requests
     }
 
     /**
-     * "Awaits an answer" as a condition on the registration row `r`, for the admin grid's column (filter, sort and
-     * count in SQL, over the whole view, never one page): the registration is `registered` and some source's
-     * `AwaitingRule` holds (`RequestSource::awaitingRule()`); false for every other status, so a waitlisted
-     * registration shows no awaiting (it waits until admission), and false with no rule. Core alone writes the SQL:
+     * "Awaits an answer" as an expression on the registration row `r`, for the admin grid's column (filter, sort and
+     * count in SQL, over the whole view, never one page), in three values: for a `registered` registration 1 when
+     * some source's `AwaitingRule` holds (`RequestSource::awaitingRule()`) and 0 otherwise (0 with no rule); NULL
+     * (N/A) for every other status, so a waitlisted registration is neither yes nor no (it waits until admission).
+     * SQL's NULL does the rest: `NOT` of it is NULL, so a filter on "no" never matches it, and a sum skips it.
+     * Core alone writes the SQL:
      * each test is an `EXISTS` or `NOT EXISTS` over the field values table, every value a placeholder argument.
      * The rule is the one `awaits()` evaluates in PHP, for a `registered` registration. No statement is run.
-     * (Access) any view may list the column; it tells that something awaits, not what. [UNAPPROVED N668]
-     * (Shapes) a core-derived grid column over the sources' declarative rules. [UNAPPROVED N669]
+     * (Access) any view may list the column; it tells that something awaits, not what.
+     * (Shapes) a core-derived grid column over the sources' declarative rules.
      *
      * @param string $fieldValues the participant field values table
      * @return array{0: literal-string, 1: list<string|int>} the condition and its placeholder arguments
@@ -147,10 +168,10 @@ final class Requests
             $parts[] = '(' . implode(' OR ', $groups) . ')';
         }
         if ($parts === []) {
-            return ['0 = 1', []];
+            return ["CASE WHEN r.status = 'registered' THEN 0 END", []];
         }
 
-        return ["r.status = 'registered' AND (" . implode(' OR ', $parts) . ')', $args];
+        return ["CASE WHEN r.status = 'registered' THEN (" . implode(' OR ', $parts) . ') END', $args];
     }
 
     /**
@@ -201,16 +222,28 @@ final class Requests
     }
 
     /**
-     * When the registration was last answered (of the requests it has now): the time the due clock will count
-     * from beside the moment it last became `registered`; null when none is answered.
+     * When the registration was last answered (of the requests it has now): the time the due clock counts from
+     * beside the moment it last became `registered`; null when none is answered. Only an answer whose yes or no,
+     * or amount, differs from the request's answer before it counts; a note added alone is an answer too (it
+     * mails) but does not move the due date. [UNAPPROVED N84]
      */
     public function lastAnsweredAt(RegistrationKey $registration): ?\DateTimeImmutable
     {
+        [$owned, $rows] = $this->read($registration);
         $last = null;
-        foreach ($this->states($registration) as $state) {
-            $at = $state->answer?->answeredAt;
-            if ($at !== null && ($last === null || $at > $last)) {
-                $last = $at;
+        $before = [];
+        foreach ($rows as $answer) {
+            if (!isset($owned[$answer->request])) {
+                continue;
+            }
+            $previous = $before[$answer->request] ?? null;
+            $before[$answer->request] = $answer;
+            $changed = $previous === null || $previous->approved !== $answer->approved
+                || ($previous->amount === null || $answer->amount === null
+                    ? $previous->amount !== $answer->amount
+                    : !$previous->amount->isEqualTo($answer->amount));
+            if ($changed && ($last === null || $answer->answeredAt > $last)) {
+                $last = $answer->answeredAt;
             }
         }
 
