@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Events;
 
+use Kalaka\Events\Cli\EventCommand;
 use Kalaka\Events\Cli\EventSeeder;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -67,5 +68,8 @@ SQL;
 
     public function boot(): void
     {
+        if (defined('WP_CLI') && WP_CLI) {
+            EventCommand::register();
+        }
     }
 }

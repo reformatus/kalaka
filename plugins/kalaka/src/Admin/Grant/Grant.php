@@ -77,7 +77,7 @@ final class Grant
      * The view of a grant row from `GrantQuery::forUser()`: null for the master view, false when its view
      * is missing (the grant then holds nothing).
      *
-     * @param array{view_id: ?int, filter: ?string, columns: ?string} $grant
+     * @param array{view_id: ?int, filter: ?string, columns: ?string, counts?: ?string} $grant
      */
     public static function viewShape(array $grant): ViewShape|false|null
     {
@@ -88,6 +88,6 @@ final class Grant
             return false;
         }
 
-        return ViewShape::fromStored($grant['filter'], $grant['columns']);
+        return ViewShape::fromStored($grant['filter'], $grant['columns'], $grant['counts'] ?? null);
     }
 }

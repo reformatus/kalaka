@@ -6,8 +6,9 @@ title: Money
 
 ## Core money scope
 
-- **Core:** a fixed price per registration and full payment, with its
-  **payment due** date type. Core ships no money field types.
+- **Core:** a fixed price per registration, full payment, an event's extra
+  charges and its donation, with its **payment due** date type. Core ships no
+  money field types.
 - **Payment due** is N days after the registration last became `registered`
   (at submit, admission or restore); N is configured per event (IVK: 7
   days). A registration admitted from the waitlist counts from its
@@ -31,6 +32,33 @@ title: Money
      ([Fields](events-and-forms.md#fields));
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
+- **Extra charges and the donation are core,** two fee components at the
+  extras stage that the participant pays. An event's extra charges are a
+  key, a label, an amount and a field type (a consent or a number) each, set
+  through the money settings apply; each declares the participant field with
+  its key ([Fields](events-and-forms.md#fields)), which calls it, and the amount is
+  multiplied by the answer's whole value (a charge key no field uses charges
+  nobody). Each extra charge a registration owes is its own line,
+  `extras:<key>`, with no condition of its own. The donation is the value of
+  the event's number field with the fixed key `adomany`, which Kaláka sets,
+  as one `donation` line, charged exactly as stored; empty, 0 or a negative
+  value writes none, and it has no setting. Support and the congregation
+  share never cover either.
+- **The price ladder** is a fee component at the tier stage. A tier is a
+  key, a label and an amount, in order; it has no condition and no
+  deadline. A registration chooses its tier only through the participant
+  field `price_tier` the ladder declares, a choice of its tiers that forms
+  join, and the chosen tier's current amount is its base price. A
+  registration form of an event with tiers must hold `price_tier` as a
+  required field, outside any condition, or it is closed until fixed; a
+  form's own conditions on the field's options decide who may pick which
+  tier. A later change of any other answer never re-checks the tier. A
+  chosen tier no longer in the ladder, or no answer at all, is never a base
+  of zero: the use case is refused, saying why. Staff set a tier before an
+  admission or a restore, and the periodic run flags the registration
+  "evaluation failed" ([Foundation](foundation.md#failures)). The ladder
+  sets only the base price. The event's fixed price is the base only
+  without a ladder, whatever the ladder owes a registration.
 - Price-ladder tier quotas are separate from the event's waitlist. Each
   tier's quota is configured once, and texts render from it. Places in
   tier and support quotas follow [Quota places](#quota-places).
@@ -204,10 +232,9 @@ An extension: the registrant's congregation pays part or all of the **base
 price** (the chosen tier, or the fixed price without a ladder), never extras
 such as lunch or a donation.
 
-- **Each tier sets its share mode:** none, declared by the participant, or
-  the whole base price. Without a ladder, the fixed price is the tier and
-  the event sets its share mode. The share is then zero, the amount the
-  registrant declares, or the base price. A fee component writes a zero-sum
+- **The ladder sets only the base price;** the share between payers is
+  decided by the registrant's answers, never by the tier. The share is
+  zero, the amount the registrant declares, or the base price. A fee component writes a zero-sum
   pair, participant −X′ and congregation +X′, where
   X′ = max(0, min(share, base price − support)). Support thus reduces
   the participant's part first, and the congregation's only below zero.
@@ -267,14 +294,15 @@ such as lunch or a donation.
 - **There is no tariff snapshot.** Money is always computed from the event's
   current settings plus the registration's field values and facts. A fee
   component reads its own current settings; a registration admitted from the
-  waitlist pays today's price.
+  waitlist pays today's price, with a ladder the current amount of the tier
+  it chose.
 - **Every time-dependent rule for a registration counts from the moment it
   last became `registered`** (`registered_at`, a personal fact), never from
-  "now" and never from the submit: price-tier deadlines, payment due,
-  everything. A registration that became `registered` before an early price
-  ended keeps that price at every later evaluation. A waitlisted registration
-  is not registered, so an admission from the waitlist counts from its
-  admission. A deadline's day ends at midnight in the site time zone
+  "now" and never from the submit: payment due, everything. A price-ladder tier chosen at submit is kept, also at an
+  admission from the waitlist, at the tier's current amount; any date guard on
+  an early price is the form's condition on `price_tier`'s options, checked at
+  submit. A waitlisted registration is not registered, so an admission from
+  the waitlist counts from its admission. A deadline's day ends at midnight in the site time zone
   ([Cross-cutting rules](foundation.md#cross-cutting-rules)).
 - **Personal facts still recompute automatically:** e.g. a price-ladder
   choice, the aid award, staff status (a field value written by the staff
@@ -302,7 +330,7 @@ flowchart LR
   F["Registration facts<br/>status, field values from every form"] --> R
   X["Extension-written field values<br/>aid award, …"] --> R
   PF["Payment facts<br/>read from payment lines only"] --> R
-  R["Fee components<br/>target amount per component and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
+  R["Fee components<br/>target amount per component, item and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
   MZ --> L[("Ledger<br/>append-only lines")]
   PM["Payment-method plugin<br/>e.g. WooCommerce"] -->|"paid / refunded"| L
   ST["Organizers<br/>cash, bank transfer"] --> L
@@ -313,9 +341,11 @@ flowchart LR
   support → share → aid → extras. A fee component declares which stage it
   belongs to, and core composes the stages in order; there are no order
   numbers. Aid comes out of the participant's part only and never reduces
-  the congregation's share.
+  the congregation's share. A component may put computed values, never
+  stored, into the facts the later stages read, such as the price ladder's
+  applied tier, `price_tier.applied`.
 - **It converges:** it writes only the difference between target and
-  recorded, per component and payer, so it can run any number of times, with
+  recorded, per component, item and payer, so it can run any number of times, with
   line idempotency keys.
 - **Changes caused by an action** are materialized by the evaluation inside
   that action ([Foundation](foundation.md#evaluation)). **Changes caused by

@@ -8,8 +8,9 @@ use Kalaka\Foundation\Api\Query\Query;
 use Kalaka\Foundation\Api\Time\Instant;
 
 /**
- * Reads the deliveries: the sender's candidates and its claim counts, and the counts of `MailStats`.
- * Nothing else reads the table (mail.md, "Words").
+ * Reads the deliveries: the sender's candidates and its claim counts, the counts of `MailStats`, and the staff
+ * listing of `wp kalaka mail status` and `failed` (`eventIds()`, `troubled()`). Only the sender decides on what it
+ * reads here; the staff reads only list (mail.md, "Words", is reworded in #244's R58).
  */
 final class DeliveryQuery extends Query
 {
@@ -123,6 +124,50 @@ final class DeliveryQuery extends Query
             }
 
             return $counts;
+        });
+    }
+
+    /**
+     * The ids of the events that have any delivery, ascending, in one statement.
+     *
+     * @return list<int>
+     */
+    public function eventIds(): array
+    {
+        return $this->scope(function (): array {
+            $rows = $this->select(
+                'event_ids',
+                'SELECT DISTINCT event_id FROM %i ORDER BY event_id',
+                [$this->table('kalaka_deliveries')]
+            );
+
+            return array_map(static fn (array $row): int => (int) $row['event_id'], $rows);
+        });
+    }
+
+    /**
+     * One event's deliveries that need a look, in queue order: failed (no valid address), pending with
+     * the error of an earlier attempt, and left in "sending". mail.md, "Failures".
+     *
+     * @return list<Delivery>
+     */
+    public function troubled(int $eventId): array
+    {
+        return $this->scope(function () use ($eventId): array {
+            $rows = $this->select(
+                'delivery',
+                'SELECT * FROM %i WHERE event_id = %d AND (status IN (%s, %s) OR (status = %s AND error IS NOT NULL))'
+                . ' ORDER BY id',
+                [
+                    $this->table('kalaka_deliveries'),
+                    $eventId,
+                    DeliveryStatus::Failed->value,
+                    DeliveryStatus::Sending->value,
+                    DeliveryStatus::Pending->value,
+                ]
+            );
+
+            return array_map(Delivery::fromRow(...), $rows);
         });
     }
 }
