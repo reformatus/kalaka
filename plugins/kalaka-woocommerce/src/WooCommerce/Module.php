@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Kalaka\WooCommerce;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
-use Kalaka\WooCommerce\Cli\CardSurchargeCommand;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\WooCommerce\Cli\CardBillingCommand;
+use Kalaka\WooCommerce\Cli\CardSurchargeCommand;
 
 final class Module extends AbstractModule
 {
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
     public function __construct(
         private readonly AdminAccessGate $gate = new AdminAccessGate(),
-        private readonly WooProvider $provider = new WooProvider(),
+        private readonly WooProvider $provider = new WooProvider(billing: new DeclaredFieldsBilling()),
         private readonly PaymentReporter $reporter = new PaymentReporter(),
         private readonly ReconcileStep $reconcile = new ReconcileStep(),
         private readonly ReturnAddress $returnAddress = new ReturnAddress(),
@@ -63,6 +64,7 @@ final class Module extends AbstractModule
         add_filter('woocommerce_is_purchasable', [$this->product, 'purchasable'], 10, 2);
         if (defined('WP_CLI') && WP_CLI) {
             CardSurchargeCommand::register();
+            CardBillingCommand::register();
         }
 
         // One login and one password screen: WordPress's own. After WooCommerce's handlers (priority 10).

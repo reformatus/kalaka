@@ -50,7 +50,8 @@ WooCommerce is the WooCommerce integration: one extension plugin,
   surcharge. It has no table.
 - A payment request is one order, with the billing email and, when a `BillingSource` gives any, the payer's name
   (whole, in the first-name field), country, postcode, city and address (only the non-empty ones; the default
-  source `NoBilling` gives none, so today an order carries the email only), and the customer IP
+  source `DeclaredFieldsBilling` reads the registration's values of the five billing fields, so an order carries
+  them when the registration has any, `NoBilling` gives none), and the customer IP
   address and user agent WooCommerce stores on a new order are cleared; the order's currency is the request's. The
   order is the owner account's (`customer_id`) only when every line's registration has that same owner account
   and the paying visitor is logged in as that user (`OrderOwner`: WooCommerce's pay page lets only the customer
@@ -73,6 +74,12 @@ WooCommerce is the WooCommerce integration: one extension plugin,
   `CardPaymentInFlight` before anything is cancelled or created, and staff resolve the order in WooCommerce. A
   paid order is `paid` only until its payment is recorded; then it blocks nothing and the money table shows the
   movement.
+- The five billing fields (`billing_name`, `billing_country`, `billing_postcode`, `billing_city`,
+  `billing_address`) are declared per event as code declarer `woocommerce` (`BillingField::DECLARER`), source
+  `extension` and form-writable, by `wp kalaka card-billing <event>` (which runs `kalaka/declare-billing-fields`;
+  there is no screen). `billing_country` is a choice whose options are ISO 3166-1 alpha-2 (value the lower-case
+  code, label WooCommerce's own country name); a form field joins one by its key, and a same-type `form` field
+  is adopted while a `staff` or `system` field, another type or another declarer's field refuses the run.
 - The card surcharge is a per-event setting of this plugin, the option `kalaka_woocommerce_card_surcharge` (a map of
   event ID to `{percent, fixed?}`, set only by `wp kalaka card-surcharge <event> [--percent=] [--fixed=] [--off]`;
   there is no screen), and a WooCommerce fee line only: a new order of an event with a surcharge gets one taxless fee
