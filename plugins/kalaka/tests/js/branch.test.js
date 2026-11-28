@@ -223,6 +223,117 @@ describe("dates as the server reads them", () => {
   });
 });
 
+describe("datetimes as the server reads them", () => {
+  const literals = require("../fixtures/datetime-literals.json");
+  const scope = { typeOf: () => "datetime", choices: () => null };
+  const dateScope = { typeOf: () => "date", choices: () => null };
+
+  test.each(literals.valid)("a datetime literal passes (%s)", (literal) => {
+    expect(checkCondition(equals("nap", literal), scope)).toBeNull();
+    expect(checkCondition(equals("nap", literal), dateScope)).toBeNull();
+  });
+
+  // A bare day is no datetime literal, but a datetime key takes it as a day (its own test below).
+  test.each(literals.invalid.filter((literal) => literal !== "2026-12-01"))(
+    "a datetime literal is refused (%s)",
+    (literal) => {
+      expect(checkCondition(equals("nap", literal), scope)).toEqual({
+        problem: "value",
+        key: "nap",
+      });
+    },
+  );
+
+  test("a datetime key takes a day, every operator but contains, and a reference", () => {
+    expect(checkCondition(equals("nap", "2026-12-01"), scope)).toBeNull();
+    expect(
+      checkCondition(
+        {
+          match: "all",
+          items: [{ key: "nap", operator: "lessThan", value: { ref: "now" } }],
+        },
+        scope,
+      ),
+    ).toBeNull();
+    expect(
+      checkCondition(
+        {
+          match: "all",
+          items: [
+            { key: "nap", operator: "contains", value: "2026-12-01" },
+          ],
+        },
+        scope,
+      ),
+    ).toEqual({ problem: "value", key: "nap" });
+  });
+
+  test("a reference may name a datetime key of the scope", () => {
+    const events = {
+      typeOf: (key) =>
+        ({ nap: "date", "event.registration_closes": "datetime" })[key] ?? null,
+      choices: () => null,
+    };
+    const reference = (key) => ({
+      match: "all",
+      items: [
+        { key: "nap", operator: "lessThan", value: { key, days: -7 } },
+      ],
+    });
+    expect(
+      checkCondition(reference("event.registration_closes"), events),
+    ).toBeNull();
+  });
+
+  test("the server prints the two registration keys as datetimes", () => {
+    expect(scopeOf(form, "elseif").typeOf("event.registration_closes")).toBe(
+      "datetime",
+    );
+    expect(scopeOf(form, "elseif").typeOf("event.start")).toBe("date");
+  });
+});
+
+describe("time.now as the left key (N694)", () => {
+  const scope = { typeOf: () => null, choices: () => null };
+  const cond = (key, operator, value) => ({
+    match: "all",
+    items: [{ key, operator, value }],
+  });
+  const literals = require("../fixtures/datetime-literals.json");
+
+  test.each(literals.valid)("a datetime literal passes (%s)", (literal) => {
+    expect(checkCondition(cond("time.now", "lessThan", literal), scope)).toBeNull();
+  });
+
+  test.each(literals.invalid.filter((literal) => literal !== "2026-12-01"))(
+    "a datetime literal is refused (%s)",
+    (literal) => {
+      expect(
+        checkCondition(cond("time.now", "lessThan", literal), scope),
+      ).toEqual({ problem: "value", key: "time.now" });
+    },
+  );
+
+  test("a day, every operator but contains, and a value-side ref pass", () => {
+    expect(checkCondition(cond("time.now", "lessOrEqual", "2026-12-01"), scope)).toBeNull();
+    expect(checkCondition(cond("time.now", "lessThan", { ref: "now", days: 1 }), scope)).toBeNull();
+    expect(checkCondition(cond("time.now", "contains", "2026-12-01"), scope)).toEqual({
+      problem: "value",
+      key: "time.now",
+    });
+  });
+
+  test("the value side never names time.now as a key; a bare now is an ordinary key", () => {
+    expect(
+      checkCondition(cond("time.now", "lessThan", { key: "time.now" }), scope),
+    ).toEqual({ problem: "value", key: "time.now" });
+    expect(checkCondition(cond("now", "lessThan", "2026-12-01"), scope)).toEqual({
+      problem: "key",
+      key: "now",
+    });
+  });
+});
+
 describe("the scope of where a condition stands", () => {
   const withSection = editor([
     { clientId: "name", name: "kalaka/name-field", attributes: { key: "nev" } },
@@ -465,5 +576,59 @@ describe("what the server tells the editor (server.js)", () => {
     } finally {
       globalThis.kalakaFormEditor = before;
     }
+  });
+});
+
+describe("the per-event keys the server prints (CF2)", () => {
+  const withKeys = (run) => {
+    const before = globalThis.kalakaFormEditor;
+    globalThis.kalakaFormEditor = {
+      ...before,
+      eventTypes: {
+        ...before.eventTypes,
+        "event.seats_left": "number",
+        "event.points.3": "date",
+        "registration.status": "choice",
+        // a stored value of the event's participant field, which an additional form may read
+        sav: "choice",
+        kesobbi: "text",
+      },
+    };
+    try {
+      run();
+    } finally {
+      globalThis.kalakaFormEditor = before;
+    }
+  };
+
+  test("a condition may read the keys the server prints for the event", () => {
+    withKeys(() => {
+      const scope = scopeOf(form, "elseif");
+      const reads = (key, operator, value) =>
+        checkCondition(
+          { match: "all", items: [{ key, operator, value }] },
+          scope,
+        );
+      expect(reads("event.seats_left", "greaterThan", "0")).toBeNull();
+      expect(reads("event.points.3", "greaterThan", "2026-12-01")).toBeNull();
+      expect(reads("registration.status", "equals", "registered")).toBeNull();
+      expect(reads("sav", "equals", "A")).toBeNull();
+    });
+  });
+
+  test("a key the form holds as a field is read from its answers: an earlier field wins, a later one is no key", () => {
+    withKeys(() => {
+      const scope = scopeOf(form, "elseif");
+      // `szallas` is an earlier choice field: its options are checked, a stored key of that name is not read.
+      expect(checkCondition(equals("szallas", "nincs"), scope)).not.toBeNull();
+      // `kesobbi` is a field of the form, later than the chain: never the stored value of that key.
+      expect(checkCondition(equals("kesobbi", "x"), scope)).not.toBeNull();
+    });
+  });
+
+  test("a key the server does not print is refused", () => {
+    expect(
+      checkCondition(equals("event.seats_left", "1"), scopeOf(form, "elseif")),
+    ).not.toBeNull();
   });
 });

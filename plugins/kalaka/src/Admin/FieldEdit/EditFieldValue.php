@@ -15,10 +15,10 @@ use Kalaka\Registrations\Api\FieldCorrections;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
- * Staff correct one field value of one registration, with a reason (events-and-forms.md, "Changing participant
- * fields after submit"; foundation.md, "Views and grants"). A field change: it carries no action, so a grant holds
- * it when the registration is inside its view, and the fine check inside `execute` needs the field's column
- * read-write (`Access::mayWrite()`); full access passes both. The value arrives already in its stored form
+ * Staff correct one field value of one registration, with an optional reason (events-and-forms.md, "Changing
+ * participant fields after submit"; foundation.md, "Views and grants"). A field change: it carries no action, so a
+ * grant holds it when the registration is inside its view, and the fine check inside `execute` needs the field's
+ * column read-write (`Access::mayWrite()`); full access passes both. The value arrives already in its stored form
  * (`PreparedEdit`, made by `FieldEditInput::prepare()` outside the run).
  *
  * Not a submission: nothing is added to the submission list; the latest write wins and every write is audited.
@@ -28,7 +28,6 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * With `preview` the act does everything but the write and the seat moves: the right, the conflict and the unchanged
  * value are checked as in the real run, and it returns what the real run would report, so a caller can warn before
  * it asks. The runner writes no audit entry for a preview that succeeded.
- * [UNAPPROVED N160, N161, N165, N167, N168, N169]
  *
  * Lock order: the pools of the seats to take (quota level), then the registration, then the value.
  */
@@ -48,7 +47,7 @@ final class EditFieldValue implements AdminUseCase, PreviewableUseCase
 
     /**
      * `value` is the answer in the shape the field type takes (null clears), `expected` the stored value the
-     * screen showed (null: none; leave it out to skip the check), `reason` 1 to 500 characters.
+     * screen showed (null: none; leave it out to skip the check), `reason` optional, at most 500 characters.
      */
     public function inputSchema(): array
     {
@@ -60,10 +59,10 @@ final class EditFieldValue implements AdminUseCase, PreviewableUseCase
                 'field' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 64],
                 'value' => ['type' => ['string', 'number', 'boolean', 'array', 'null']],
                 'expected' => ['type' => ['string', 'null']],
-                'reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => FieldEditInput::REASON_MAX],
+                'reason' => ['type' => 'string', 'maxLength' => FieldEditInput::REASON_MAX],
                 'preview' => ['type' => 'boolean'],
             ],
-            'required' => ['event_id', 'code', 'field', 'reason'],
+            'required' => ['event_id', 'code', 'field'],
             'additionalProperties' => false,
         ];
     }

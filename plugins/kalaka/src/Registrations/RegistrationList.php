@@ -50,4 +50,34 @@ final class RegistrationList extends Query
             return $list;
         });
     }
+
+    /**
+     * The statuses of some of an event's registrations, in one statement: a code that is no registration of
+     * the event is absent from the result.
+     *
+     * @param list<string> $codes
+     * @return array<string, RegistrationStatus> code → status
+     */
+    public function statusesOf(int $eventId, array $codes): array
+    {
+        if ($codes === []) {
+            return [];
+        }
+
+        return $this->scope(function () use ($eventId, $codes): array {
+            $rows = $this->select(
+                'registration',
+                'SELECT code, status FROM %i WHERE event_id = %d AND code IN ('
+                . implode(', ', array_fill(0, count($codes), '%s')) . ')',
+                [$this->table(RegistrationTables::REGISTRATIONS), $eventId, ...$codes]
+            );
+
+            $statuses = [];
+            foreach ($rows as $row) {
+                $statuses[(string) $row['code']] = RegistrationStatus::from((string) $row['status']);
+            }
+
+            return $statuses;
+        });
+    }
 }

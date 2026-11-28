@@ -20,8 +20,6 @@ final class RegistrationCommandTest extends StaffEditTestCase
         if (defined('WP_CLI::IS_TEST_DOUBLE')) {
             \WP_CLI::reset();
         }
-        // The operator answers yes to the question unless a test has them decline.
-        \WP_CLI::$answersYes = true;
         global $wpdb;
         $options = wp_json_encode([
             ['value' => 'a', 'label' => 'A', 'retired_at' => null],
@@ -52,7 +50,6 @@ final class RegistrationCommandTest extends StaffEditTestCase
     public function tear_down(): void
     {
         wp_set_current_user(0);
-        \WP_CLI::$answersYes = false;
 
         parent::tear_down();
     }
@@ -152,7 +149,7 @@ final class RegistrationCommandTest extends StaffEditTestCase
         self::assertStringStartsWith('Nothing to change', (string) end(\WP_CLI::$calls)[1]);
     }
 
-    public function testTheValueAndTheReasonAreRequired(): void
+    public function testTheValueOrClearIsRequired(): void
     {
         foreach ([[['00A0', 'tier'], []], [['00A0', 'tier', 'a'], ['clear' => true]]] as [$args, $assoc]) {
             try {
@@ -162,12 +159,12 @@ final class RegistrationCommandTest extends StaffEditTestCase
                 self::assertSame('error', end(\WP_CLI::$calls)[0]);
             }
         }
-        try {
-            $this->command()->setField([(string) $this->event, '00A0', 'tier', 'b'], []);
-            self::fail('The reason is required.');
-        } catch (\RuntimeException) {
-            self::assertSame('a', $this->valueOf('00A0', 'tier'));
-        }
+    }
+
+    public function testTheReasonIsOptional(): void
+    {
+        $this->command()->setField([(string) $this->event, '00A0', 'tier', 'b'], []);
+        self::assertSame('b', $this->valueOf('00A0', 'tier'));
     }
 
     public function testABlankValueIsRefusedUnlessClearIsGiven(): void

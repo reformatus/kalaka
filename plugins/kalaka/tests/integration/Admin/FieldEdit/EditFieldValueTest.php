@@ -58,6 +58,20 @@ final class EditFieldValueTest extends StaffEditTestCase
         self::assertSame(1, $this->evaluated, 'The runner evaluates the touched registration.');
     }
 
+    public function testAMissingOrEmptyReasonIsAccepted(): void
+    {
+        foreach ([null, ''] as $position => $reason) {
+            $stored = 'Név ' . $position;
+            $prepared = new PreparedEdit($this->event, $this->field('name'), $stored);
+            $useCase = new EditFieldValue($prepared, $this->corrections());
+            $input = ['event_id' => $this->event, 'code' => '00A0', 'field' => 'name', 'value' => $stored];
+            $result = $this->exec($useCase, $reason === null ? $input : $input + ['reason' => $reason]);
+
+            self::assertSame(['changed' => true, 'over_limit' => []], $result);
+            self::assertSame($stored, $this->valueOf('00A0', 'name'));
+        }
+    }
+
     public function testAnIdenticalRepeatWritesNothingAndAnExpectedMismatchIsAVersionConflict(): void
     {
         self::assertSame(['changed' => false, 'over_limit' => []], $this->edit('00A0', 'Teszt Elek', 'name'));

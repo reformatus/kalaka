@@ -143,6 +143,6 @@ final class ProfileField
     /** Whether the user holds the capability per user (as Kaláka gives it), from WordPress's cached user. */
     public static function holds(\WP_User $user): bool
     {
-        return !empty($user->caps[AdminAccess::FULL_ACCESS]);
+        return OwnCapability::owns($user);
     }
 }

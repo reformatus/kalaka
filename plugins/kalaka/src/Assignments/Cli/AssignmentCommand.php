@@ -24,8 +24,8 @@ final class AssignmentCommand
      *
      * Runs kalaka/place-registration as the global --user (without --user the CLI has full access). The
      * assignment is written confirmed, with the source staff, whatever the registration held in that set;
-     * neither the option's capacity nor its eligibility stops it (staff override), but a warning is printed first
-     * when the option is full or the registration does not meet its condition.
+     * the option's capacity does not stop it (staff override), but a warning is printed first when the option
+     * is full.
      *
      * ## OPTIONS
      *
@@ -48,7 +48,7 @@ final class AssignmentCommand
     {
         Boundary::cli(static function () use ($args): void {
             $registration = new RegistrationKey((int) $args[0], $args[1]);
-            $actor = new CliActor(get_current_user_id() ?: null);
+            $actor = CliActor::current();
             $input = [
                 'event_id' => (int) $args[0],
                 'code' => $args[1],
@@ -58,14 +58,8 @@ final class AssignmentCommand
             // The same permission check the run makes, before any warning: a refused actor learns nothing
             // about the option first.
             AdminAccess::check(new PlaceRegistration(), $input, $actor);
-            // Staff override: the placing goes ahead, but they are told first when the option is full or the
-            // registration does not meet its condition.
-            $warnings = (new AssignmentSets())->placementWarnings(
-                $registration,
-                (int) $args[2],
-                $args[3],
-                Runner::current()->clock()->now()
-            );
+            // Staff override: the placing goes ahead, but they are told first when the option is full.
+            $warnings = (new AssignmentSets())->placementWarnings($registration, (int) $args[2], $args[3]);
             foreach ($warnings as $warning) {
                 \WP_CLI::warning($warning);
             }

@@ -10,7 +10,7 @@ namespace Kalaka\Forms\Api;
  * any condition branch or conditional page. A registration form of the event that lacks one is closed until
  * it is fixed (`required_field_missing`, named in the broken-form warning), and saving it as published is
  * refused, like a registration form without its contact email. Read outside any use case, from the event's
- * current state. [UNAPPROVED, #200 N16]
+ * current state.
  */
 interface SlotRequirement
 {

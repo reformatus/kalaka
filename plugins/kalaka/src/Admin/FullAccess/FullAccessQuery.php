@@ -10,9 +10,9 @@ use Kalaka\Foundation\Api\Query\Query;
 /**
  * Who holds full access, read from WordPress's `usermeta` with plain statements, so the full-access use
  * cases may read it inside their run without firing a hook or filling a cache. The one holder rule: a user
- * holds it by their own capability or through a role that carries it (as `get_users(['capability' => …])`
- * counts them), although Kaláka itself gives it only per user. The last-holder check (use case, profile, CLI,
- * abilities) and the activation grant both ask `holders()`.
+ * holds it by their own capability only, never through a role that carries it (foundation.md, "Views and
+ * grants"). The last-holder check (use case, profile, CLI, abilities, WordPress's user deletion) and the
+ * activation grant both ask `holders()`.
  */
 final class FullAccessQuery extends Query
 {
@@ -24,20 +24,17 @@ final class FullAccessQuery extends Query
      */
     public function holders(): array
     {
-        $patterns = array_map(self::pattern(...), [AdminAccess::FULL_ACCESS, ...self::carryingRoles()]);
-        $matches = implode(' OR ', array_fill(0, count($patterns), 'm.meta_value LIKE %s'));
-
         return $this->scope(fn (): array => array_map(
             static fn (array $row): int => (int) $row['user_id'],
             $this->select(
                 'holder',
                 'SELECT m.user_id FROM %i m JOIN %i u ON u.ID = m.user_id'
-                . ' WHERE m.meta_key = %s AND (' . $matches . ') ORDER BY m.user_id',
+                . ' WHERE m.meta_key = %s AND m.meta_value LIKE %s ORDER BY m.user_id',
                 [
                     $this->usersTable('usermeta'),
                     $this->usersTable('users'),
                     $this->capabilitiesMetaKey(),
-                    ...$patterns,
+                    self::pattern(AdminAccess::FULL_ACCESS),
                 ]
             )
         ));
@@ -74,24 +71,7 @@ final class FullAccessQuery extends Query
         ) !== []);
     }
 
-    /**
-     * The roles that carry the capability, from WordPress's roles already in memory.
-     *
-     * @return list<string>
-     */
-    private static function carryingRoles(): array
-    {
-        $roles = [];
-        foreach (wp_roles()->roles as $name => $role) {
-            if (!empty($role['capabilities'][AdminAccess::FULL_ACCESS])) {
-                $roles[] = (string) $name;
-            }
-        }
-
-        return $roles;
-    }
-
-    /** A serialized `"<key>";b:1;` entry of the capabilities meta (a capability or a role), LIKE's wildcards escaped. */
+    /** A serialized `"<key>";b:1;` entry of the capabilities meta, LIKE's wildcards escaped. */
     private static function pattern(string $key): string
     {
         $entry = serialize($key) . 'b:1;';

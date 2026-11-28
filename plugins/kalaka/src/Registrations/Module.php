@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Cli\RegistrationSeeder;
+use Kalaka\Registrations\Draft\DraftSweep;
 
 final class Module extends AbstractModule
 {
@@ -58,7 +59,7 @@ SQL;
      * `submit_token` is the form page's token: a repeated submit with it and the same answers creates
      * nothing and is answered only as a repeat (`{repeated: true, after_submit}`); `utf8mb4_nopad_bin`,
      * compared exactly, and unique within the event. `answers_hash` is the SHA-256 fingerprint of the
-     * stored answers that a repeat with the token must match.
+     * answers as sent that a repeat with the token must match.
      */
     private const SUBMISSIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_submissions (
@@ -80,7 +81,7 @@ SQL;
      * money.md, "Sponsor and church support" and foundation.md, "Facts": the answers to requests, a fact, one
      * row per answering act (never an upsert: each act has its own id, the key the "answered" mail takes, and its
      * own time). `request` is the request's id (`aid`, `offer:<key>`); the latest row per request is the current
-     * answer. `amount` and `currency` are set for aid, `note` is free text. [UNAPPROVED N1]
+     * answer. `amount` and `currency` are set for aid, `note` is free text.
      */
     private const ANSWERS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_answers (
@@ -100,10 +101,43 @@ CREATE TABLE {prefix}kalaka_answers (
 SQL;
 
     /**
+     * S74: a form's answers kept before its submit, keyed by event first. A user draft has `user_id`
+     * (one per event, form and user: MariaDB lets the guest drafts' NULLs repeat under `owner`); a guest
+     * draft has the SHA-256 of its claim token instead and no expiry of its own: it lives until the form is
+     * sent or the event's registration has closed. `answers` is a JSON object (`Forms\Api\AnswerSet`); `page` is
+     * the last page shown, not read yet. `claims` counts the claims that
+     * changed the person's draft: an autosave carries the count its page opened with, and a stale one is
+     * refused. `resolved_claim` and `resolved_choice` are the hash of the last claim settled into a user
+     * draft and its choice, so a repeated choice answers as the first did.
+     */
+    private const DRAFTS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_drafts (
+  event_id bigint(20) unsigned NOT NULL,
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  version int(10) unsigned NOT NULL,
+  claims int(10) unsigned NOT NULL DEFAULT 0,
+  form_id bigint(20) unsigned NOT NULL,
+  form_version bigint(20) unsigned NOT NULL,
+  user_id bigint(20) unsigned DEFAULT NULL,
+  claim_hash char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  resolved_claim char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  resolved_choice varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  answers longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  page smallint(5) unsigned NOT NULL DEFAULT 0,
+  created_at datetime(6) NOT NULL,
+  updated_at datetime(6) NOT NULL,
+  PRIMARY KEY  (event_id,id),
+  KEY id (id),
+  UNIQUE KEY owner (event_id,form_id,user_id),
+  UNIQUE KEY claim (claim_hash)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
+    /**
      * foundation.md, "Facts, decisions and computed values", the seat rule: one row per seat held, by event,
      * registration and pool (`event` is never a pool here: the event's seats are its `registered` statuses).
      * `pool` is `utf8mb4_nopad_bin`, compared exactly; `act` is the registration's own act that took the seat.
-     * `KEY pool` serves the count of a pool. A freed seat has no row. [UNAPPROVED N1]
+     * `KEY pool` serves the count of a pool. A freed seat has no row.
      */
     private const SEATS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_seats (
@@ -130,8 +164,15 @@ SQL;
 
     public function schema(): Schema
     {
-        // 6: #229's seats take 5, the answers of slice B take 6, the status acts' `registered_by` takes 7.
-        return new Schema(7, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::ANSWERS, self::SEATS]);
+        // 9: one version above main's 8 (seats, answers, drafts) and this branch's 7 (`registered_by`).
+        return new Schema(9, [
+            self::REGISTRATIONS,
+            self::FIELD_VALUES,
+            self::SUBMISSIONS,
+            self::SEATS,
+            self::ANSWERS,
+            self::DRAFTS,
+        ]);
     }
 
     /**
@@ -148,9 +189,11 @@ SQL;
         ];
     }
 
+    /** S15: the settings warning. S74: the periodic run deletes drafts that are done. */
     public function contribute(Contributions $to): void
     {
         $to->siteWarning(new Account\SettingsWarning());
+        $to->periodicStep(new DraftSweep());
         $to->seeder(new RegistrationSeeder());
     }
 
@@ -163,7 +206,7 @@ SQL;
         Abilities::register(
             new Answer\AnswerRequest(),
             'Kérelem megválaszolása',
-            'Egy jelentkező kérelmének megválaszolása: támogatási kérelem vagy jóváhagyásra váró támogatás.'
+            'Egy jelentkező támogatási kérelmének megválaszolása.'
         );
 
         // The status acts' labels and descriptions are placeholders until the owner's words. [UNAPPROVED T502-T503]

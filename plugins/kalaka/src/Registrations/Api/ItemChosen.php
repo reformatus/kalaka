@@ -7,7 +7,7 @@ namespace Kalaka\Registrations\Api;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 
 /** A chosen item (a tier, an option, an offer) cannot be removed: an open registration holds it. */
-class ItemChosen extends RuleViolation
+final class ItemChosen extends RuleViolation
 {
     public function errorCode(): string
     {

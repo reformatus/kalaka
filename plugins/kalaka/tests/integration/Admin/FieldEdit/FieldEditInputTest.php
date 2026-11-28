@@ -128,15 +128,16 @@ final class FieldEditInputTest extends StaffEditTestCase
         $this->stored('nincs', 'x');
     }
 
-    public function testTheReasonIsRequiredAndAtMost500Characters(): void
+    public function testTheReasonIsOptionalAndAtMost500Characters(): void
     {
-        foreach (['', '   ', str_repeat('é', 501)] as $reason) {
-            try {
-                $this->stored('name', 'X', ['reason' => $reason]);
-                self::fail('The reason is 1 to 500 characters.');
-            } catch (InvalidInput) {
-                self::assertTrue(true);
-            }
+        try {
+            $this->stored('name', 'X', ['reason' => str_repeat('é', 501)]);
+            self::fail('The reason is at most 500 characters.');
+        } catch (InvalidInput) {
+            self::assertTrue(true);
+        }
+        foreach (['', '   ', null] as $reason) {
+            self::assertSame('X', $this->stored('name', 'X', ['reason' => $reason]));
         }
         self::assertSame('X', $this->stored('name', 'X', ['reason' => str_repeat('é', 500)]));
     }

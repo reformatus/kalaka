@@ -535,7 +535,209 @@ final class ParticipantMoneyTest extends PortalTestCase
         }
 
         self::assertSame($counts[0], $counts[1]);
-        // The registration, the event, the decisions, the summary, the statement and the manual fees.
-        self::assertSame(6, $counts[0]);
+        // The registration, the event, the decisions, the summary, the statement and the manual fees, and the
+        // fact source's two request reads (whether a request awaits an answer and its last changed answer).
+        self::assertSame(8, $counts[0]);
+    }
+
+    // ----- The table's markup (owner topics 10 and 11, rounds 2 and 3) -----
+
+    /**
+     * The table's rows as the status block renders them: each `classes: cell | cell | …`, no-break spaces as
+     * spaces.
+     *
+     * @return list<string>
+     */
+    private function tableRows(RegistrationKey $key): array
+    {
+        $view = $this->read()->of($key);
+        self::assertNotNull($view);
+        $html = StatusMarkup::status($view, false);
+        preg_match_all('/<tr(?: class="([^"]*)")?>(.*?)<\/tr>/s', $html, $rows, PREG_SET_ORDER);
+        $out = [];
+        foreach ($rows as [, $classes, $inner]) {
+            preg_match_all('/<t[hd][^>]*>(.*?)<\/t[hd]>/s', $inner, $cells);
+            $cells = array_map(
+                static fn (string $cell): string => trim(str_replace("\u{00A0}", ' ', wp_strip_all_tags($cell))),
+                $cells[1]
+            );
+            $out[] = ($classes === '' ? '' : $classes . ': ') . implode(' | ', $cells);
+        }
+
+        return $out;
+    }
+
+    public function testTheTableWithOnlyOwedLinesKeepsTheSeparatorAndAZeroNet(): void
+    {
+        $key = $this->stored('12A3');
+        $this->source($key, '60000', 'fixed_price');
+
+        self::assertSame([
+            'kalaka-owed: Részvételi díj | + | 60 000 Ft |  | ',
+            'kalaka-total: Fizetendő összesen |  | 60 000 Ft |  | ',
+            'kalaka-total kalaka-rule: Befizetve összesen |  | 0 Ft |  | ',
+            'kalaka-rule kalaka-due: Még fizetendő |  | 60 000 Ft |  | ',
+        ], $this->tableRows($key));
+    }
+
+    public function testThePartlyPaidTableHasOneRowPerMovementWithMethodNoteSignAndDay(): void
+    {
+        $key = $this->stored('12A3');
+        $this->source($key, '60000', 'fixed_price');
+        $this->manual($key, LineKind::ManualPayment, '-8000', '2026-11-27', PaymentMethod::CardTerminal);
+        $this->manual($key, LineKind::ManualPayment, '-15000', '2026-11-28', PaymentMethod::BankTransfer, 'TAB27 12A3');
+
+        self::assertSame([
+            'kalaka-owed: Részvételi díj | + | 60 000 Ft |  | ',
+            'kalaka-total: Fizetendő összesen |  | 60 000 Ft |  | ',
+            'kalaka-move kalaka-rule: Befizetés | Bankkártya | + | 8 000 Ft | 2026. 11. 27. | ⓘ',
+            'kalaka-move: Befizetés | Átutalás · „TAB27 12A3” | + | 15 000 Ft | 2026. 11. 28. | ⓘ',
+            'kalaka-total: Befizetve összesen |  | 23 000 Ft |  | ',
+            'kalaka-rule kalaka-due: Még fizetendő |  | 37 000 Ft |  | ',
+        ], $this->tableRows($key));
+    }
+
+    public function testTheEmphasisIsInTheMarkupTheMethodAndTheDayAndTheTotalsAreEmAndTheLastRowIsStrong(): void
+    {
+        $key = $this->stored('12A3');
+        $this->source($key, '60000', 'fixed_price');
+        $this->manual($key, LineKind::ManualPayment, '-8000', '2026-11-27', PaymentMethod::CardTerminal);
+        $this->manual($key, LineKind::ManualPayment, '-15000', '2026-11-28', PaymentMethod::BankTransfer, 'TAB27 12A3');
+        $view = $this->read()->of($key);
+        self::assertNotNull($view);
+        $html = StatusMarkup::status($view, false);
+
+        self::assertStringContainsString('<td class="kalaka-method"><em>Bankkártya</em></td>', $html);
+        self::assertStringContainsString('<td class="kalaka-method"><em>Átutalás · „TAB27 12A3”</em></td>', $html);
+        self::assertStringContainsString('<td class="kalaka-date"><em>2026. 11. 27.</em></td>', $html);
+        self::assertStringContainsString('<th scope="row" colspan="2"><em>Fizetendő összesen</em></th>', $html);
+        self::assertStringContainsString('<th scope="row" colspan="2"><strong>Még fizetendő</strong></th>', $html);
+        // An owed line, a movement's type and its amount carry no emphasis.
+        self::assertStringContainsString('<th scope="row" colspan="2">Részvételi díj</th>', $html);
+        self::assertStringContainsString('<th scope="row">Befizetés</th>', $html);
+    }
+
+    public function testAPaidTableEndsInABoldZeroAndAnOverpaidOneInAnUnsignedOverpayment(): void
+    {
+        $paid = $this->stored('12A3');
+        $this->source($paid, '1000', 'fixed_price');
+        $this->manual($paid, LineKind::ManualPayment, '-1000', '2026-12-02', PaymentMethod::Cash);
+        $rows = $this->tableRows($paid);
+        self::assertSame('kalaka-rule kalaka-due: Még fizetendő |  | 0 Ft |  | ', end($rows));
+
+        $over = $this->stored('00A2');
+        $this->source($over, '80000', 'fixed_price');
+        $this->manual($over, LineKind::ManualPayment, '-90000', '2026-12-01', PaymentMethod::BankTransfer);
+        $this->manual($over, LineKind::ManualRefund, '4000', '2026-12-02', PaymentMethod::BankTransfer, 'Visszautalva');
+        $rows = $this->tableRows($over);
+        self::assertSame(
+            'kalaka-move: Visszafizetés | Átutalás · „Visszautalva” | − | 4 000 Ft | 2026. 12. 02. | ⓘ',
+            $rows[3]
+        );
+        self::assertSame('kalaka-total: Befizetve összesen |  | 86 000 Ft |  | ', $rows[4]);
+        self::assertSame('kalaka-rule kalaka-due: Túlfizetés |  | 6 000 Ft |  | ', $rows[5]);
+    }
+
+    public function testCorrectionsShowTheirTextAloneInQuotesAndTheirSignByDirection(): void
+    {
+        $key = $this->stored('12A3');
+        $this->source($key, '10000', 'fixed_price');
+        $this->correction($key, true, '200', 'Teszt felfelé');
+        $this->correction($key, false, '700', 'Teszt lefelé');
+
+        $rows = $this->tableRows($key);
+        self::assertSame(
+            'kalaka-move kalaka-rule: Korrekció | „Teszt felfelé” | + | 200 Ft | 2026. 11. 30. | ⓘ',
+            $rows[2]
+        );
+        self::assertSame('kalaka-move: Korrekció | „Teszt lefelé” | − | 700 Ft | 2026. 11. 30. | ⓘ', $rows[3]);
+        self::assertSame('kalaka-total: Befizetve összesen |  | −500 Ft |  | ', $rows[4]);
+    }
+
+    public function testALongNoteIsCutAtThirtySixCharactersAndItsTitleHoldsTheWholeNote(): void
+    {
+        $key = $this->stored('12A3');
+        $this->source($key, '10000', 'fixed_price');
+        $long = 'közlemény helytelen volt: nem volt benne az azonosító';
+        $this->manual($key, LineKind::ManualPayment, '-1000', '2026-12-02', PaymentMethod::BankTransfer, $long);
+        $this->manual($key, LineKind::ManualPayment, '-1000', '2026-12-03', PaymentMethod::Cash, 'rövid');
+
+        $view = $this->read()->of($key);
+        self::assertNotNull($view);
+        $html = StatusMarkup::status($view, false);
+
+        self::assertSame(36, mb_strlen(mb_substr($long, 0, 36)));
+        $details = "Befizetés · Átutalás · 2026. 12. 02.\n„" . $long . '”';
+        self::assertStringContainsString(
+            '<td class="kalaka-method"><em>Átutalás · <span class="kalaka-note" title="' . $details . '">'
+            . '„közlemény helytelen volt: nem volt b…”</span></em></td>',
+            $html
+        );
+        // The info mark carries the same text as its title and its accessible name; no popover, no button.
+        self::assertStringContainsString(
+            '<span class="kalaka-info-button" role="img" title="' . $details . '"'
+            . ' aria-label="' . $details . '">ⓘ</span>',
+            $html
+        );
+        self::assertStringNotContainsString('popover', $html);
+        self::assertStringNotContainsString('<button', $html);
+        // The row with the cut note shows ⓘ on a wide screen; the row with a whole note does not.
+        self::assertStringContainsString('class="kalaka-move kalaka-rule kalaka-more"', $html);
+        self::assertStringContainsString('<tr class="kalaka-move">', $html);
+        self::assertSame(1, substr_count($html, 'class="kalaka-note"'));
+        self::assertSame(2, substr_count($html, 'class="kalaka-info-button"'));
+        self::assertStringContainsString('<td class="kalaka-method"><em>Készpénz · „rövid”</em></td>', $html);
+    }
+
+    public function testManualTitlesAndAnErasedTitleReadByTheirTypeInTheMarkup(): void
+    {
+        $key = $this->stored('12A3');
+        $this->source($key, '40000', 'fixed_price');
+        $this->manualFee($key, ManualFeeType::Discount, '500', 'Teszt kedvezmény');
+        $this->manualFee($key, ManualFeeType::Charge, '3000', 'Teszt póló');
+
+        $rows = $this->tableRows($key);
+        self::assertSame('kalaka-owed: Részvételi díj | + | 40 000 Ft |  | ', $rows[0]);
+        self::assertSame('kalaka-owed: Teszt póló | + | 3 000 Ft |  | ', $rows[1]);
+        self::assertSame('kalaka-owed: Teszt kedvezmény | − | 500 Ft |  | ', $rows[2]);
+        self::assertSame('kalaka-total: Fizetendő összesen |  | 42 500 Ft |  | ', $rows[3]);
+
+        $this->erase($key);
+        ObjectCache::clear();
+        $rows = $this->tableRows($key);
+        self::assertSame('kalaka-owed: Díj | + | 3 000 Ft |  | ', $rows[1]);
+        self::assertSame('kalaka-owed: Kedvezmény | − | 500 Ft |  | ', $rows[2]);
+    }
+
+    public function testAWithdrawnRegistrationWithARefundShowsTheTableAndItsOverpayment(): void
+    {
+        $key = $this->stored('12A3', RegistrationStatus::Withdrawn);
+        $this->source($key, '60000', 'fixed_price');
+        $this->manual($key, LineKind::ManualPayment, '-30000', '2026-12-02', PaymentMethod::BankTransfer);
+        $this->manual($key, LineKind::ManualRefund, '10000', '2026-12-05', PaymentMethod::BankTransfer, 'Lemondás');
+        $this->source($key, '-60000', 'fixed_price');
+
+        $rows = $this->tableRows($key);
+        self::assertSame('kalaka-total: Fizetendő összesen |  | 0 Ft |  | ', $rows[0]);
+        self::assertSame('kalaka-move kalaka-rule: Befizetés | Átutalás | + | 30 000 Ft | 2026. 12. 02. | ⓘ', $rows[1]);
+        self::assertSame(
+            'kalaka-move: Visszafizetés | Átutalás · „Lemondás” | − | 10 000 Ft | 2026. 12. 05. | ⓘ',
+            $rows[2]
+        );
+        self::assertSame('kalaka-rule kalaka-due: Túlfizetés |  | 20 000 Ft |  | ', end($rows));
+    }
+
+    public function testTheExtraAndSupportLinesAreNamedAndSigned(): void
+    {
+        $key = $this->stored('12A3');
+        $this->source($key, '60000', 'fixed_price');
+        $this->source($key, '3000', 'trip');
+        $this->source($key, '-10000', 'church');
+
+        $rows = $this->tableRows($key);
+        self::assertSame('kalaka-owed: Részvételi díj | + | 60 000 Ft |  | ', $rows[0]);
+        self::assertSame('kalaka-owed: Kirándulás | + | 3 000 Ft |  | ', $rows[1]);
+        self::assertSame('kalaka-owed: Gyülekezeti támogatás | − | 10 000 Ft |  | ', $rows[2]);
+        self::assertSame('kalaka-total: Fizetendő összesen |  | 53 000 Ft |  | ', $rows[3]);
     }
 }

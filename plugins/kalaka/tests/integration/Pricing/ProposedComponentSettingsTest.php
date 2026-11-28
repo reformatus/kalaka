@@ -38,7 +38,7 @@ final class ProposedComponentSettingsTest extends PricingTestCase
         $this->useComponents(new TierComponent('1000', 'ladder'));
         $this->register('00A0');
 
-        $preview = $this->settings->preview($this->event, $this->proposedLadder('2000'));
+        $preview = $this->settings->preview($this->event, $this->proposedLadder('2000'), new CliActor(null));
 
         self::assertCount(1, $preview);
         self::assertSame('2000', self::plain($preview[0]->after[Payer::PARTICIPANT]->amount()));
@@ -139,7 +139,7 @@ final class ProposedComponentSettingsTest extends PricingTestCase
         foreach (['preview', 'apply'] as $step) {
             try {
                 if ($step === 'preview') {
-                    $this->settings->preview($this->event, $proposed);
+                    $this->settings->preview($this->event, $proposed, new CliActor(null));
                 } else {
                     $this->settings->apply($this->event, $proposed, new CliActor(null));
                 }
