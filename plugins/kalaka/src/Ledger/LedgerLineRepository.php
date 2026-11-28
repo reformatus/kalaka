@@ -30,6 +30,15 @@ final class LedgerLineRepository extends AppendOnlyRepository
         )[0] ?? null;
     }
 
+    /** Whether a registration holds a line whose idempotency key starts with the prefix (matched literally). */
+    public function existsWithKeyPrefix(RegistrationKey $registration, string $prefix): bool
+    {
+        return $this->findWhere(
+            'event_id = %d AND code = %s AND LEFT(idempotency_key, %d) = %s',
+            [$registration->eventId, $registration->code, strlen($prefix), $prefix]
+        ) !== [];
+    }
+
     protected function table(): string
     {
         return 'kalaka_ledger_lines';
