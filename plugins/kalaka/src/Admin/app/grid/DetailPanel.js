@@ -21,7 +21,7 @@ import { unconfirmBlocked, warningOf } from './confirmation';
 import FieldsBlock from './FieldsBlock';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
-import { AwaitingStrip, hasRequests, offeredOf, RequestsList, useAnswering } from './RequestsBlock';
+import { awaitingCount, hasRequests, offeredOf, RequestsList, RequestsTabTitle, useAnswering } from './RequestsBlock';
 import StatusActs from './StatusActs';
 import { tabClicks } from './panel';
 import { PANEL } from './texts';
@@ -97,8 +97,10 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	// has no right to is left out: the read carries no part for it (no money read, no requests, no field list).
 	// After a failed re-read the data is stale: the tab list and the chosen tab stay (built from the last good
 	// read, so the panel does not jump to another tab), the tabs show no values (the field list, the requests and
-	// the money show nothing but their snackbars) and the strip is gone, so under the load-failure message nothing
-	// stale remains. [UNAPPROVED N1036] [UNAPPROVED N1037]
+	// the money show nothing but their snackbars) and the „Kérelmek” badge is gone (its count is 0), so under the
+	// load-failure message nothing stale remains. [UNAPPROVED N1036] [UNAPPROVED N1037]
+	// The „Kérelmek” tab carries a count badge of the requests that await an answer (owner 2026-11-27; there is no
+	// strip above the tabs). [UNAPPROVED N1316]
 	// The tab panel shows only the chosen tab, so a tab's snackbar (a saved field, a money act) is gone when another
 	// tab is chosen within its five seconds; the answer's snackbar is not, it lives here. [UNAPPROVED N1040]
 	const stale = !! problem;
@@ -110,7 +112,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 		tabs.push( { name: 'fields', title: PANEL.tabFields } );
 	}
 	if ( hasRequests( detail ) ) {
-		tabs.push( { name: 'requests', title: PANEL.tabRequests } );
+		tabs.push( { name: 'requests', title: <RequestsTabTitle count={ awaitingCount( offered ) } /> } );
 	}
 	if ( hasMoney ) {
 		tabs.push( { name: 'money', title: PANEL.tabMoney } );
@@ -126,7 +128,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 			list.setAttribute( 'aria-label', PANEL.tabsLabel );
 		}
 	}, [ tabNames ] );
-	const answering = useAnswering( config, code, reload, onSaved, root, detail && detail.requests ? detail.requests.currency : undefined );
+	const answering = useAnswering( config, code, reload, onSaved, closeRef, detail && detail.requests ? detail.requests.currency : undefined );
 
 	const registration = ( detail && detail.registration ) || {};
 	return (
@@ -159,6 +161,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 							text={ registration.status_label }
 							reload={ reload }
 							onSaved={ onSaved }
+							closeRef={ closeRef }
 						/>
 						{ detail && (
 							<ManualConfirmation
@@ -196,7 +199,6 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 					{ PANEL.loading }
 				</p>
 			) }
-			{ detail && <AwaitingStrip items={ offered } start={ answering.start } can={ canAnswer } /> }
 			{ tabs.length > 0 && (
 				<TabPanel
 					key={ tabNames }
