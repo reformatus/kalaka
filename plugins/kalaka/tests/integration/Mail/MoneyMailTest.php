@@ -144,7 +144,8 @@ final class MoneyMailTest extends MailBodyTestCase
         );
 
         $online = $this->line('payment', '-2000');
-        $html = (new MailRenderer())->render($this->event, 'payment_recorded', $this->key(), self::now(), $online)->html;
+        $html = (new MailRenderer())
+            ->render($this->event, 'payment_recorded', $this->key(), self::now(), $online)->html;
         self::assertSame('Befizetés 2 000 Ft Online 2026. november 29.', self::text($html));
     }
 
