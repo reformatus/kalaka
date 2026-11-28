@@ -115,7 +115,6 @@ SQL;
             'kalaka_withdraw_registration',
             'kalaka_remove_registration',
             'kalaka_admit_registration',
-            'kalaka_regenerate_link',
         ];
     }
 
