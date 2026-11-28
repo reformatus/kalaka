@@ -16,8 +16,6 @@ use Kalaka\Mail\Api\MailHold;
 use Kalaka\Mail\Api\MailStats;
 use Kalaka\Mail\Api\ManualMails;
 use Kalaka\Mail\Api\TroubledDelivery;
-use Kalaka\Mail\ClearEventMail;
-use Kalaka\Mail\EventMailNotHeld;
 
 /**
  * The event's „Levelek” page, rendered in PHP (owner 2026-11-27, walkthrough 8; section 8 of the build list): no
@@ -441,7 +439,7 @@ final class EventPage
             'batches' => (new ManualMails())->batches($event->id),
             // The clear act is offered only while `ClearEventMail` would run, the same check the route's `can` uses;
             // the use case refuses again. [UNAPPROVED N1284]
-            'canClear' => self::mayClear($event),
+            'canClear' => MailHold::mayClear($event),
         ];
     }
 
@@ -495,18 +493,6 @@ final class EventPage
         $text = $instant === null ? false : wp_date('Y. m. d. H:i', $instant->getTimestamp(), wp_timezone());
 
         return $text === false ? Texts::NONE : $text;
-    }
-
-    /** The route's own `can.clear_event` rule, asked of the use case rather than copied. */
-    private static function mayClear(Event $event): bool
-    {
-        try {
-            ClearEventMail::refuse($event);
-        } catch (EventMailNotHeld) {
-            return false;
-        }
-
-        return true;
     }
 
     private static function pageUrl(Event $event): string

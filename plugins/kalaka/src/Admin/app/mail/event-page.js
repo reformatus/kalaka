@@ -107,53 +107,59 @@ export function bindSwitch( input ) {
 	} );
 }
 
+/** The choose dialog's body: the choice is state, so the select and the submit's disabled state follow it. */
+function ChooseModal( { button, close } ) {
+	const [ chosen, setChosen ] = useState( config.bodies.length ? String( config.bodies[ 0 ].id ) : '' );
+
+	return (
+		<Modal
+			title={ config.texts.chooseTitle }
+			onRequestClose={ close }
+			shouldCloseOnClickOutside={ false }
+		>
+			{ config.bodies.length === 0 ? (
+				<p>{ BODIES.none }</p>
+			) : (
+				<SelectControl
+					label=""
+					hideLabelFromVision
+					value={ chosen }
+					options={ config.bodies.map( ( body ) => ( {
+						value: String( body.id ),
+						label: body.label,
+					} ) ) }
+					onChange={ setChosen }
+				/>
+			) }
+			<div className="kalaka-modal-actions">
+				<Button
+					variant="primary"
+					disabled={ ! chosen }
+					onClick={ () => {
+						close();
+						act( button, () =>
+							runAbility( 'kalaka/update-action-mail', {
+								event_id: config.event,
+								mail: button.dataset.kalakaChoose,
+								body_id: Number( chosen ),
+							} )
+						);
+					} }
+				>
+					{ config.texts.choose }
+				</Button>
+				<Button variant="tertiary" onClick={ close }>
+					{ config.texts.cancel }
+				</Button>
+			</div>
+		</Modal>
+	);
+}
+
 /** „Sablon kiválasztása”: a WordPress Modal with the event's published templates. */
-function bindChoose( button ) {
+export function bindChoose( button ) {
 	button.addEventListener( 'click', () => {
-		let chosen = config.bodies.length ? String( config.bodies[ 0 ].id ) : '';
-		openModal( ( close ) => (
-			<Modal
-				title={ config.texts.chooseTitle }
-				onRequestClose={ close }
-				shouldCloseOnClickOutside={ false }
-			>
-				{ config.bodies.length === 0 ? (
-					<p>{ BODIES.none }</p>
-				) : (
-					<SelectControl
-						label=""
-						hideLabelFromVision
-						value={ chosen }
-						options={ config.bodies.map( ( body ) => ( {
-							value: String( body.id ),
-							label: body.label,
-						} ) ) }
-						onChange={ ( value ) => ( chosen = value ) }
-					/>
-				) }
-				<div className="kalaka-modal-actions">
-					<Button
-						variant="primary"
-						disabled={ ! chosen }
-						onClick={ () => {
-							close();
-							act( button, () =>
-								runAbility( 'kalaka/update-action-mail', {
-									event_id: config.event,
-									mail: button.dataset.kalakaChoose,
-									body_id: Number( chosen ),
-								} )
-							);
-						} }
-					>
-						{ config.texts.choose }
-					</Button>
-					<Button variant="tertiary" onClick={ close }>
-						{ config.texts.cancel }
-					</Button>
-				</div>
-			</Modal>
-		) );
+		openModal( ( close ) => <ChooseModal button={ button } close={ close } /> );
 	} );
 }
 
@@ -434,8 +440,8 @@ function bindClear( button ) {
 }
 
 /** The levélkeret: the plain editor, its save, and the leave warning while it differs from the saved text. */
-function bindLayout( area ) {
-	const saved = area.value;
+export function bindLayout( area ) {
+	let saved = area.value;
 	const save = document.querySelector( '[data-kalaka-save-layout]' );
 	window.addEventListener( 'beforeunload', ( event ) => {
 		if ( area.value === saved ) {
@@ -446,12 +452,15 @@ function bindLayout( area ) {
 	} );
 	if ( save ) {
 		save.addEventListener( 'click', () => {
-			act( save, () =>
-				runAbility( 'kalaka/set-event-mail-layout', {
+			const html = area.value;
+			act( save, async () => {
+				await runAbility( 'kalaka/set-event-mail-layout', {
 					event_id: area.dataset.kalakaLayout,
-					html: area.value,
-				} )
-			);
+					html,
+				} );
+				// Saved: the reload that follows must not trip the leave warning. A failed save throws first and keeps it.
+				saved = html;
+			} );
 		} );
 	}
 }
