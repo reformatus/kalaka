@@ -82,21 +82,24 @@ final class RecordCorrectionTest extends ManualEntryTestCase
         self::assertSame('1000.00000000', $sum->paid->amount());
     }
 
-    public function testTheReasonIsRequired(): void
+    /** The owner's rulings #217 N1204 and #218 N1222: the reason is optional; none leaves no note. */
+    public function testTheReasonIsOptional(): void
     {
         foreach ([['reason' => '   '], ['reason' => '']] as $position => $override) {
-            try {
-                $input = $this->correction($override + ['idempotency_key' => 'r' . $position]);
-                $this->exec(new RecordCorrection(), $input);
-                self::fail('A correction without a reason was accepted.');
-            } catch (InvalidInput) {
-                self::assertSame([], $this->lines());
-            }
+            $this->exec(new RecordCorrection(), $this->correction($override + ['idempotency_key' => 'r' . $position]));
         }
-        $input = $this->correction();
+        $input = $this->correction(['idempotency_key' => 'r2']);
         unset($input['reason']);
-        $this->expectException(InvalidInput::class);
         $this->exec(new RecordCorrection(), $input);
+
+        self::assertCount(3, $this->lines());
+        self::assertSame([], $this->notes());
+    }
+
+    public function testTheReasonIsStillAtMostFiveHundredCharacters(): void
+    {
+        $this->expectException(InvalidInput::class);
+        $this->exec(new RecordCorrection(), $this->correction(['reason' => str_repeat('a', 501)]));
     }
 
     public function testNoMethodAndNoValueDateAreTaken(): void

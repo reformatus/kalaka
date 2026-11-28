@@ -14,6 +14,7 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationTables;
+use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\Serials;
 
 /**
@@ -43,6 +44,7 @@ final class ViewQuery extends Query
         private readonly Serials $serials = new Serials(),
         private readonly Decisions $decisions = new Decisions(),
         private readonly Forms $forms = new Forms(),
+        private readonly Requests $requests = new Requests(),
     ) {
         parent::__construct();
     }
@@ -171,7 +173,7 @@ final class ViewQuery extends Query
         if ($sort === 'status') {
             $order = 'r.status' . $direction . ', ' . $serialOrder;
         } elseif ($sort === 'serial') {
-            // The computed sorszám as a number [UNAPPROVED N64]; the rows with none (withdrawn, removed) sort first
+            // The computed sorszám as a number; the rows with none (withdrawn, removed) sort first
             // ascending, and a tie (the same number in `registered` and `waitlisted`) falls back to the default order.
             [$ranked, $joinArgs] = RegistrationTables::serialNumbers(
                 $this->table(RegistrationTables::REGISTRATIONS),
@@ -231,6 +233,9 @@ final class ViewQuery extends Query
             $serials = $shape->lists('serial') && $codes !== [] ? $this->serials->forEvent($eventId) : [];
             $submitted = $shape->lists('submitted_at') ? $this->firstSubmissionTimes($eventId, $codes) : [];
 
+            // A row value, not a column: read for the page's codes at a fixed cost.
+            $awaits = $this->requests->awaitsOf($eventId, $statuses);
+
             $rows = [];
             foreach ($registrations as $registration) {
                 $code = (string) $registration['code'];
@@ -250,7 +255,7 @@ final class ViewQuery extends Query
                         default => $decisions[$code][substr($column, 9)] ?? null,
                     };
                 }
-                $rows[] = new ViewRow(new RegistrationKey($eventId, $code), $values);
+                $rows[] = new ViewRow(new RegistrationKey($eventId, $code), $values, $awaits[$code] ?? false);
             }
 
             return new ViewPage($shape->columns, $rows, $total);
@@ -286,70 +291,11 @@ final class ViewQuery extends Query
     }
 
     /**
-     * Aggregates over every registration the view's filter matches now, never one page (S37, the grid's sum
-     * row): one statement for all the specs, on the event's rows. A grant holder's aggregates cover only
-     * their view (S36-9). By spec index: an integer for the counts, a decimal string (trailing zeros cut) or
-     * null for `sum` and `average`. Choice values compare with the column's collation, as the filter does;
-     * a multiple choice (a JSON list) counts when it holds one of the members.
-     *
-     * With a narrowing (the grid's ad hoc filters and search) the aggregates cover the narrowed set.
-     *
-     * @param list<AggregateSpec> $specs
-     * @return list<int|string|null>
-     * @throws InvalidInput when a spec's or a narrowing filter's column is not listed in the view
-     */
-    public function aggregates(HeldView $view, array $specs, ?Narrowing $narrowing = null): array
-    {
-        if ($specs === []) {
-            return [];
-        }
-        $shape = $this->shapeOf($view);
-        foreach ($specs as $spec) {
-            if (!$shape->lists($spec->column)) {
-                throw new InvalidInput();
-            }
-        }
-        [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
-        [$narrow, $narrowArgs] = $this->narrowed($view, $narrowing);
-        $conditions .= $narrow;
-        array_push($conditionArgs, ...$narrowArgs);
-        $values = $this->table(RegistrationTables::FIELD_VALUES);
-
-        /** @var list<literal-string> $selects */
-        $selects = [];
-        $args = [];
-        foreach ($specs as $index => $spec) {
-            [$expression, $expressionArgs] = $this->aggregate($spec, $values);
-            $selects[] = $expression . ' AS %i';
-            array_push($args, ...$expressionArgs);
-            $args[] = 'a' . $index;
-        }
-
-        $eventId = $view->eventId;
-        $rows = $this->scope(fn (): array => $this->select(
-            'aggregate',
-            'SELECT ' . implode(', ', $selects) . ' FROM %i r WHERE r.event_id = %d' . $conditions,
-            [...$args, $this->table(RegistrationTables::REGISTRATIONS), $eventId, ...$conditionArgs]
-        ));
-        $row = $rows[0] ?? [];
-
-        $results = [];
-        foreach ($specs as $index => $spec) {
-            $value = $row['a' . $index] ?? null;
-            $results[] = match ($spec->kind) {
-                AggregateKind::Sum, AggregateKind::Average => $value === null ? null : self::decimal((string) $value),
-                default => (int) $value,
-            };
-        }
-
-        return $results;
-    }
-
-    /**
      * One registration as the views that hold it show it, the union of their columns. The views must be the
      * ones `Access::holding()` found to hold it (or the master view of full access): this read does not
      * check the filter again. Null when the event has no such registration. The times of `registered_at` and
-     * the first submission are shown to the master view only, as no column lists them.
+     * the first submission are shown only where a held view lists the column (`registered_at`, `submitted_at`),
+     * and always to full access.
      *
      * @param non-empty-list<HeldView> $views
      */
@@ -436,6 +382,76 @@ final class ViewQuery extends Query
                 ? null
                 : ['form_id' => (int) $first['form_id'], 'form_version' => (int) $first['form_version']],
         );
+    }
+
+    /**
+     * Aggregates over every active registration the view's filter matches now, never one page (S37, the
+     * grid's sum row): one statement for all the specs, on the event's rows. Only a registered
+     * registration counts: waitlisted, withdrawn and removed rows are dimmed and never count in the sum
+     * row (owner, 2026-11-27). A grant holder's aggregates cover only their view (S36-9). By spec index: an
+     * integer for the counts, a decimal string (trailing zeros cut) or null for `sum` and `average`. Choice
+     * values compare with the column's collation, as the filter does; a multiple choice (a JSON list)
+     * counts when it holds one of the members.
+     *
+     * With a narrowing (the grid's ad hoc filters and search) the aggregates cover the narrowed set.
+     *
+     * @param list<AggregateSpec> $specs
+     * @return list<int|string|null>
+     * @throws InvalidInput when a spec's or a narrowing filter's column is not listed in the view
+     */
+    public function aggregates(HeldView $view, array $specs, ?Narrowing $narrowing = null): array
+    {
+        if ($specs === []) {
+            return [];
+        }
+        $shape = $this->shapeOf($view);
+        foreach ($specs as $spec) {
+            if (!$shape->lists($spec->column)) {
+                throw new InvalidInput();
+            }
+        }
+        [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
+        [$narrow, $narrowArgs] = $this->narrowed($view, $narrowing);
+        $conditions .= $narrow;
+        array_push($conditionArgs, ...$narrowArgs);
+        $values = $this->table(RegistrationTables::FIELD_VALUES);
+
+        /** @var list<literal-string> $selects */
+        $selects = [];
+        $args = [];
+        foreach ($specs as $index => $spec) {
+            [$expression, $expressionArgs] = $this->aggregate($spec, $values);
+            $selects[] = $expression . ' AS %i';
+            array_push($args, ...$expressionArgs);
+            $args[] = 'a' . $index;
+        }
+
+        $eventId = $view->eventId;
+        $active = RegistrationStatus::Registered->value;
+        $rows = $this->scope(fn (): array => $this->select(
+            'aggregate',
+            'SELECT ' . implode(', ', $selects) . ' FROM %i r WHERE r.event_id = %d AND r.status = %s'
+                . $conditions,
+            [
+                ...$args,
+                $this->table(RegistrationTables::REGISTRATIONS),
+                $eventId,
+                $active,
+                ...$conditionArgs,
+            ]
+        ));
+        $row = $rows[0] ?? [];
+
+        $results = [];
+        foreach ($specs as $index => $spec) {
+            $value = $row['a' . $index] ?? null;
+            $results[] = match ($spec->kind) {
+                AggregateKind::Sum, AggregateKind::Average => $value === null ? null : self::decimal((string) $value),
+                default => (int) $value,
+            };
+        }
+
+        return $results;
     }
 
     /**
@@ -647,7 +663,7 @@ final class ViewQuery extends Query
         $text = is_string($value) ? $value : '';
 
         if ($column === 'serial') {
-            // The computed sorszám as a number, with the operators of any number column. [UNAPPROVED N65]
+            // The computed sorszám as a number, with the operators of any number column.
             [$ranked, $rankedArgs] = RegistrationTables::serialNumbers(
                 $this->table(RegistrationTables::REGISTRATIONS),
                 $eventId
@@ -1124,7 +1140,7 @@ final class ViewQuery extends Query
 
     /**
      * The current state of a decision kind for the row `r`, as a column of the grid reads it: the one SQL read
-     * (`DecisionTables::stateOf()`), with the kind's declared base state. [UNAPPROVED N7]
+     * (`DecisionTables::stateOf()`), with the kind's declared base state.
      *
      * @param literal-string $outer
      * @param literal-string $inner

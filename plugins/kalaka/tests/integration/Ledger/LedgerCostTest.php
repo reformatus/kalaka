@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Ledger;
 
+use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\LedgerLineRepository;
 use Kalaka\Ledger\PaymentNoteRepository;
@@ -60,6 +61,19 @@ final class LedgerCostTest extends PerEventCostTestCase
         $this->assertPerEventCost(
             fn (int $event) => $this->seedEvent($event),
             fn (int $event) => (new Ledger())->paymentFactsOf(new RegistrationKey($event, '00A0'))
+        );
+    }
+
+    public function testTheStatementStaysInsideItsEvent(): void
+    {
+        wp_timezone(); // WordPress loads its options once; that read is not the ledger's
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            fn (int $event) => (new Ledger())->statementOf(
+                new RegistrationKey($event, '00A0'),
+                'participant',
+                Currency::HUF
+            )
         );
     }
 

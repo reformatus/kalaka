@@ -35,11 +35,11 @@ final class PageCheckTest extends \WP_UnitTestCase
         return '<!-- wp:kalaka/status -->' . $inner . '<!-- /wp:kalaka/status -->';
     }
 
-    private function page(string $content): int
+    private function page(string $content, string $status = 'publish'): int
     {
         $id = wp_insert_post([
             'post_type' => 'page',
-            'post_status' => 'publish',
+            'post_status' => $status,
             'post_title' => 'Levelek',
             'post_content' => $content,
         ], true);
@@ -127,5 +127,25 @@ final class PageCheckTest extends \WP_UnitTestCase
 
         self::assertSame('publish', get_post_status($id));
         self::assertSame(200, $this->restSave($id, ['content' => $content])->get_status());
+    }
+
+    public function testADraftWithAnUnknownPlaceholderIsTrashedRestoredAndRefusedWhenPublished(): void
+    {
+        $bad = $this->statusBlock($this->paragraph('{{nincs}}'));
+        $id = $this->page($bad, 'draft');
+        self::assertSame('draft', get_post_status($id));
+        self::assertSame($bad, get_post_field('post_content', $id));
+
+        // A draft may hold the placeholder, and the status changes a trash and a restore make go through.
+        wp_trash_post($id);
+        self::assertSame('trash', get_post_status($id));
+        wp_untrash_post($id);
+        self::assertSame('draft', get_post_status($id));
+
+        // Publishing it is refused, from the editor and from code alike.
+        self::assertSame(422, $this->restSave($id, ['status' => 'publish'])->get_status());
+        wp_update_post(['ID' => $id, 'post_status' => 'publish']);
+        self::assertSame('draft', get_post_status($id));
+        self::assertSame($bad, get_post_field('post_content', $id));
     }
 }

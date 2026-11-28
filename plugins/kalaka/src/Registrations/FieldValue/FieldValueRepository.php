@@ -23,6 +23,33 @@ final class FieldValueRepository extends EntityRepository
         return $this->findWhere('event_id = %d AND code = %s', [$registration->eventId, $registration->code]);
     }
 
+    /**
+     * @param non-empty-list<string> $codes
+     * @return list<FieldValue> the values of several of the event's registrations, in one statement
+     */
+    public function forRegistrations(int $eventId, array $codes): array
+    {
+        return $this->findWhere(
+            'event_id = %d AND code IN (' . implode(', ', array_fill(0, count($codes), '%s')) . ')',
+            [$eventId, ...$codes]
+        );
+    }
+
+    /** @return list<FieldValue> the event's rows of one field that hold the value, in one statement */
+    public function withValue(int $eventId, string $fieldKey, string $value): array
+    {
+        return $this->findWhere(
+            'event_id = %d AND field_key = %s AND value = %s',
+            [$eventId, self::checked($fieldKey), $value]
+        );
+    }
+
+    /** @return list<FieldValue> the event's rows of one field, in one statement */
+    public function ofField(int $eventId, string $fieldKey): array
+    {
+        return $this->findWhere('event_id = %d AND field_key = %s', [$eventId, self::checked($fieldKey)]);
+    }
+
     protected function table(): string
     {
         return 'kalaka_field_values';

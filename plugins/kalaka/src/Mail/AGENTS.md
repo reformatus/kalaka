@@ -71,7 +71,8 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
 - An action mail is decided only through `Api\ActionMails::due()` inside the
   acting use case, or inside the evaluation that use case runs (confirmed),
   which queues it only when the event has it switched on and
-  looks at nothing else (not the event's state).
+  looks at nothing else (not the event's state). `ActionMails::isOn()` is the
+  plain read of that switch, for a preview that queues nothing.
 - A mail is rendered at send time by `Body\MailRenderer`, through
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and
@@ -86,8 +87,9 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   facts); the three are never conflated. Each one replaces the account's last link.
 - While an event's account mode is not `off`, its "registered" mail must
   read `account.password_link` and cannot be switched off
-  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`) and in
-  `UpdateActionMail`.
+  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`), in
+  `UpdateActionMail`, and, for a change of the event's account mode to one with
+  accounts, in `AccountLinkRule::modeProblem()` (read through `Api\AccountMail`).
 - `MailComposer::recipient()` returns `null` for a registration without a
   contact email (failed as `invalid_address`) and throws only
   `RecipientUnavailable` when the address cannot be determined (no
@@ -111,8 +113,11 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   gracefully (a published body keeps its content, another stays unpublished),
   tells the saving user in an admin notice, writes a log line and, on
   WP-CLI, warns and fails the command.
-- The catalogue lists every `ActionMail` case, whether or not a use case produces
-  it yet (no hand-kept "has a producer" list); it has five action mails; admission from the waitlist sends
+- The catalogue lists every `ActionMail` case, whether or not an act on this
+  line queues it yet; `ActionMail::isWired()` is the one declared list of the
+  points that work, the list the screen shows (a point that is not wired can be
+  set up and switched on, but nothing sends it), and the PR that adds a producer
+  keeps it current. [UNAPPROVED R334] It has four action mails; admission from the waitlist sends
   "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.
@@ -155,6 +160,12 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
 - The pause lives in `kalaka_mail_states` (one row), written only by
   `PauseMail`, `ResumeMail`, `SetMailBudget` and `RecordDelivery`; only a person resumes. The
   warnings read it, never the deliveries table.
+  [UNAPPROVED R340] The hourly budget is also a WordPress setting that WordPress does not store
+  (`Pause\BudgetSetting`, group `kalaka_mail`, option `kalaka_mail_hourly_budget`): a screen saves it through
+  `options.php`, `get_option()` answers from the state row, the sanitize step runs `SetMailBudget` as the
+  saving user (a refusal is a settings error with the use case's text), `pre_update_option` hands back the old
+  value so a save through it writes no option row (the filters exist on the admin side only), and the group's
+  capability is full access.
 - Every Mail use case is site-level: only the system, WP-CLI and full access
   run it, except `kalaka/send-manual-mail`, an event use case carried by the
   grant action `kalaka_manual_mail` (`Api\ManualMails::GRANT_ACTION`) for the registrations its `selection` names,

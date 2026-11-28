@@ -137,7 +137,7 @@ final class MailPlaceholderTest extends MailBodyTestCase
         );
         $this->switchOn($event, 'registered', $body);
 
-        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         self::assertStringContainsString('Kedves Teszt Elek, kódod 12A3.', $html);
         self::assertStringContainsString(self::SECRET, $html);
@@ -152,7 +152,7 @@ final class MailPlaceholderTest extends MailBodyTestCase
         $this->switchOn($event, 'registered', $body);
 
         try {
-            (new MailRenderer())->render($event, 'registered', $key);
+            (new MailRenderer())->render($event, 'registered', $key, self::now());
             self::fail('Expected a failure.');
         } catch (BodyUnusable $e) {
             self::assertSame('unknown_placeholder {{foo}}, {{content}}', $e->problem);

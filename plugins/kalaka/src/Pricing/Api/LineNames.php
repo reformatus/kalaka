@@ -10,9 +10,9 @@ use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
- * The names of a registration's owed lines, for the admin's „Tételek”: a `charge` line's source is a fee
- * component, which names its lines when it implements `NamedFeeComponent`; every other line reads as the fixed
- * price, `fee`, „Díj”. A plain read.
+ * The names of a registration's owed lines, for the admin's „Tételek” and the participant's money table: a
+ * `charge` line's source is a fee component, which names its lines when it implements `NamedFeeComponent`; every
+ * other line reads as the fixed price, `fee`, „Díj”. Each name also carries its component's stage. A plain read.
  */
 final class LineNames
 {
@@ -36,8 +36,13 @@ final class LineNames
         }
 
         $named = [];
+        $stages = [];
         foreach ($this->components->list() as $component) {
-            if ($component instanceof NamedFeeComponent && isset($asked[$component->id()])) {
+            if (!isset($asked[$component->id()])) {
+                continue;
+            }
+            $stages[$component->id()] = $component->stage();
+            if ($component instanceof NamedFeeComponent) {
                 foreach ($component->lineNames($registration, $asked[$component->id()]) as $item => $name) {
                     $named[$component->id() . ($item === '' ? '' : ':' . $item)] = $name;
                 }
@@ -46,7 +51,11 @@ final class LineNames
 
         $names = [];
         foreach ($sources as $source) {
-            $names[$source->key] = $named[$source->key] ?? new LineName(LineName::FEE, LineKind::Charge->label());
+            $stage = $source->type === Materializer::SOURCE && $source->eventId === null
+                ? ($stages[explode(':', $source->key, 2)[0]] ?? null)
+                : null;
+            $name = $named[$source->key] ?? new LineName(LineName::FEE, LineKind::Charge->label());
+            $names[$source->key] = new LineName($name->type, $name->label, $name->title, $name->recordedBy, $stage);
         }
 
         return $names;

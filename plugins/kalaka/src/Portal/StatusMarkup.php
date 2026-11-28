@@ -6,6 +6,8 @@ namespace Kalaka\Portal;
 
 use Kalaka\Forms\Api\DateText;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Portal\Api\ActiveRegistration;
+use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Portal\Api\Availability;
 use Kalaka\Portal\Api\PaymentView;
 use Kalaka\Portal\Api\RegistrationStatusView;
@@ -25,7 +27,7 @@ final class StatusMarkup
     /** SB-11: the active registration's event is not open (unpublished, a draft or archived). */
     public const EVENT_CLOSED = 'A jelentkezésed állapota jelenleg nem érhető el.';
 
-    public const BAD_LINK = 'Ez a link nem érvényes. Nyisd meg a legutóbb kapott e-mailben lévő linket.';
+    public const BAD_LINK = ActiveRegistration::BAD_LINK_TEXT;
 
     private const MINUS = "\u{2212}";
 
@@ -44,7 +46,7 @@ final class StatusMarkup
             return $html . '<p>' . esc_html(self::EVENT_CLOSED) . '</p></section>';
         }
 
-        $html .= '<p>Azonosító: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
+        $html .= '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
             . '</span></p>';
 
         switch ($view->status) {
@@ -66,13 +68,7 @@ final class StatusMarkup
             return $html . '</section>';
         }
         $confirmed = $view->confirmation !== null && $view->confirmation->confirmed;
-        if ($payment->held) {
-            $state = self::box(
-                '<p><strong>Elbírálás alatt.</strong> Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges'
-                . ' összeget.</p>',
-                'pale-pink'
-            );
-        } elseif ($payment->overdue) {
+        if ($payment->overdue) {
             $state = self::box('<p><strong>Lejárt a fizetési határidő.</strong></p>', 'pale-pink');
         } elseif ($confirmed) {
             // SQ-8: the text on handling an overpayment is the stakeholders'; until then the table's
@@ -106,6 +102,18 @@ final class StatusMarkup
     }
 
     /**
+     * The leave block: one bare form with one button, no look of its own beyond core's button class. The
+     * label is a stand-in.
+     */
+    public static function leave(string $action, string $returnUrl): string
+    {
+        return '<form class="kalaka-leave" method="post" action="' . esc_url($action) . '">'
+            . '<input type="hidden" name="return_url" value="' . esc_attr($returnUrl) . '">'
+            . '<button type="submit" class="wp-element-button">' . esc_html(ParticipantBlocks::LEAVE_LABEL)
+            . '</button></form>';
+    }
+
+    /**
      * The payment table (lines, total, paid, then still due or overpaid), the deadline and the note on
      * hand-recorded payments. Only the amount still due is bold, and only while it is payable now.
      */
@@ -122,7 +130,7 @@ final class StatusMarkup
 
         $balance = $participant->balance;
         $due = $balance->roundedUpToPayableUnit();
-        $payableNow = $due->isPositive() && !$payment->held;
+        $payableNow = $due->isPositive() && !$payment->awaitsAnswer;
         if ($balance->isNegative() && !$balance->countsAsZero()) {
             $html .= self::moneyRow('Túlfizetés', '', $balance->negated(), false, 'kalaka-rule');
         } else {

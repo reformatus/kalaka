@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Pricing;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\RecordCharge;
 use Kalaka\Ledger\RecordDiscount;
+use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\PreviewRow;
@@ -114,7 +116,11 @@ final class ManualFeeComponentTest extends PricingTestCase
         $anna = $this->register('00A0');
         $this->record($anna, false, '3000', 'Teszt', 'f1');
 
-        $rows = $this->settings->preview($this->event, new ProposedMoneySettings($this->huf('45000')));
+        $rows = $this->settings->preview(
+            $this->event,
+            new ProposedMoneySettings($this->huf('45000')),
+            new CliActor(null)
+        );
 
         self::assertCount(1, $rows);
         self::assertInstanceOf(PreviewRow::class, $rows[0]);
@@ -156,6 +162,26 @@ final class ManualFeeComponentTest extends PricingTestCase
         self::assertSame(LineName::FEE, $names['fixed_price']->type);
         self::assertSame('Díj', $names['fixed_price']->label);
         self::assertNull($names['fixed_price']->title);
+    }
+
+    /** The stage tells the base price (the tier) from any other line; only a registered component has one. */
+    public function testTheNamesCarryTheirComponentsStage(): void
+    {
+        $anna = $this->register('00A0');
+        $this->record($anna, false, '3000', 'Teszt kirándulás', 'f1');
+        [$fee] = $this->ledger->manualFeesOf($anna);
+
+        $names = (new LineNames())->of($anna, [
+            new Subject('fee_component', null, 'fixed_price'),
+            new Subject('fee_component', null, 'manual:' . $fee->id),
+            new Subject('fee_component', null, 'retention'),
+            new Subject('other', null, 'fixed_price_like'),
+        ]);
+
+        self::assertSame(FeeStage::Tier, $names['fixed_price']->stage);
+        self::assertSame(FeeStage::Extras, $names['manual:' . $fee->id]->stage);
+        self::assertNull($names['retention']->stage);
+        self::assertNull($names['fixed_price_like']->stage);
     }
 
     public function testErasingTheNotesAlsoErasesTheTitlesAndKeepsTheFactAndItsLine(): void

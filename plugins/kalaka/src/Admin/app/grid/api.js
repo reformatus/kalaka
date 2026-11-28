@@ -125,7 +125,7 @@ export const fetchDetail = ( config, code ) =>
 
 /**
  * What a failed read means: an unknown code is a 404 ('missing'), a known code outside the holder's views a 403
- * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'. [UNAPPROVED T16]
+ * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'.
  */
 export function detailProblem( error ) {
 	if ( error && error.code === 'kalaka_registration_not_in_view' ) {
@@ -154,11 +154,11 @@ export const recordEntry = ( config, entry, can ) => {
 /**
  * Sets the manual confirmation flag (`kalaka/set-manual-confirmation`) or runs the one unconfirm
  * (`kalaka/unconfirm`: it revokes the flag if it is set and records unconfirmed with the reason; the rules then
- * decide again). The reason is required (at most 500 characters). Both answer `{ changed }`: `false` means
+ * decide again). The reason is optional (at most 500 characters). Both answer `{ changed }`: `false` means
  * nothing was written (the registration was not confirmed, or the flag was already set). Only the set is
  * idempotent. A retry of the unconfirm is a new act: on a registration the rules confirmed again at once it
  * unconfirms and re-confirms a second time, with its own records and audit entry, and there is no idempotency
- * key. So the dialog sends it once and never retries it by itself. The unconfirm has no refusal.
+ * key yet (the server is to add one, N74 reboxed). So the dialog sends it once and never retries it by itself. The unconfirm has no refusal.
  *
  * @param {Object}  config    window.kalakaGrid
  * @param {string}  code      the registration's code
@@ -171,3 +171,12 @@ export const setManualConfirmation = ( config, code, reason, unconfirm ) =>
 		code,
 		reason,
 	} );
+
+/**
+ * Answers a request (`kalaka/answer-request`): the same act for staff and for a partner, for an offer and for aid.
+ * `input` is `buildAnswer`'s (requests.js). The answer is `{ changed, answer, over_limit }`; an identical repeat
+ * answers `{ changed: false }`, so a retry is safe.
+ *
+ * @param {Object} input see `buildAnswer`
+ */
+export const answerRequest = ( input ) => runAbility( 'kalaka/answer-request', input );

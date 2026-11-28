@@ -51,7 +51,7 @@ final class FeeComposition
         if ($event === null) {
             return null;
         }
-        $facts = $this->registrations->factsOf($key, $event);
+        $facts = $this->registrations->factsOf($key, $event, $now);
         if ($facts === null) {
             return null;
         }

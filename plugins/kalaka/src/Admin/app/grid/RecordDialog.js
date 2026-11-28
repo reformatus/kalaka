@@ -2,11 +2,11 @@
  * The two recording dialogs of the „Pénzügyek” tab (S38), split by the owner's topic 6a G12 and topic 10: one
  * „Tétel rögzítése” dialog whose first field is „Típus” (Befizetés, Visszafizetés, Díj, Kedvezmény: only the
  * types the read allows, none preselected unless exactly one is allowed); the correction keeps its own dialog
- * (`kalaka/record-correction`: a direction and a required reason, no method, no date). The amount is always
+ * (`kalaka/record-correction`: a direction and an optional reason, no method, no date). The amount is always
  * typed positive and the type gives the direction. A Díj or Kedvezmény has a participant-visible title instead
  * of the method and date, and may be saved „completed immediately”. The amount is never prefilled, the payer is
  * asked only with several payers, and „Tartozás” before and after follows the amount as it is typed. A failed
- * save keeps the dialog and its values. [UNAPPROVED N39] [UNAPPROVED N40] [UNAPPROVED N41] [UNAPPROVED N16]
+ * save keeps the dialog and its values; the correction's „Megjegyzés” is optional.
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, CheckboxControl, Modal, Notice, RadioControl, TextControl } from '@wordpress/components';
@@ -49,7 +49,6 @@ export default function RecordDialog( { config, mode, can, code, money, onClose,
 	const methods = money.methods;
 	const correction = mode === 'correction';
 	// The types the dialog offers by the holder's grants; none is the default unless exactly one is allowed.
-	// [UNAPPROVED N40]
 	const types = allowedTypes( can );
 	const [ type, setType ] = useState( () => ( types.length === 1 ? types[ 0 ] : '' ) );
 	const [ direction, setDirection ] = useState( '' ); // the correction's, 'in' or 'out'
@@ -80,7 +79,7 @@ export default function RecordDialog( { config, mode, can, code, money, onClose,
 	const [ busy, setBusy ] = useState( false );
 	const form = useRef();
 	// One key per entry as sent: a retry of the same values reuses it, so a save that did reach the server is
-	// not written twice; changed values take a new one. [UNAPPROVED N22]
+	// not written twice; changed values take a new one.
 	const attempt = useRef( { sig: null, key: null } );
 
 	// Focus lands on the first field, not on the dialog frame.
@@ -148,7 +147,7 @@ export default function RecordDialog( { config, mode, can, code, money, onClose,
 			await api.recordEntry( config, { ...entry, key: attempt.current.key }, can );
 			await onDone( savedText( kind, paired ) );
 		} catch {
-			// Whatever the server refused or lost, the dialog stays with the values. [UNAPPROVED N22]
+			// Whatever the server refused or lost, the dialog stays with the values.
 			setBusy( false );
 			setFailed( true );
 		}
@@ -335,7 +334,7 @@ export default function RecordDialog( { config, mode, can, code, money, onClose,
 						<dd aria-live="polite">
 							{ after === null ? (
 								<Fragment>
-									{ /* The empty value and its screen-reader text. [UNAPPROVED T13] */ }
+									{ /* The empty value and its screen-reader text. */ }
 									<span aria-hidden="true">–</span>
 									<span className="screen-reader-text">{ MONEY.noAmount }</span>
 								</Fragment>

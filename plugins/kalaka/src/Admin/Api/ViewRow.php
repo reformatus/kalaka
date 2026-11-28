@@ -12,8 +12,12 @@ final readonly class ViewRow
     /**
      * @param array<string, string|int|null> $values by column (`code`, `status`, `serial`, `field:<key>`,
      *     `decision:<kind>`), in the view's column order; null where there is no value
+     * @param bool $awaitsAnswer the registration has a request nobody has answered (Registrations'
+     *     `Requests`); a row value only, computed per page: not a column, so not filterable, sortable or
+     *     summable. (Shapes) grid rows carry awaits_answer: bool, PHP-computed per page; not filterable, sortable
+     *     or summable (alt: a per-request-source SQL predicate seam, after opening).
      */
-    public function __construct(public RegistrationKey $key, public array $values)
+    public function __construct(public RegistrationKey $key, public array $values, public bool $awaitsAnswer = false)
     {
     }
 }
