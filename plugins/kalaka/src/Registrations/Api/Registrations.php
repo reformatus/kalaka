@@ -94,23 +94,9 @@ final class Registrations
             $event,
             $now,
             $fields->values,
+            [],
             $fields->kinds,
         );
-    }
-
-    /**
-     * The status of each of the event's registrations, by code: one statement.
-     *
-     * @return array<string, RegistrationStatus>
-     */
-    public function statusesOf(int $eventId): array
-    {
-        $statuses = [];
-        foreach ($this->list->forEvent($eventId) as $row) {
-            $statuses[$row['code']] = $row['status'];
-        }
-
-        return $statuses;
     }
 
     /**
@@ -130,6 +116,18 @@ final class Registrations
         }
 
         return $keys;
+    }
+
+    /**
+     * The statuses of some of an event's registrations, in one statement and without a lock; a code that is no
+     * registration of the event is absent from the result. A plain read.
+     *
+     * @param list<string> $codes
+     * @return array<string, RegistrationStatus> code → status
+     */
+    public function statusesOf(int $eventId, array $codes): array
+    {
+        return $this->list->statusesOf($eventId, $codes);
     }
 
     /**

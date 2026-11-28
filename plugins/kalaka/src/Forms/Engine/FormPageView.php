@@ -29,6 +29,9 @@ final readonly class FormPageView
     /** The form requires a role the current user lacks. */
     public const ROLE_REQUIRED = 'role_required';
 
+    /** An additional form with no active registration to write to: the registrant's link opens it. */
+    public const NO_ACTIVE_REGISTRATION = 'no_active_registration';
+
     /**
      * @param string|null $refusal one of the constants; null when the form shows
      * @param string $content the rendered content of the form, empty for a refusal

@@ -21,7 +21,7 @@ final class ActionMailSettings
     }
 
     /**
-     * Every action of the catalogue, a missing row as its default (off, no body, wrapped by the layout), and
+     * Every action of the catalogue, a missing row as its default (off, no body), and
      * the layout, exactly `{{content}}` until one is set.
      */
     public function ofEvent(int $eventId): EventMailSettings
@@ -31,8 +31,8 @@ final class ActionMailSettings
         foreach (ActionMail::cases() as $action) {
             $entry = $stored[$action->value] ?? null;
             $mails[] = $entry === null
-                ? new ActionMailSetting($action, false, null, true)
-                : new ActionMailSetting($action, $entry->enabled, $entry->bodyId, $entry->layout);
+                ? new ActionMailSetting($action, false, null)
+                : new ActionMailSetting($action, $entry->enabled, $entry->bodyId);
         }
 
         return new EventMailSettings($eventId, $this->layouts->of($eventId)->html, $mails);

@@ -74,7 +74,7 @@ flowchart LR
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, seats, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
-| Extras | extra charges and the donation: generic per-event charges linked by key to the participant field with the same key, and the donation, the number field with the key `adomany` |
+| Extras | extra charges and the donation: generic per-event charges, each declaring the participant field with its key for forms to join, and the donation, the number field with the key `adomany`, declared by the same save |
 | Ledger | lines, payers, balances, organizer-recorded payments, refunds and corrections, manual charges and discounts |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
@@ -86,10 +86,11 @@ flowchart LR
 Modules, workshops, talk groups, rooms and meal turns share one core concept.
 
 - **A set** belongs to an event: a name, an optional time slot,
-  required or optional, a choice window, an access mode and a **published
+  required or optional, an access mode and a **published
   switch** (for a direct set, unpublished, it is hidden from participants
-  and publishing opens the choice; a request set's field follows its choice
-  window only).
+  and publishing opens the choice). A set has **no choice window of its
+  own:** the form that holds the choice, with its own open period and
+  conditions, decides when it can be answered.
 - **An option** has a capacity, leaders (display text) and a place. Who may
   pick it is decided in the form: the form field that names the set may hold a
   condition per option ([Conditions](events-and-forms.md#conditions)).
@@ -111,16 +112,16 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
     field writes a confirmed assignment; capacity is checked
     in the transaction under a lock on the option row; a full option cannot be
     chosen; the choice can be changed through an additional form holding it
-    while the window is open, then only by staff;
+    while that form is open, then only by staff;
   - **request** (e.g. IVK's modules): the participant writes a request (a
     field value; the ranking field type comes from the `kalaka-ranking`
-    extension), which an additional form holding it can change while the
-    window is open. The request field's block either names its set, and its
+    extension), which an additional form holding it can change while that
+    form is open. The request field's block either names its set, and its
     options are then the set's, or names none and holds its own options; the
     author picks one per block. The participant field a block that names a
     set declares becomes the set's one **request field**, recorded on the
     set, and a second, different field naming the same set is refused on
-    save. The request is locked at close;
+    save. The request is locked when its form closes;
     staff run the proposer with a preview, then confirm in bulk; the
     participant sees the result once confirmed and the set is published.
     **Bulk confirmation** runs one transaction per item: it locks the option
@@ -145,8 +146,8 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 - **The assignment proposer** is an extension point. The IVK ranking engine
   is the first: it fills first choices in registration order, then second
   choices into what is left, then third; staff confirm. **It runs once, on
-  module choices frozen beforehand** (after the set's choice window has
-  closed), and need not handle later changes. Talk-group and room
+  module choices frozen beforehand** (after the form that holds the request
+  has closed), and need not handle later changes. Talk-group and room
   algorithms come later on the same point.
 - Extensions read confirmed assignments through point inputs and keep their
   own per-option data (e.g. a module's level and the needs it answers).
@@ -305,7 +306,7 @@ never our prefix.
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · seat claim source"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · slot requirement · seat claim source"]
   REG --> DECL["Declarations<br/>payer kind · block host"]
 ```
 
@@ -322,11 +323,14 @@ flowchart LR
     decision, action-mail act, assignment proposer): fires no WordPress
     hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter, seat claim source). A field type's value type
+    view column, filterable fact, theme adapter, slot requirement, seat claim source). A field type's value type
     and its reading of a stored answer as a value fire no WordPress hooks
     and write nothing (they may read, e.g. a congregation's name), so the
     evaluation reads a registration's field values with them inside the
     transaction.
+  - A **slot requirement** names participant fields the event's registration
+    form must hold, required and outside any condition (the price ladder
+    requires `price_tier`); a form without one is closed until fixed.
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, for a post type or a
