@@ -63,7 +63,13 @@ final class MailRenderer
             throw new BodyUnusable('no_body ' . $mail);
         }
 
-        return $this->renderBody($eventId, $setting->bodyId, $registration, $now);
+        return $this->renderBody(
+            $eventId,
+            $setting->bodyId,
+            $registration,
+            $now,
+            $action === ActionMail::PaymentRecorded ? $lineId : null
+        );
     }
 
     /**
@@ -71,6 +77,8 @@ final class MailRenderer
      * `render()` does once it has found the body, and what a manual mail (`Manual\MailBatch`) renders.
      *
      * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
+     * @param ?int $lineId the ledger line a "payment recorded" mail reads: `render()` passes it only for that
+     *        mail, so the `payment.*` keys are none in every other mail and in a manual one
      * @throws SystemFailure a body without a revision, a stored layout without its one placeholder (`layout`),
      *         or what `Values::render()` and the context throw
      * @throws BodyUnusable the body's own problem, as `render()`
@@ -79,7 +87,8 @@ final class MailRenderer
         int $eventId,
         int $bodyId,
         RegistrationKey $registration,
-        \DateTimeImmutable $now
+        \DateTimeImmutable $now,
+        ?int $lineId = null
     ): RenderedMail {
         $body = $this->posts->published($bodyId, $eventId);
         try {
@@ -95,7 +104,7 @@ final class MailRenderer
             $now,
             MailValues::readsPasswordLink($body->content),
             MailValues::pageLinks($body->content),
-            $action === ActionMail::PaymentRecorded ? $lineId : null
+            $lineId
         );
         MailInProgress::push($registration);
         try {
