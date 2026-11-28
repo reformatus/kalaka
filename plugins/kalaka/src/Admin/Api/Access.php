@@ -150,6 +150,28 @@ final class Access
     }
 
     /**
+     * The view the actor opens: through full access the master view (`$viewId` 0) or a stored view of the
+     * event, otherwise the view of the grant `$grantId` names, which must be on that view. The one path the
+     * grid's routes and every bulk act on the grid's rows take to a held view.
+     *
+     * @throws PermissionDenied when the actor holds no such view
+     * @throws NotFound for a stored view that is not one of the event's (full access)
+     */
+    public function viewOf(Actor $actor, int $eventId, int $viewId, int $grantId): HeldView
+    {
+        if ($this->isFull($actor)) {
+            return $viewId === 0 ? $this->master($actor, $eventId) : $this->fullView($actor, $eventId, $viewId);
+        }
+        foreach ($this->heldViews($actor, $eventId) as $held) {
+            if ($held->grantId === $grantId && ($held->viewId ?? 0) === $viewId) {
+                return $held;
+            }
+        }
+
+        throw new PermissionDenied();
+    }
+
+    /**
      * The event's master view, through full access only. It does not check that the event exists.
      *
      * @throws PermissionDenied without full access

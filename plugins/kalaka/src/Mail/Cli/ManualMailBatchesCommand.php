@@ -7,9 +7,8 @@ namespace Kalaka\Mail\Cli;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Mail\Body\MailPosts;
-use Kalaka\Mail\Manual\MailBatch;
-use Kalaka\Mail\Manual\MailBatchQuery;
+use Kalaka\Mail\Api\BatchInfo;
+use Kalaka\Mail\Api\ManualMails;
 
 /**
  * `wp kalaka mail batches`: lists what `send` queued, from the batches' own records and never from the
@@ -23,8 +22,7 @@ final class ManualMailBatchesCommand
 
     /** @param ?\Closure(string, list<array<string, mixed>>, list<string>): void $print prints rows in a format */
     public function __construct(
-        private readonly MailBatchQuery $batches = new MailBatchQuery(),
-        private readonly MailPosts $posts = new MailPosts(),
+        private readonly ManualMails $manualMails = new ManualMails(),
         private readonly ?\Closure $print = null,
     ) {
     }
@@ -68,23 +66,23 @@ final class ManualMailBatchesCommand
                 if (preg_match('/\A[1-9][0-9]*\z/', $args[1]) !== 1) {
                     throw new CommandFailure('The batch ID must be a positive whole number.');
                 }
-                $batch = $this->batches->find($eventId, (int) $args[1]) ?? throw new NotFound();
-                $rows = array_map(static fn ($member): array => [
-                    'code' => $member->code,
-                    'outcome' => $member->outcome,
-                ], $this->batches->members($batch->id));
+                $batch = $this->manualMails->batch($eventId, (int) $args[1]) ?? throw new NotFound();
+                $rows = array_map(static fn (array $member): array => [
+                    'code' => $member['code'],
+                    'outcome' => $member['outcome'],
+                ], $batch->members ?? []);
                 $this->show($format, $rows, self::MEMBER_FIELDS);
 
                 return;
             }
-            $rows = array_map(fn (MailBatch $batch): array => [
+            $rows = array_map(fn (BatchInfo $batch): array => [
                 'batch' => $batch->id,
                 'created_at_utc' => $batch->createdAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
                 'by' => self::who($batch->createdBy),
-                'body' => $batch->bodyId . ' ' . $this->subject($batch->bodyId),
+                'body' => $batch->bodyId . ' ' . ($batch->bodyGone ? '(gone)' : $batch->subject),
                 'queued' => $batch->queued,
                 'skipped' => $batch->skipped,
-            ], $this->batches->ofEvent($eventId));
+            ], $this->manualMails->batches($eventId));
             $this->show($format, $rows, self::BATCH_FIELDS);
         });
     }
@@ -113,12 +111,5 @@ final class ManualMailBatchesCommand
         $user = get_userdata($userId);
 
         return $user === false ? 'user ' . $userId : $user->user_login . ' (user ' . $userId . ')';
-    }
-
-    private function subject(int $bodyId): string
-    {
-        $post = $this->posts->eventOf($bodyId) === null ? null : get_post($bodyId);
-
-        return $post instanceof \WP_Post ? $post->post_title : '(gone)';
     }
 }

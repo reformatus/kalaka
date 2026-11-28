@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail;
 
+use Kalaka\Admin\Api\Abilities;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Forms\Api\BlockHost;
 use Kalaka\Foundation\Api\Entry\Boundary;
@@ -12,18 +13,26 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\MailQueue;
-use Kalaka\Mail\Body\KindComposer;
+use Kalaka\Mail\Api\ManualMails;
 use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Body\BodyInUse;
+use Kalaka\Mail\Body\KindComposer;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Body\MailRestController;
+use Kalaka\Mail\Catalogue\SetEventMailLayout;
+use Kalaka\Mail\Catalogue\UpdateActionMail;
 use Kalaka\Mail\Cli\ActionMailCommand;
 use Kalaka\Mail\Cli\MailCommand;
 use Kalaka\Mail\Cli\ManualMailBatchesCommand;
 use Kalaka\Mail\Cli\ManualMailCommand;
+use Kalaka\Mail\Manual\SendManualMail;
 use Kalaka\Mail\Pause\PauseCause;
+use Kalaka\Mail\Pause\PauseMail;
 use Kalaka\Mail\Pause\PauseWarning;
 use Kalaka\Mail\Pause\RequestState;
+use Kalaka\Mail\Pause\ResumeMail;
+use Kalaka\Mail\Pause\SetMailBudget;
+use Kalaka\Mail\Rest\MailRoutes;
 
 final class Module extends AbstractModule
 {
@@ -177,7 +186,7 @@ SQL;
      */
     public function capabilities(): array
     {
-        return ['kalaka_manual_mail'];
+        return [ManualMails::GRANT_ACTION];
     }
 
     public function contribute(Contributions $to): void
@@ -196,12 +205,66 @@ SQL;
             Boundary::background('mail sender', static fn (): mixed => $sender->send());
         });
         add_action('init', [$this, 'register']);
+        add_action('rest_api_init', [MailRoutes::class, 'register']);
+        $this->registerAbilities();
         if (defined('WP_CLI') && WP_CLI) {
             ActionMailCommand::register();
             MailCommand::register();
             ManualMailCommand::register();
             ManualMailBatchesCommand::register();
         }
+    }
+
+    /**
+     * The Mail use cases as abilities, each the one entry a screen and the command line share. The two that read
+     * WordPress data first make their use case per call (`prepared()`, the same call the PHP entries make).
+     * Every one is site-level and full access's, except the manual send, which a grant carries. The labels and
+     * descriptions are drafts for the lektor. [UNAPPROVED T510, T511, T512, T513, T514, T515, T516]
+     */
+    private function registerAbilities(): void
+    {
+        Abilities::register(
+            new UpdateActionMail(),
+            'Küldési pont beállítása',
+            'Egy esemény valamelyik küldési pontjának be- vagy kikapcsolása és sablonjának kiválasztása.',
+            UpdateActionMail::prepared(...)
+        );
+        Abilities::register(
+            new SetEventMailLayout(),
+            'Levélkeret mentése',
+            'Egy esemény levélkeretének mentése.'
+        );
+        Abilities::register(
+            new PauseMail(),
+            'Levélküldés szüneteltetése',
+            'A levélküldés leállítása; a levelek a küldési sorban gyűlnek.'
+        );
+        Abilities::register(
+            new ResumeMail(),
+            'Levélküldés folytatása',
+            'A szüneteltetett levélküldés folytatása.'
+        );
+        Abilities::register(
+            new SetMailBudget(),
+            'Óránként küldhető levelek számának beállítása',
+            'Annak beállítása, hogy óránként legfeljebb hány levelet küldhet a Kaláka.'
+        );
+        Abilities::register(
+            new ClearMailQueue(),
+            'Küldési sor ürítése',
+            'Minden küldésre váró levél törlése a küldési sorból.'
+        );
+        Abilities::register(
+            new ClearEventMail(),
+            'Esemény küldésre váró leveleinek törlése',
+            'Egy nem közzétett esemény küldésre váró leveleinek törlése.'
+        );
+        Abilities::register(
+            new SendManualMail(),
+            'Levél küldése jelentkezőknek',
+            'Levél küldése egy levélsablonból a kiválasztott jelentkezőknek.',
+            SendManualMail::prepared(...)
+        );
     }
 
     /** @internal the `init` callback */

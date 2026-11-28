@@ -318,6 +318,18 @@ final class FormBlockTest extends FormsTestCase
         self::assertSame(0, preg_match('/[0-9a-f]{32}/', $html));
     }
 
+    /** 8.13: a typed `{{key}}` shows its value on the form page's load, beside the inline value span. */
+    public function testATypedPlaceholderShowsTheEventsNameOnTheFormPagesLoad(): void
+    {
+        $paragraph = '<!-- wp:paragraph --><p>Tábor: {{event.name}}</p><!-- /wp:paragraph -->';
+        $id = $this->formOf($paragraph, $this->eventWithWindow(name: 'Őszi tábor'));
+
+        $html = $this->render($id);
+
+        self::assertStringContainsString('<p class="wp-block-paragraph">Tábor: Őszi tábor</p>', $html);
+        self::assertStringNotContainsString('{{event.name}}', $html);
+    }
+
     public function testEveryFieldHasOneErrorElementAndTheFormAddsNoSecond(): void
     {
         $html = $this->render($this->formOf($this->sizes()));
