@@ -150,7 +150,6 @@ final class Texts
     public const BATCH_SKIPPED = 'Kihagyva';
     public const BATCH_OPEN = '%d. csoportos levél részletei';
     public const BATCH_MANUAL = '%d. csoportos levél';
-    public const BATCH_MEMBERS = 'Jelentkezők';
     public const NUMBERED = '%1$s (%2$d. levélsablon)';
     public const LAYOUT_LINK = 'Levélkeret';
     public const LAYOUT_TITLE = 'Levélkeret';

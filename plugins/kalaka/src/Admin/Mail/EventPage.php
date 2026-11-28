@@ -104,7 +104,7 @@ final class EventPage
                     Texts::BATCH_QUEUED,
                     Texts::BATCH_SKIPPED,
                 ],
-                'memberColumns' => [Texts::BATCH_MEMBERS, Texts::TROUBLED_STATUS],
+                'memberColumns' => [Texts::TROUBLED_CODE, Texts::TROUBLED_STATUS],
                 'troubledTitle' => Texts::TROUBLED_TITLE,
                 'troubledColumns' => [
                     Texts::TROUBLED_CODE,
@@ -148,14 +148,16 @@ final class EventPage
             'failed',
             Texts::FAILED,
             (int) $stats->failed,
-            $data['troubled'] === [] ? '' : 'data-kalaka-troubled'
+            $data['troubled'] === [] ? '' : 'data-kalaka-troubled',
+            Texts::TROUBLED_TITLE
         );
         // The group mails: their count, and their list in a window; no button while there is none. [UNAPPROVED N1298]
         $html .= self::figure(
             'batches',
             Texts::BATCHES_TITLE,
             count($data['batches']),
-            $data['batches'] === [] ? '' : 'data-kalaka-batches'
+            $data['batches'] === [] ? '' : 'data-kalaka-batches',
+            Texts::BATCHES_TITLE
         );
         $html .= '</ul>';
         if ($data['canClear']) {
@@ -169,16 +171,16 @@ final class EventPage
 
     /**
      * One figure: „label: number”, and the button of its window when `$opens` names one. The button's accessible
-     * name is its own word and the figure's label („Részletek Sikertelen”).
+     * name is its own word and the window's title („Részletek: Küldési hibák”, the lektor's form).
      */
-    private static function figure(string $key, string $label, int $number, string $opens = ''): string
+    private static function figure(string $key, string $label, int $number, string $opens = '', string $window = ''): string
     {
         $id = 'kalaka-figure-' . $key;
         $html = '<li><span id="' . esc_attr($id) . '">' . esc_html($label) . '</span>: <strong>' . $number
             . '</strong>';
         if ($opens !== '') {
             $html .= ' <button type="button" class="button button-compact" id="' . esc_attr($id . '-open') . '" '
-                . esc_attr($opens) . ' aria-labelledby="' . esc_attr($id . '-open ' . $id) . '">'
+                . esc_attr($opens) . ' aria-label="' . esc_attr(Texts::DETAILS . ': ' . $window) . '">'
                 . esc_html(Texts::DETAILS) . '</button>';
         }
 

@@ -267,6 +267,11 @@
 			}
 		}
 
+		// The switch keeps its own tap area in a stacked cell, not the whole cell's width (UX review 2).
+		td[data-colname] > .components-form-toggle {
+			justify-self: start;
+		}
+
 		.kalaka-mail-acts {
 			text-align: left;
 		}
