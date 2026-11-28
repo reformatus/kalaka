@@ -93,6 +93,12 @@ final class TierQuotaTest extends PriceLadderTestCase
         self::assertArrayNotHasKey('limit', $document['tiers'][0]);
     }
 
+    public function testALimitAboveTheColumnIsRefused(): void
+    {
+        $this->expectException(InvalidInput::class);
+        $this->ladder->propose($this->event, self::tiers(4294967296));
+    }
+
     public function testANegativeLimitIsRefusedAndZeroIsAllowed(): void
     {
         try {
@@ -235,7 +241,7 @@ final class TierQuotaTest extends PriceLadderTestCase
 
     /**
      * Stands in for the admission test of S23, which will go through the claim sources and the admission use
-     * case: here the act is its seat step alone. [UNAPPROVED N3]
+     * case: here the act is its seat step alone.
      */
     public function testAnAdmittedRegistrationWhoseTierIsFullKeepsItsTierAndTakesItsSeatOverTheLimit(): void
     {

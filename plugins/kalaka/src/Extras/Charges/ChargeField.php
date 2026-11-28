@@ -6,7 +6,9 @@ namespace Kalaka\Extras\Charges;
 
 use Kalaka\Extras\Api\Charge;
 use Kalaka\Forms\Api\FieldKind;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\ParticipantFields\Api\FieldDecimalsHeld;
 use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
@@ -17,15 +19,17 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * type, so a key `ParticipantFields::checkDeclarable()` refuses (a `staff` or `system` field, a field of another
  * type, another declarer's field) is refused here as the declaration would refuse it, and a number field that
  * multiplies the amount must take whole numbers (decimals 0). It reads the event's participant fields
- * (no post). [UNAPPROVED N13]
+ * (no post).
  */
 final class ChargeField
 {
-    /** The declarer Extras stores as `declared_by` on the fields it declares: its module's ID. [UNAPPROVED N300] */
+    /** The declarer Extras stores as `declared_by` on the fields it declares: its module's ID. */
     public const DECLARER = 'extras';
 
-    public function __construct(private readonly ParticipantFields $fields = new ParticipantFields())
-    {
+    public function __construct(
+        private readonly ParticipantFields $fields = new ParticipantFields(),
+        private readonly Forms $forms = new Forms(),
+    ) {
     }
 
     /** The participant field type a charge of this type declares. */
@@ -35,19 +39,15 @@ final class ChargeField
     }
 
     /**
-     * The charge's type as its declared field says: a number for an `extension` number field, a consent for
-     * anything else (including a key no field has yet).
+     * The charge's type as its field's type says, whatever the field's source: a number for a number field (a
+     * `form` field a declaration will adopt included), a consent for anything else, including a key no field has
+     * yet. So a shown charge reads back as the operator wrote it, and its document applies again.
      *
      * @param array<string, ParticipantField> $fields the event's fields by key
      */
     public static function typeOf(array $fields, string $key): string
     {
-        $field = $fields[$key] ?? null;
-        $declaredNumber = $field !== null
-            && $field->source === ParticipantField::SOURCE_EXTENSION
-            && $field->type === FieldKind::NUMBER;
-
-        return $declaredNumber ? Charge::NUMBER : Charge::CONSENT;
+        return ($fields[$key] ?? null)?->type === FieldKind::NUMBER ? Charge::NUMBER : Charge::CONSENT;
     }
 
     /**
@@ -67,6 +67,24 @@ final class ChargeField
             if ($multiplier && $block === FieldKind::NUMBER && (int) ($field->settings['decimals'] ?? 0) !== 0) {
                 throw new InvalidInput();
             }
+        }
+    }
+
+    /**
+     * A number charge fixes its field's decimals at 0, so no form of the event may hold a number field under the
+     * key with other decimals: adopting the key would close it (`SharedKeyCheck`'s `extension_decimals`). It reads
+     * the event's form posts (every status whose fields count, `Forms::formsWithOtherDecimals()`), so it runs
+     * outside a use case's transaction: at the preview and again just before the apply runs the save, never in
+     * the save. The record-based check of `check()` is the one inside it.
+     *
+     * @throws FieldDecimalsHeld when a form holds the key with other decimals
+     */
+    public function checkForms(int $eventId, string $key): void
+    {
+        $forms = $this->forms->formsWithOtherDecimals($eventId, $key, 0);
+        if ($forms !== []) {
+            $held = new FieldDecimalsHeld($key, $forms);
+            throw $held;
         }
     }
 }

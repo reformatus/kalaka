@@ -355,7 +355,9 @@ final class PeriodicRunHealthTest extends PeriodicTestCase
 
         // The test bootstrap defines DISABLE_WP_CRON, which makes wp_cron() spawn nothing, so this
         // calls spawn_cron(), the function wp_cron() ends in for a due event.
-        self::assertArrayHasKey(PeriodicSchedule::HOOK, current(wp_get_ready_cron_jobs()) ?: []);
+        // Any ready bucket: WordPress's own events, scheduled when the suite started, fall due before this one
+        // once the suite has run a minute, and the earliest bucket is then theirs.
+        self::assertArrayHasKey(PeriodicSchedule::HOOK, array_merge(...array_values(wp_get_ready_cron_jobs())));
         spawn_cron();
 
         self::assertCount(1, $urls);

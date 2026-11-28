@@ -115,12 +115,13 @@ final class StatusActsTest extends StaffEditTestCase
     private function mailOn(string $mail): void
     {
         global $wpdb;
+        $body = self::factory()->post->create(['post_type' => 'kalaka_mail', 'post_title' => 'Teszt levél']);
         $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
             'event_id' => $this->event,
             'mail' => $mail,
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => $body,
         ]);
     }
 
@@ -875,7 +876,6 @@ final class StatusActsTest extends StaffEditTestCase
     {
         require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
         \WP_CLI::reset();
-        \WP_CLI::$answersYes = true;
         $command = new RegistrationCommand($this->runner, $this->corrections(), new StatusActions($this->runner));
         $this->capacity(1);
 
@@ -904,7 +904,6 @@ final class StatusActsTest extends StaffEditTestCase
 
         // No act needs a reason, the command included.
         \WP_CLI::reset();
-        \WP_CLI::$answersYes = true;
         $command->remove([(string) $this->event, '00A2'], []);
         self::assertSame('removed', $this->row('00A2')['status']);
         $command->restore([(string) $this->event, '00A2'], []);
@@ -1362,7 +1361,11 @@ final class StatusActsTest extends StaffEditTestCase
             self::assertSame('everything_paid', (new MoneySettings($this->runner))->retention($this->event)->id());
         }
         $this->expectException(InvalidInput::class);
-        (new MoneySettings($this->runner))->preview($this->event, new ProposedMoneySettings(retention: 'bogus'));
+        (new MoneySettings($this->runner))->preview(
+            $this->event,
+            new ProposedMoneySettings(retention: 'bogus'),
+            new CliActor(null)
+        );
     }
 
     public function testARestoreTakesTheRetentionLineBackAndTheFullFeeReturns(): void
@@ -1403,7 +1406,7 @@ final class StatusActsTest extends StaffEditTestCase
         $settings = new MoneySettings($this->runner);
         $proposed = new ProposedMoneySettings(retention: 'nothing');
 
-        $rows = $settings->preview($this->event, $proposed);
+        $rows = $settings->preview($this->event, $proposed, new CliActor(null));
 
         $byCode = [];
         foreach ($rows as $row) {
@@ -1417,7 +1420,7 @@ final class StatusActsTest extends StaffEditTestCase
         // Without a proposed rule the leavers are left out, as the apply does not touch them.
         $codes = array_map(
             static fn ($row): string => $row->registration->code,
-            $settings->preview($this->event, new ProposedMoneySettings())
+            $settings->preview($this->event, new ProposedMoneySettings(), new CliActor(null))
         );
         self::assertNotContains('00A0', $codes);
         $report = $settings->apply($this->event, $proposed, new CliActor(null));

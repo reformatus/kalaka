@@ -11,7 +11,7 @@
  * Requires Plugins: kalaka
  */
 
-// The plugin name is UI text: [UNAPPROVED T54].
+// The plugin name is UI text.
 
 declare(strict_types=1);
 

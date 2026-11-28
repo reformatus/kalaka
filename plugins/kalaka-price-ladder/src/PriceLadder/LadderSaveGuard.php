@@ -13,13 +13,13 @@ use Kalaka\Registrations\Api\Registrations;
 /**
  * The rules that keep a ladder save from going wrong, checked in the preview and before any save of an apply, and
  * again inside the use case as a guard, so a refusal comes from here and never from a failure afterwards:
- * - a tier an open (`registered` or `waitlisted`) registration has chosen is not removed ([UNAPPROVED N129], as
+ * - a tier an open (`registered` or `waitlisted`) registration has chosen is not removed (as
  *   #237's `OfferChangeGuard` does for a selected offer): the registration would have no price to owe, and the
  *   re-price would fail only after the save. A removed tier no open registration chose is removed as before, and
  *   its option is retired. A plain read: one `Registrations::refuseRemovingChosen()` per removed tier, which
  *   refuses with `ItemChosen` (`kalaka_item_chosen`).
  * - `price_tier` is free for the ladder to declare (`ParticipantFields::checkDeclarable()`, the one check the
- *   declaration makes too) whenever the event has a ladder, stored or proposed ([UNAPPROVED N130]).
+ *   declaration makes too) whenever the event has a ladder, stored or proposed.
  *
  * Every chosen tier holds a seat row, limited or not, so a limit may be added or changed at any time. The race
  * with a submit that chooses the tier while it is removed is accepted: the submit's pool lock finds the row gone.

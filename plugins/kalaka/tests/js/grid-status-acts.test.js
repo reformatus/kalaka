@@ -126,6 +126,22 @@ describe( 'the acts row', () => {
 		await act( async () => root.render( createElement( StatusActs, { config, code: 'x', can, stale: true, reload: () => {}, onSaved: () => {} } ) ) );
 		expect( host.querySelectorAll( 'button' ) ).toHaveLength( 0 );
 	} );
+
+	test( 'puts the buttons in the slot of the status row (N4), or in a row of their own when the read has no status word', async () => {
+		host = document.createElement( 'div' );
+		document.body.appendChild( host );
+		root = createRoot( host );
+		const can = { withdraw: true };
+		const props = { config, code: 'x', can, status: 'registered', reload: () => {}, onSaved: () => {} };
+		await act( async () => root.render( createElement( StatusActs, { ...props, text: 'Jelentkezett' } ) ) );
+		expect( host.querySelector( '.kg-panel-status .kg-panel-slot button' ).textContent ).toBe( STATUS_ACTS.withdraw );
+		await act( async () => root.render( createElement( StatusActs, { ...props, text: 'Jelentkezett', can: {} } ) ) );
+		expect( host.querySelector( '.kg-panel-status' ) ).not.toBeNull();
+		expect( host.querySelector( '.kg-panel-slot' ) ).toBeNull();
+		await act( async () => root.render( createElement( StatusActs, props ) ) );
+		expect( host.querySelector( '.kg-panel-status' ) ).toBeNull();
+		expect( host.querySelector( '.kg-panel-row .kg-panel-slot button' ).textContent ).toBe( STATUS_ACTS.withdraw );
+	} );
 } );
 
 describe( 'the call', () => {

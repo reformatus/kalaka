@@ -13,7 +13,7 @@ use Kalaka\Registrations\Api\SeatClaimSource;
  * The seat claim source of the set options (modules-and-extensions.md, "Assignment sets"). A request names an
  * option but takes no seat: staff confirm it later and the confirmation takes the seat (`PlaceRegistration`), so
  * a submit claims none here. Its pools are every option of every set that has a request field, keyed by that
- * field: `seats_left.<request field key>.<option value>`. [UNAPPROVED N126]
+ * field: `seats_left.<request field key>.<option value>`.
  */
 final class SetOptionClaimSource implements SeatClaimSource
 {

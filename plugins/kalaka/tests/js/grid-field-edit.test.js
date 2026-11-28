@@ -143,9 +143,10 @@ describe( 'which fields get a control', () => {
 		expect( host.querySelectorAll( 'button' ) ).toHaveLength( 0 );
 	} );
 
-	test( 'no list without fields, no button while stale', async () => {
+	test( 'no list without fields (the tab says so), no button while stale', async () => {
 		await mount( createElement( FieldsBlock, { config, code: 'x', detail: { fields: [] }, stale: false, reload: () => {}, onSaved: () => {} } ) );
-		expect( host.innerHTML ).toBe( '' );
+		expect( host.querySelector( 'dl' ) ).toBeNull();
+		expect( host.querySelector( '.kg-none' ).textContent ).toBe( FIELDS.none );
 		await act( async () => root.render( createElement( FieldsBlock, { config, code: 'x', detail: { fields: [ NAME ] }, stale: true, reload: () => {}, onSaved: () => {} } ) ) );
 		expect( host.querySelectorAll( 'button' ) ).toHaveLength( 0 );
 	} );

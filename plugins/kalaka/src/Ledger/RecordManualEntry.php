@@ -17,9 +17,9 @@ use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\Api\Payer;
-use Kalaka\Ledger\Api\PayerKind;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
+use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 
@@ -39,6 +39,7 @@ abstract class RecordManualEntry implements AdminUseCase
         private readonly Events $events = new Events(),
         private readonly Registrations $registrations = new Registrations(),
         private readonly PayerKinds $payerKinds = new PayerKinds(),
+        private readonly ActionMails $mails = new ActionMails(),
     ) {
     }
 
@@ -144,13 +145,6 @@ abstract class RecordManualEntry implements AdminUseCase
             throw new InvalidInput();
         }
         $payer = isset($input['payer']) ? (string) $input['payer'] : Payer::PARTICIPANT;
-        $declared = array_map(
-            static fn (PayerKind $kind): string => $kind->id,
-            $this->payerKinds->of($event->id)
-        );
-        if (!in_array($payer, $declared, true)) {
-            throw new InvalidInput();
-        }
         $correction = $this->isCorrection();
         $method = null;
         $valueDate = null;
@@ -168,6 +162,10 @@ abstract class RecordManualEntry implements AdminUseCase
 
         if (!$this->registrations->lock($key, $context)) {
             throw new NotFound();
+        }
+        // The payer is judged under the registration's lock: its kind applies or it has lines here.
+        if (!$this->payerKinds->mayRecordFor($key, $payer)) {
+            throw new InvalidInput();
         }
         $kind = $this->kind($input);
         $line = new NewLine(
@@ -206,6 +204,10 @@ abstract class RecordManualEntry implements AdminUseCase
                 ]
             );
         }
+
+        // The "payment recorded" mail: queued for a payment or a refund, never for a correction (the one rule is
+        // `ActionMails::lineRecorded()`), keyed by the line, so a replay queues nothing.
+        $this->mails->lineRecorded($context, $recorded);
 
         return ['id' => $recorded->line->id];
     }

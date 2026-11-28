@@ -85,7 +85,7 @@ final class ManualConfirmationAbilityTest extends ManualEntryTestCase
         self::assertSame(['changed' => true], $this->ability('kalaka/unconfirm')->execute($input));
     }
 
-    public function testWordPressAcceptsAMissingReason(): void
+    public function testAMissingReasonIsAccepted(): void
     {
         wp_set_current_user($this->admin->userId);
 

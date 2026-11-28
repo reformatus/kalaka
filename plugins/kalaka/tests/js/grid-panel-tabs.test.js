@@ -8,13 +8,13 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import DetailPanel from '../../src/Admin/app/grid/DetailPanel';
-import { awaitingOf, offeredOf } from '../../src/Admin/app/grid/RequestsBlock';
+import { awaitingOf, hasRequests, offeredOf } from '../../src/Admin/app/grid/RequestsBlock';
 import { PANEL, REQUESTS } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement: h, useState } = require( 'react' );
 	const Button = ( { children, label, onClick, ...rest } ) => h( 'button', { 'aria-label': label || rest[ 'aria-label' ], onClick }, children );
-	const TabPanel = ( { tabs, initialTabName, children } ) => {
+	const TabPanel = ( { tabs, initialTabName, onSelect, children } ) => {
 		const [ name, setName ] = useState( initialTabName );
 		const tab = tabs.find( ( t ) => t.name === name ) || tabs[ 0 ];
 		return h(
@@ -24,7 +24,12 @@ jest.mock( '@wordpress/components', () => {
 				'div',
 				{ role: 'tablist' },
 				tabs.map( ( t ) =>
-					h( 'button', { key: t.name, role: 'tab', 'aria-selected': t.name === tab.name, disabled: t.disabled, onClick: () => setName( t.name ) }, t.title )
+					h( 'button', { key: t.name, role: 'tab', 'aria-selected': t.name === tab.name, disabled: t.disabled, onClick: () => {
+							setName( t.name );
+							if ( onSelect ) {
+								onSelect( t.name );
+							}
+						} }, t.title )
 				)
 			),
 			h( 'div', { 'data-tab': tab.name }, children( tab ) )
@@ -67,6 +72,9 @@ const mount = async ( detail ) => {
 		root.render( createElement( DetailPanel, { config: {}, code: 'AB12', again: 0, onClose() {}, onSaved() {} } ) );
 	} );
 };
+beforeEach( () => {
+	window.sessionStorage.clear();
+} );
 afterEach( () => {
 	act( () => root.unmount() );
 	host.remove();
@@ -75,9 +83,9 @@ const tabTitles = () => Array.from( host.querySelectorAll( '[role="tab"]' ) ).ma
 const strip = () => host.querySelector( '.kg-awaiting' );
 
 describe( 'the panel tabs', () => {
-	it( 'has Adatok, Kérelmek, Pénzügyek and the disabled last one, in that order, on the first as default', async () => {
+	it( 'has Adatok, Kérelmek and Pénzügyek, in that order and no „Hamarosan…”, on the first as default', async () => {
 		await mount( detailOf() );
-		expect( tabTitles() ).toEqual( [ PANEL.tabFields, PANEL.tabRequests, PANEL.tabMoney, PANEL.tabSoon ] );
+		expect( tabTitles() ).toEqual( [ PANEL.tabFields, PANEL.tabRequests, PANEL.tabMoney ] );
 		expect( host.querySelector( '[data-tab]' ).dataset.tab ).toBe( 'fields' );
 		expect( host.textContent ).toContain( 'fields-body' );
 	} );
@@ -96,14 +104,41 @@ describe( 'the panel tabs', () => {
 		expect( host.textContent ).toContain( 'money-body' );
 	} );
 
-	it( 'leaves out the tabs the read has nothing for', async () => {
-		await mount( detailOf( { can: { answer_request: false, view_money: false }, money: undefined } ) );
+	it( 'leaves out only the tabs the read carries no part for (the viewer has no right to them)', async () => {
+		await mount( detailOf( { can: { answer_request: false, view_money: false }, money: undefined, requests: undefined } ) );
 		expect( tabTitles() ).toEqual( [ PANEL.tabFields ] );
 	} );
 
-	it( 'has no tab list when nothing is on offer', async () => {
-		await mount( detailOf( { can: {}, money: undefined, fields: [] } ) );
+	it( 'has no tab list when the read carries no part for any tab', async () => {
+		await mount( detailOf( { can: {}, money: undefined, requests: undefined, fields: undefined } ) );
 		expect( tabTitles() ).toEqual( [] );
+	} );
+
+	it( 'shows a tab whose part is present but empty, with its own empty text (N12, N1201)', async () => {
+		await mount( detailOf( { fields: [], requests: { currency: 'HUF', items: [] } } ) );
+		expect( tabTitles() ).toEqual( [ PANEL.tabFields, PANEL.tabRequests, PANEL.tabMoney ] );
+		await act( async () => {
+			Array.from( host.querySelectorAll( '[role="tab"]' ) ).find( ( t ) => t.textContent === PANEL.tabRequests ).click();
+		} );
+		expect( host.querySelector( '[data-tab] .kg-none' ).textContent ).toBe( REQUESTS.none );
+	} );
+
+	it( 'opens on the tab clicked last, also for another registration (N1201)', async () => {
+		await mount( detailOf() );
+		await act( async () => {
+			Array.from( host.querySelectorAll( '[role="tab"]' ) ).find( ( t ) => t.textContent === PANEL.tabRequests ).click();
+		} );
+		await act( async () => root.unmount() );
+		host.remove();
+		await mount( detailOf() );
+		expect( host.querySelector( '[data-tab]' ).dataset.tab ).toBe( 'requests' );
+	} );
+
+	it( 'falls back to the first tab when the remembered one is not there, and keeps the memory (N1264)', async () => {
+		window.sessionStorage.setItem( 'kalaka-panel-tab', 'money' );
+		await mount( detailOf( { can: { answer_request: true, view_money: false }, money: undefined } ) );
+		expect( host.querySelector( '[data-tab]' ).dataset.tab ).toBe( 'fields' );
+		expect( window.sessionStorage.getItem( 'kalaka-panel-tab' ) ).toBe( 'money' );
 	} );
 } );
 
@@ -166,7 +201,7 @@ describe( 'a failed re-read (review M1)', () => {
 			host.querySelector( '[data-done]' ).click();
 		} );
 		expect( host.querySelector( '.kg-load-fail' ).textContent ).toBe( PANEL.loadFail );
-		expect( tabTitles() ).toEqual( [ PANEL.tabFields, PANEL.tabRequests, PANEL.tabMoney, PANEL.tabSoon ] );
+		expect( tabTitles() ).toEqual( [ PANEL.tabFields, PANEL.tabRequests, PANEL.tabMoney ] );
 		expect( host.querySelector( '[role="tablist"]' ).style.display ).not.toBe( 'none' );
 		expect( host.querySelector( '[data-tab]' ).dataset.tab ).toBe( 'requests' );
 		expect( host.querySelectorAll( '[data-tab] li' ) ).toHaveLength( 0 );
@@ -175,10 +210,12 @@ describe( 'a failed re-read (review M1)', () => {
 } );
 
 describe( 'what a panel offers', () => {
-	it( 'offeredOf is empty without the ability or while stale; awaitingOf keeps the awaiting', () => {
+	it( 'offeredOf is what the read carries, empty without it or while stale; awaitingOf keeps the awaiting', () => {
 		expect( offeredOf( detailOf(), false ) ).toHaveLength( 2 );
 		expect( offeredOf( detailOf(), true ) ).toEqual( [] );
-		expect( offeredOf( detailOf( { can: {} } ), false ) ).toEqual( [] );
+		expect( offeredOf( detailOf( { requests: undefined } ), false ) ).toEqual( [] );
+		expect( hasRequests( detailOf() ) ).toBe( true );
+		expect( hasRequests( detailOf( { requests: undefined } ) ) ).toBe( false );
 		expect( awaitingOf( [ aid, offer ] ) ).toEqual( [ aid ] );
 	} );
 } );

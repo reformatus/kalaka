@@ -49,13 +49,19 @@ export async function fetchPage(
 	return {
 		rows,
 		total: parseInt( response.headers.get( 'X-WP-Total' ) || '0', 10 ),
+		totalPages: parseInt( response.headers.get( 'X-WP-TotalPages' ) || '1', 10 ),
 	};
 }
 
-/** Every row the filters and search leave, in pages of the most one page may hold, in the given order. */
+/**
+ * Every row the filters and search leave: the grid's own rows read, page after page at the most one page may hold,
+ * with the same grant, filters, search and order, until the `X-WP-TotalPages` header says the last page is read. A
+ * failed page rejects the whole read (nothing partial is returned).
+ */
 export async function fetchAll( config, tab, sort = null, desc = false, narrow = null ) {
 	const rows = [];
-	for ( let page = 1; ; page++ ) {
+	let totalPages = 1;
+	for ( let page = 1; page <= totalPages; page++ ) {
 		const result = await fetchPage( config, tab, {
 			sort,
 			desc,
@@ -64,10 +70,9 @@ export async function fetchAll( config, tab, sort = null, desc = false, narrow =
 			narrow,
 		} );
 		rows.push( ...result.rows );
-		if ( ! result.rows.length || rows.length >= result.total ) {
-			return rows;
-		}
+		totalPages = result.totalPages;
 	}
+	return rows;
 }
 
 /**
@@ -121,7 +126,7 @@ export const fetchDetail = ( config, code ) =>
 
 /**
  * What a failed read means: an unknown code is a 404 ('missing'), a known code outside the holder's views a 403
- * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'. [UNAPPROVED T16]
+ * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'.
  */
 export function detailProblem( error ) {
 	if ( error && error.code === 'kalaka_registration_not_in_view' ) {
@@ -154,18 +159,18 @@ export const recordEntry = ( config, entry, can ) => {
  * nothing was written (the registration was not confirmed, or the flag was already set). Only the set is
  * idempotent. A retry of the unconfirm is a new act: on a registration the rules confirmed again at once it
  * unconfirms and re-confirms a second time, with its own records and audit entry, and there is no idempotency
- * key. So the dialog sends it once and never retries it by itself. The unconfirm has no refusal.
+ * key yet (the server is to add one, N74 reboxed). So the dialog sends it once and never retries it by itself. The unconfirm has no refusal.
  *
  * @param {Object}  config    window.kalakaGrid
  * @param {string}  code      the registration's code
- * @param {string}  reason    why, '' for none
+ * @param {string}  reason    why
  * @param {boolean} unconfirm the unconfirm (else set the manual flag)
  */
 export const setManualConfirmation = ( config, code, reason, unconfirm ) =>
 	runAbility( unconfirm ? 'kalaka/unconfirm' : 'kalaka/set-manual-confirmation', {
 		event_id: config.event,
 		code,
-		...( reason === '' ? {} : { reason } ), // optional (J21)
+		reason,
 	} );
 
 /**

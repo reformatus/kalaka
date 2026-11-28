@@ -10,7 +10,8 @@ use Kalaka\Mail\Pause\MailStateQuery;
 
 /**
  * The mail counts for the admin dashboard ("Levelek", and the mail rows of "Összesítés" and "Teendők").
- * Counts only, with no addresses and no error text; shown to full access only. mail.md, "Failures":
+ * Counts only, with no addresses; the pause carries the error that caused it, as stored (#240 N3). Shown to
+ * full access only. mail.md, "Failures":
  * staff see which deliveries carry an error, failed, or were left in "sending".
  */
 final class MailStats
@@ -27,10 +28,32 @@ final class MailStats
         $state = $this->state->current();
         $paused = null;
         if ($state->pausedAt !== null && $state->cause !== null) {
-            $paused = new PauseInfo($state->cause->value, $state->pausedBy, $state->pausedAt);
+            $paused = new PauseInfo(
+                $state->cause->value,
+                $state->pausedBy,
+                $state->pausedAt,
+                $state->deliveryId,
+                $state->deliveryEventId,
+                $state->error
+            );
         }
 
-        return new SiteMailStats($paused, $this->deliveries->pendingCount());
+        return new SiteMailStats(
+            $paused,
+            $this->deliveries->pendingCount(),
+            $state->errorsInRow,
+            $state->hourlyBudget
+        );
+    }
+
+    /**
+     * The events that have any delivery, ascending: one statement.
+     *
+     * @return list<int>
+     */
+    public function eventIds(): array
+    {
+        return $this->deliveries->eventIds();
     }
 
     /**

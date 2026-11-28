@@ -1,6 +1,7 @@
 import apiFetch from '@wordpress/api-fetch';
 import {
 	detailProblem,
+	fetchAll,
 	fetchDetail,
 	fetchPage,
 	fetchSums,
@@ -205,5 +206,50 @@ describe( 'the manual confirmation', () => {
 		expect( apiFetch ).toHaveBeenCalledWith(
 			call( 'kalaka/unconfirm', { event_id: 7, code: '02S2', reason: 'Tévedés' } )
 		);
+	} );
+} );
+
+describe( 'the copy of every matching row pages through the grid\'s own read', () => {
+	const bigConfig = { event: 7, rest: '/kalaka-admin/v1/events/7', maxLimit: 500 };
+	const page = ( keys, total, pages ) => ( {
+		json: async () => keys.map( ( key ) => ( { key, values: {} } ) ),
+		headers: { get: ( name ) => ( { 'X-WP-Total': String( total ), 'X-WP-TotalPages': String( pages ) } )[ name ] },
+	} );
+
+	test( 'asks page after page at 500 rows, with the grant, filters, search and order, until X-WP-TotalPages', async () => {
+		apiFetch
+			.mockResolvedValueOnce( page( [ 'A', 'B' ], 5, 3 ) )
+			.mockResolvedValueOnce( page( [ 'C', 'D' ], 5, 3 ) )
+			.mockResolvedValueOnce( page( [ 'E' ], 5, 3 ) );
+		const narrow = { filters: [ { field: 'status', operator: 'isAny', value: [ 'registered' ] } ], search: 'kov' };
+		const rows = await fetchAll( bigConfig, { view: 4, grant: 3 }, 'code', true, narrow );
+		expect( rows.map( ( r ) => r.key ) ).toEqual( [ 'A', 'B', 'C', 'D', 'E' ] );
+		expect( apiFetch ).toHaveBeenCalledTimes( 3 );
+		apiFetch.mock.calls.forEach( ( [ options ], index ) => {
+			const [ path, query ] = options.path.split( '?' );
+			const params = new window.URLSearchParams( query );
+			expect( path ).toBe( '/kalaka-admin/v1/events/7/views/4/rows' );
+			expect( params.get( 'per_page' ) ).toBe( '500' );
+			expect( params.get( 'page' ) ).toBe( String( index + 1 ) );
+			expect( params.get( 'grant' ) ).toBe( '3' );
+			expect( params.get( 'orderby' ) ).toBe( 'code' );
+			expect( params.get( 'order' ) ).toBe( 'desc' );
+			expect( JSON.parse( params.get( 'filters' ) ) ).toEqual( narrow.filters );
+			expect( params.get( 'search' ) ).toBe( 'kov' );
+		} );
+	} );
+
+	test( 'one page is one request, and an empty view is none of its rows', async () => {
+		apiFetch.mockResolvedValueOnce( page( [ 'A' ], 1, 1 ) );
+		expect( await fetchAll( bigConfig, { view: 0, grant: 0 } ) ).toHaveLength( 1 );
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		apiFetch.mockReset();
+		apiFetch.mockResolvedValueOnce( page( [], 0, 1 ) );
+		expect( await fetchAll( bigConfig, { view: 0, grant: 0 } ) ).toEqual( [] );
+	} );
+
+	test( 'a page that fails halfway rejects the whole copy, nothing partial', async () => {
+		apiFetch.mockResolvedValueOnce( page( [ 'A' ], 3, 2 ) ).mockRejectedValueOnce( new Error( 'boom' ) );
+		await expect( fetchAll( bigConfig, { view: 0, grant: 0 } ) ).rejects.toThrow( 'boom' );
 	} );
 } );

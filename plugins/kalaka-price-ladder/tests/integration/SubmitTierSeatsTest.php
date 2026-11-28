@@ -15,6 +15,7 @@ use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -24,8 +25,8 @@ use Kalaka\Tests\Integration\Forms\FormsTestCase;
 /**
  * A submit that chooses a limited price tier takes its seat when it becomes `registered` and is refused, with
  * nothing saved and the message on `price_tier`, when the tier is full (topic 15, Q2). An unlimited tier is
- * never refused; a waitlisted submit holds no seat and is not refused (A3). It runs through the submit entry
- * point, so the contributed claim source is what feeds it.
+ * never refused; a submit that would be waitlisted may choose no limited tier (A3, O4). It runs through the
+ * submit entry point, so the contributed claim source is what feeds it.
  */
 final class SubmitTierSeatsTest extends FormsTestCase
 {
@@ -184,15 +185,19 @@ final class SubmitTierSeatsTest extends FormsTestCase
         self::assertSame(RegistrationStatus::Registered, $this->submit('tamogatott')->status);
     }
 
-    public function testAWaitlistedSubmitWithAFullTierIsNotRefusedAndHoldsNoSeat(): void
+    public function testAWaitlistedSubmitWithALimitedTierIsRefusedAndHoldsNoSeat(): void
     {
         $this->submit('alap');
         $this->submit('tamogatott');
-        // The event's two places are taken: the next one is waitlisted.
-        $waitlisted = $this->submit('tamogatott');
+        // The event's two places are taken: a submit that would be waitlisted may choose nothing limited.
+        try {
+            $this->submit('tamogatott');
+            self::fail('A waitlisted submit of a limited tier should have been refused.');
+        } catch (InvalidAnswers $invalid) {
+            self::assertSame(['price_tier' => SeatsFull::TEXT], $invalid->fields);
+        }
 
-        self::assertSame(RegistrationStatus::Waitlisted, $waitlisted->status);
-        self::assertFalse($this->seats->holds($this->pool(), $waitlisted->registration));
+        self::assertSame(2, $this->registrationCount());
         self::assertSame(1, $this->seats->held($this->pool()));
     }
 

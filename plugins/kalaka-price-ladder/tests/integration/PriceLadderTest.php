@@ -215,7 +215,7 @@ final class PriceLadderTest extends PriceLadderTestCase
         $raised[0]['amount'] = '52000';
         $proposed = new ProposedMoneySettings(components: [$this->ladder->propose($this->event, $raised)]);
 
-        $rows = $this->settings->preview($this->event, $proposed);
+        $rows = $this->settings->preview($this->event, $proposed, new CliActor(null));
 
         self::assertSame(
             ['00A0' => true, '00A2' => false],

@@ -2,7 +2,9 @@
  * The requests of the detail panel (slice B, "answer a request"), split by the panel-tabs ruling (2026-11-26): the
  * requests that await an answer show in a strip above the tabs, with the answer button; every request shows on the
  * „Kérelmek” tab with its state and the answer or change button. Both show only what the read carries: nothing
- * without `can.answer_request` and nothing while the last read failed. One `useAnswering` owns the dialog and the
+ * without the requests in the read (only holders of the answer ability get them) and nothing while the last read
+ * failed; only the button needs `can.answer_request` (false while the registration is not registered, N655), and an
+ * inactive request shows its label with „–” as its state and no button. One `useAnswering` owns the dialog and the
  * snackbar, so the strip's button and the tab's button open the same dialog. [UNAPPROVED N7] [UNAPPROVED N1000]
  * [UNAPPROVED N1001] [UNAPPROVED N1002]
  *
@@ -13,6 +15,7 @@
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import AnswerDialog from './AnswerDialog';
+import NotApplicable from './NotApplicable';
 import { itemsOf, stateText } from './requests';
 import { fmt } from './format';
 import { REQUESTS } from './texts';
@@ -20,11 +23,13 @@ import { REQUESTS } from './texts';
 /** How long the success snackbar stays, as the other blocks'. */
 const SNACKBAR_MS = 5000;
 
-/** The requests a panel offers an answer for: none without the ability, none while the last read failed. */
+/** The requests a panel lists: what the read carries (none without the ability), none while the last read failed. */
 export function offeredOf( detail, stale ) {
-	const can = !! ( detail && detail.can && detail.can.answer_request );
-	return can && ! stale ? itemsOf( detail ) : [];
+	return stale ? [] : itemsOf( detail );
 }
+
+/** Whether the read carries the requests part at all: only holders of the answer ability get it. */
+export const hasRequests = ( detail ) => !! ( detail && detail.requests );
 
 /** The requests still awaiting an answer: the strip's. [UNAPPROVED N1000] */
 export const awaitingOf = ( items ) => items.filter( ( item ) => item.state === 'awaiting' );
@@ -38,9 +43,10 @@ export const awaitingOf = ( items ) => items.filter( ( item ) => item.state === 
  * @param {Function} onSaved  tells the grid something changed
  * @param {Object}   fallback ref of the element that takes focus when the opener is gone: an answered request
  *                            leaves the strip, so its button no longer exists. [UNAPPROVED N1003]
+ * @param {string}   currency the read's `requests.currency`, for the aid figures of the dialog
  * @return {{start: Function, dialog: Object}} `start( item, button )` opens the dialog; `dialog` is to be rendered
  */
-export function useAnswering( config, code, reload, onSaved, fallback ) {
+export function useAnswering( config, code, reload, onSaved, fallback, currency ) {
 	const [ open, setOpen ] = useState( null ); // the request being answered
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
@@ -88,6 +94,7 @@ export function useAnswering( config, code, reload, onSaved, fallback ) {
 				<AnswerDialog
 					config={ config }
 					code={ code }
+					currency={ currency }
 					item={ open }
 					onClose={ () => {
 						setOpen( null );
@@ -113,7 +120,8 @@ export function useAnswering( config, code, reload, onSaved, fallback ) {
 	};
 }
 
-const answerButton = ( item, start ) => (
+const answerButton = ( item, start, can ) =>
+	can && item.state !== 'inactive' && (
 	<Button
 		variant="secondary"
 		aria-label={ fmt( item.state === 'awaiting' ? REQUESTS.answerLabel : REQUESTS.changeLabel, item.label ) }
@@ -121,15 +129,15 @@ const answerButton = ( item, start ) => (
 	>
 		{ item.state === 'awaiting' ? REQUESTS.answer : REQUESTS.change }
 	</Button>
-);
+	);
 
 /**
  * The strip above the tabs: the requests awaiting an answer, each with its answer button. Nothing when none
  * awaits. [UNAPPROVED N1000] [UNAPPROVED T950] [UNAPPROVED N1001]
  */
-export function AwaitingStrip( { items, start } ) {
+export function AwaitingStrip( { items, start, can } ) {
 	const awaiting = awaitingOf( items );
-	if ( awaiting.length === 0 ) {
+	if ( ! can || awaiting.length === 0 ) {
 		return null;
 	}
 	return (
@@ -139,7 +147,7 @@ export function AwaitingStrip( { items, start } ) {
 				{ awaiting.map( ( item ) => (
 					<li key={ item.id }>
 						<span>{ item.label }</span>
-						{ answerButton( item, start ) }
+						{ answerButton( item, start, can ) }
 					</li>
 				) ) }
 			</ul>
@@ -147,17 +155,32 @@ export function AwaitingStrip( { items, start } ) {
 	);
 }
 
-/** The „Kérelmek” tab: every request with its state and button; an awaiting one is here as well. [UNAPPROVED N1002] */
-export function RequestsList( { items, currency, start } ) {
+/**
+ * The „Kérelmek” tab: every request with its state and, with `can.answer_request`, its button; an awaiting one is
+ * here as well, an inactive one shows „–” and no button, and with no request the tab says so. [UNAPPROVED N1002]
+ * [UNAPPROVED T1308]
+ */
+export function RequestsList( { items, currency, start, can } ) {
+	if ( items.length === 0 ) {
+		return <p className="kg-none">{ REQUESTS.none }</p>;
+	}
 	return (
 		<div className="kg-requests">
 			<ul>
 				{ items.map( ( item ) => (
 					<li key={ item.id } id={ 'kg-request-' + item.id.replace( /[^a-z0-9_-]/gi, '-' ) }>
 						<span>
-							{ item.label }: { stateText( item, currency ) }
+							{ item.label }
+							{ item.state === 'inactive' ? (
+								<Fragment>
+									{ ': ' }
+									<NotApplicable text={ stateText( item, currency ) } />
+								</Fragment>
+							) : (
+								`: ${ stateText( item, currency ) }`
+							) }
 						</span>
-						{ answerButton( item, start ) }
+						{ answerButton( item, start, can ) }
 					</li>
 				) ) }
 			</ul>

@@ -5,7 +5,7 @@
  * control for) an edit button that opens the dialog. Read-only fields have no button and no word: the panel shows
  * only what the read returns and never decides access. After a save the panel re-reads, the grid re-reads, a
  * snackbar says it was done and focus returns to the field's edit button. [UNAPPROVED N230] [UNAPPROVED N231]
- * [UNAPPROVED N232] [UNAPPROVED N237] [UNAPPROVED N243]
+ * [UNAPPROVED N232] [UNAPPROVED N237] [UNAPPROVED N243]. With no field the tab says so. [UNAPPROVED T1307]
  *
  * [UNAPPROVED N1010] Not built: the visual grouping of a request's ask and answer fields, with the pointer to that
  * request on „Kérelmek”. The read does not say which fields belong to a request (`requests.items[]` has no field
@@ -48,10 +48,6 @@ export default function FieldsBlock( {
 		},
 		[]
 	);
-	if ( fields.length === 0 ) {
-		return null;
-	}
-
 	const focusOpener = ( key ) =>
 		window.requestAnimationFrame( () => {
 			const button = openers.current[ key ];
@@ -90,7 +86,8 @@ export default function FieldsBlock( {
 
 	return (
 		<div className="kg-fields">
-			{ ! stale && (
+			{ ! stale && fields.length === 0 && <p className="kg-none">{ FIELDS.none }</p> }
+			{ ! stale && fields.length > 0 && (
 				<dl className="kg-field-list">
 					{ fields.map( ( field ) => {
 						const text = textOf( field );

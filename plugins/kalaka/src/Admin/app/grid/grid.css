@@ -2,28 +2,39 @@
 .kalaka-grid-wrap { max-width: none; }
 .kg-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace; font-variant-ligatures: none; letter-spacing: 0.02em; text-decoration: none; border-bottom: 0; }
 
-/* Above the table: the tab row. */
-.kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
-.kg-tabrow { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid #c3c4c7; min-width: 0; }
-.kg-tabs-wrap { position: relative; flex: 1; min-width: 0; display: flex; align-items: flex-end; }
-.kg-tabs-measure { position: absolute; visibility: hidden; white-space: nowrap; height: 0; overflow: hidden; display: flex; }
-.kg-tabs.nav-tab-wrapper { border-bottom: 0; padding-top: 0; display: flex; flex-wrap: nowrap; white-space: nowrap; }
-.kg-tabs .nav-tab, .kg-tabs-measure .nav-tab { float: none; margin-left: 0; margin-right: 6px; flex: none; }
-.kg-tabs .nav-tab { margin-bottom: -1px; }
-.kg-tabs .kg-more-toggle { cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.71428571; }
-.kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 8px 0; min-height: 32px; }
+/* Above the table: the tab row. Its own bottom margin is gone: the toolbar's 16 px is the one space above its
+   controls, as beside them (owner ruling 9.3). */
+.kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; }
+.kg-tabrow { min-width: 0; }
+/* Many view tabs scroll sideways in one row instead of wrapping onto more rows, and „Több ▾” stays out (owner ruling
+   9.2). */
+.kg-tabrow .components-tab-panel__tabs { flex-wrap: nowrap; overflow-x: auto; }
+/* The grid's TabPanel has no content of its own (the table stays below), so its empty tabpanel is hidden: it is not
+   a keyboard stop, and the tabs' `aria-controls` points to nothing visible. */
+.kg-tabs .components-tab-panel__tab-content { display: none; }
+.kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 16px; min-height: 32px; }
 .kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .kg-spacer { flex: 1 1 auto; }
+.kg-bulkbar-sep { align-self: stretch; width: 0; border-left: 1px solid #dcdcde; margin: 4px 0; }
+.kg-bulkbar-prefix { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .kg-bulkbar .dataviews-search { width: 240px; max-width: 100%; }
 .kg-filters { flex: 0 1 auto; min-width: 0; }
 /* The view's own condition is DataViews' locked chip; the padlock is the one addition. */
 .kg-bulkbar .dataviews-filters__summary-chip.is-not-clickable::before { font-family: dashicons; content: "\f160"; font-size: 14px; width: 14px; height: 14px; margin-right: 4px; line-height: 1; }
+/* DataViews' own „Visszaállítás” clears only the search and the filters; our one button resets all four and takes
+   its place (N7), so DataViews' is hidden by its own class. */
+#kalaka-grid .dataviews-filters__reset-button { display: none; }
 @media (max-width: 600px) { .kg-bulkbar .dataviews-search { width: 100%; flex: 1 1 100%; } }
 .kg-dv-foot { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
 .kg-dv-foot .kg-perpage { margin-right: auto; }
 .kg-perpage select { min-width: 72px; }
 @media (max-width: 600px) { .kg-dv-foot { justify-content: flex-start; } }
 
+/* The toolbar (`.kg-bulkbar`) and the paging row (`.kg-dv-foot`) have the same space above and beside their controls:
+   16px on all four sides, at both widths, and the tab row above the toolbar gives up its 8px bottom margin so the
+   toolbar's own padding is the whole space above its first control (owner ruling 9.3; the controls may sit slightly
+   outside the table's inner content). Measured at 1440: 18 above and 17 beside the search box, 16/17 for the paging
+   row; at 375: 17/17 and 16/17 (the 1px is the card's border, and the search box is 1px shorter than its row). */
 /* The table fills the window (owner's walk, topic 6a G9): the title and the controls stay at the top,
    the rows scroll inside, and the header row, the horizontal scrollbar and the paging stay in view. */
 body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
@@ -33,7 +44,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid .dataviews-wrapper { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 #kalaka-grid .dataviews-layout__container { flex: 1 1 auto; min-height: 0; overflow: auto; }
 #kalaka-grid thead { position: sticky; top: 0; z-index: 3; }
-#kalaka-grid .kg-dv-foot { flex: none; padding: 8px 0; }
+#kalaka-grid .kg-dv-foot { flex: none; padding: 16px; }
 @media (max-width: 600px) { .kg-above { margin-top: 4px; } }
 
 /* The table's own empty texts and a failed load. */
@@ -49,18 +60,18 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 
 /* Rows look clickable (owner's walk, topic 6a G2): the hover highlight, and the open row's own colour that the
    hover does not paint over; the repeated class keeps the open colour above the hover by specificity, not by
-   source order. The cell's button keeps its keyboard focus ring and nothing else. [UNAPPROVED N43] */
+   source order. The cell's button keeps its keyboard focus ring and nothing else. */
 #kalaka-grid tbody tr.dataviews-view-table__row:hover > td { background-color: #f6f7f7; }
 #kalaka-grid tbody tr.dataviews-view-table__row.kg-row-open.kg-row-open > td { background-color: #f0f6fc; }
 
 /* An inactive registration (waitlisted, withdrawn, removed) is dimmed; it still opens (S38) and still counts.
    An active row keeps DataViews' own table text colour; only an inactive row is set apart, in the design
    system's own disabled foreground token (lighter than the table text, about 3.3:1 on white; the choice and its
-   alternative, a reduced opacity, are N25's). [UNAPPROVED N25] */
+   alternative, a reduced opacity, are N25's). */
 #kalaka-grid .kg-inactive { color: var(--wpds-color-foreground-interactive-neutral-disabled, #8d8d8d); }
 
-/* A long field is one line, cut with „…”. */
-.kg-long { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A long field wraps within its column, never cut (owner 2026-11-27, walkthrough 9.4 b). */
+.kg-long { display: block; max-width: 240px; white-space: normal; overflow-wrap: anywhere; }
 
 /* DataViews inside wp-admin. */
 #kalaka-grid .dataviews-wrapper { background: #fff; border: 1px solid #dcdcde; }
@@ -73,10 +84,56 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid .kg-serial { font-variant-numeric: tabular-nums; }
 
 /* The sum row inside DataViews' <thead>. */
-#kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
+/* The table collapses its borders, and a collapsed border belongs to the table's grid, so it scrolls away from the
+   sticky head. The sum row's two lines are drawn inside its own cells instead. */
+#kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border: 0; box-shadow: inset 0 1px 0 #dcdcde, inset 0 -1px 0 #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
 #kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
+/* The frame cell under the sticky actions column is sticky too, so no sum shows through below the header. */
+#kalaka-grid thead tr.kg-sumtr td.kg-sumtd-actions { position: sticky; right: 0; }
+.kg-sumtd .kg-sumsel { font-weight: 600; }
 .kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
-.kg-sumtd .kg-sumopen { vertical-align: middle; }
+/* The number is the counting menu's trigger: a generous target with no down arrow. A column that can count
+   but has nothing counted yet shows a grey placeholder with a dotted underline. */
+.kg-sumtd .kg-sumcount { display: inline-flex; max-width: 100%; }
+.kg-sumcount-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; margin: -2px 0; padding: 2px 8px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
+.kg-sumcount-btn:hover, .kg-sumcount-btn:focus-visible { background: rgba(0, 0, 0, 0.05); }
+.kg-sumcount-btn.is-empty { color: var(--wpds-color-foreground-content-neutral-weak, #707070); text-decoration: underline dotted; text-underline-offset: 2px; }
+.kg-sumcount-menu { min-width: 180px; }
+
+/* The start columns stay while the table scrolls sideways: the selection checkbox, Kód and the name (the host's
+   `data-kg-sticky` says how many; `sticky.js` measures where each starts). The cells are opaque in the row's own colour
+   (DataViews' own surface and selected colours, at a specificity below the hover and open-row colours) so nothing shows
+   through, and the last one is
+   divided from the scrolling columns by a box-shadow line (a collapsed border would scroll away). The actions
+   column stays at the end, as DataViews makes it. */
+#kalaka-grid :where(
+	.kg-dv[data-kg-sticky="1"] tr > :nth-child(-n+1),
+	.kg-dv[data-kg-sticky="2"] tr > :nth-child(-n+2),
+	.kg-dv[data-kg-sticky="3"] tr > :nth-child(-n+3)
+) { position: sticky; }
+#kalaka-grid .kg-dv[data-kg-sticky] tr > :nth-child(1) { left: 0; }
+#kalaka-grid .kg-dv[data-kg-sticky] tr > :nth-child(2) { left: var(--kg-left-2, 0); }
+#kalaka-grid .kg-dv[data-kg-sticky] tr > :nth-child(3) { left: var(--kg-left-3, 0); }
+#kalaka-grid :where(.kg-dv[data-kg-sticky]) tbody tr > :where(:nth-child(-n+3)) { background-color: var(--wp-dataviews-color-background, var(--wpds-color-background-surface-neutral-strong, #fff)); z-index: 1; }
+#kalaka-grid :where(.kg-dv[data-kg-sticky]) tbody tr.is-selected > :where(:nth-child(-n+3)) { background-color: var(--wpds-color-background-interactive-brand-weak-active, color-mix(in oklch, var(--wp-admin-theme-color, #3858e9) 12%, white)); }
+#kalaka-grid .kg-dv[data-kg-sticky="1"] tbody tr > :nth-child(1),
+#kalaka-grid .kg-dv[data-kg-sticky="2"] tbody tr > :nth-child(2),
+#kalaka-grid .kg-dv[data-kg-sticky="3"] tbody tr > :nth-child(3),
+#kalaka-grid .kg-dv[data-kg-sticky="1"] thead tr > :nth-child(1),
+#kalaka-grid .kg-dv[data-kg-sticky="2"] thead tr > :nth-child(2),
+#kalaka-grid .kg-dv[data-kg-sticky="3"] thead tr > :nth-child(3) { box-shadow: inset -1px 0 0 #dcdcde; }
+#kalaka-grid .kg-dv[data-kg-sticky="1"] thead tr.kg-sumtr > :nth-child(1),
+#kalaka-grid .kg-dv[data-kg-sticky="2"] thead tr.kg-sumtr > :nth-child(2),
+#kalaka-grid .kg-dv[data-kg-sticky="3"] thead tr.kg-sumtr > :nth-child(3) { box-shadow: inset 0 1px 0 #dcdcde, inset 0 -1px 0 #dcdcde, inset -1px 0 0 #dcdcde; }
+/* The actions column is DataViews' own sticky one, stuck only while it fits the quarter of the visible width that the
+   sticky columns share (`sticky.js`, the host's `data-kg-actions-loose`); loose, it scrolls with the table, and
+   DataViews' divider line, which hangs on the cell, goes with it. The sum row's cell under it follows. */
+#kalaka-grid .kg-dv[data-kg-actions-loose] .dataviews-view-table__actions-column--sticky,
+#kalaka-grid .kg-dv[data-kg-actions-loose] thead tr.kg-sumtr td.kg-sumtd-actions { position: static; }
+#kalaka-grid .kg-dv[data-kg-actions-loose] .dataviews-view-table__actions-column--stuck::after { display: none; }
+/* The open row's mark sits on the row's first cell, which is sticky and would cover the row's own shadow. */
+#kalaka-grid tbody tr.kg-row-open > td:first-child { box-shadow: inset 3px 0 0 var(--wp-admin-theme-color, #3858e9); }
+
 
 /* The snackbar of the copy result, at the bottom of the window. */
 .kg-grid-snacks { position: fixed; left: 24px; bottom: 24px; z-index: 100001; width: min(400px, calc(100vw - 48px)); }
@@ -101,6 +158,8 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-panel-close { margin-left: auto; flex: none; }
 .kg-panel-name { font-size: 1.3em; margin: 0 0 4px; overflow-wrap: anywhere; }
 .kg-panel-meta { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; color: #50575e; }
+.kg-panel-row { margin: 8px 0 0; }
+.kg-panel-slot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .kg-panel-email { overflow-wrap: anywhere; }
 .kg-none { color: #50575e; margin: 8px 0; }
 .kg-tabs-money .components-tab-panel__tabs { border-bottom: 1px solid #dcdcde; margin-bottom: 12px; }
@@ -126,7 +185,7 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 .kg-requests li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; overflow-wrap: anywhere; }
 .kg-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
 .kg-snacks { position: fixed; left: auto; right: 12px; bottom: 12px; z-index: 9996; }
-.kg-dialog .components-base-control, .kg-dialog .components-radio-control, .kg-dialog .components-notice.is-warning { margin-bottom: 16px; }
+.kg-dialog .components-base-control, .kg-dialog .components-radio-control { margin-bottom: 16px; }
 .kg-dialog .kg-err { color: #cc1818; display: block; margin-top: 4px; font-size: 12px; }
 .kg-dialog [aria-invalid="true"] { border-color: #cc1818; }
 .kg-bal { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 0 0 16px; padding: 8px 12px; background: #f6f7f7; }
@@ -148,7 +207,6 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
    (`table.kg-money`, a row header when there are several payer rows and only `is-num` figures with tabular-nums
    with one, headers over their figures). At 600px and narrower it stacks as a list (N714). The order the block is
    in is N1310's: the table, the capacity list, the sentences. */
-.kg-status-acts { margin: 8px 0 4px; }
 .kg-act-block { margin: 0 0 16px; }
 .kg-act-capacity { margin: 4px 0 0; padding: 0; list-style: none; }
 .kg-act-capacity li { margin: 0 0 4px; overflow-wrap: anywhere; }
