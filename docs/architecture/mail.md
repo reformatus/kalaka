@@ -15,7 +15,7 @@ ever sent twice by accident.
   `kalaka_mail` post of the event; the screen calls it a sablon. A point holds
   at most one template and a template serves at most one point; an event may
   also hold templates no point uses. A template that is not published may be
-  held, but only a published one lets the point send.
+  held, but only a published one lets the point send. [UNAPPROVED R390]
 - A **delivery** is one row in the send log: one mail to one registration (or
   address) on one occurrence: pending, sending, sent or failed. A pending
   delivery may carry the error of an earlier attempt. **Only the sender
@@ -54,7 +54,8 @@ answer record, the send batch, and so on.
 - **answered:** every answering act mails once, a changed answer included.
 
 An extension's act (a check-in, a wallet top-up) is foreseen to cause an
-action mail through its own point. **While a registration is waitlisted, only
+action mail through its own point; every check-in route calls the same
+check-in use case. **While a registration is waitlisted, only
 the waitlist mail is queued for it;** a mail held so is not sent later.
 Withdrawal and removal send none. An additional form's submit sends none.
 
@@ -102,7 +103,8 @@ safe.
   point on the event's timeline (e.g. 2 days before the start), or a date type
   that may differ per registration.
 - **Reminders are defined in code** by their module or plugin (e.g. an
-  upcoming late fee). Admins configure the time base and the repeat interval.
+  upcoming late fee). Admins configure the time base and the repeat interval;
+  repeating is supported from the start.
 - **An event-wide layout** wraps mails; each template says whether it uses
   it. There is no site-wide layout.
 
@@ -191,7 +193,8 @@ yet sent.
   exact copies are left to a mail-logging plugin.
 - **Throttle:** an **hourly budget**, a site setting with a default of 240 per
   hour (today's 20 per 5-minute run), spread over the hour's 5-minute slots
-  so one run cannot spend it all. Attempts that end in an error count against
+  so one run cannot spend it all; a run that uses up its share nudges itself
+  for the next slot. Attempts that end in an error count against
   it. **A run stops claiming after 20 seconds** and nudges itself, so it stays
   inside a shared host's `max_execution_time`.
 - **Order:** self-sent and action mails first, then manual mails, reminders
