@@ -85,7 +85,7 @@ final class TestRequestSource implements RequestSource
         ]);
     }
 
-    public function seatPool(Request $request): ?SeatPool
+    public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
     {
         return $request->kind === RequestKind::Offer ? $this->pool : null;
     }

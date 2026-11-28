@@ -30,7 +30,8 @@ retention and the materializer
 - Rules never read charge lines. Only `Api\Materializer` calls
   `Ledger::chargeTotalsOf()` (a unit test checks it); a fee component gets its
   `FeeComponentInput` (facts, earlier-stage totals, the event's currency) and
-  reads its own current settings, never lines.
+  reads its own current settings and the seat facts (`Registrations\Api\Seats`),
+  never lines.
 - A component may owe per item (`FeeTargets::ofItems()`): each item is
   recorded and reversed on its own under the source key
   `<component ID>:<item>` (item `[a-z0-9_]{1,40}`, at most 64 characters),

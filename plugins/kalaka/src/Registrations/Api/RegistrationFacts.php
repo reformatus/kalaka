@@ -115,7 +115,9 @@ final readonly class RegistrationFacts implements Facts
 
     /**
      * The keys a registration's facts declare for the event, with their types: what a condition read over
-     * them is checked against when it is saved (`Forms\Api\Availability::check()`).
+     * them is checked against when it is saved (`Forms\Api\Availability::check()`). The code, the status and
+     * `registration.awaits_answer` (its value is built by `Registrations::factsOf()`) are declared with the fields.
+     * [UNAPPROVED N358]
      *
      * @param array<string, Value> $fieldValues field key → value, e.g. every field as none
      * @return array<string, ValueType>
@@ -128,7 +130,11 @@ final readonly class RegistrationFacts implements Facts
         }
         $types += EventValues::TYPES;
 
-        return $types + [self::CODE => ValueType::Text, self::STATUS => ValueType::Choice];
+        return $types + [
+            self::CODE => ValueType::Text,
+            self::STATUS => ValueType::Choice,
+            self::AWAITS_ANSWER => ValueType::Choice,
+        ];
     }
 
     /**

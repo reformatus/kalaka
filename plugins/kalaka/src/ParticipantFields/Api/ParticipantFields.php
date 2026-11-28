@@ -64,6 +64,7 @@ final class ParticipantFields
                 [],
                 $record->settings ?? [],
                 $record->moneyRelevant,
+                $record->declaredBy,
             );
         }
 

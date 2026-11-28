@@ -55,6 +55,17 @@ final class ConfigurableTierComponent implements ConfigurableFeeComponent
         if (array_keys($settings) !== ['amount'] || ($amount !== null && !is_string($amount))) {
             throw new InvalidInput();
         }
+        if ($amount === 'refused') {
+            throw new RuleViolation();
+        }
+        if ($amount === 'refused-offer') {
+            throw new class extends RuleViolation {
+                public function errorCode(): string
+                {
+                    return 'kalaka_item_chosen';
+                }
+            };
+        }
         $save = new SettingsSave(new AdminProbe(function (array $input, Context $context) use ($amount): void {
             $this->amount = $amount;
         }), []);
