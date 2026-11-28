@@ -146,7 +146,8 @@ final class MailPagesTest extends GrantTestCase
         $html = $this->sitePage();
 
         self::assertStringContainsString('<form method="post" action="options.php">', $html);
-        self::assertStringContainsString('name="option_page" value="kalaka_mail"', $html);
+        // Core's `settings_fields()` prints this field with single quotes, the others with double ones.
+        self::assertMatchesRegularExpression('/name=["\']option_page["\'] value=["\']kalaka_mail["\']/', $html);
         self::assertStringContainsString('<table class="form-table"', $html);
         self::assertMatchesRegularExpression('/<label for="kalaka_mail_hourly_budget">[^<]+<\/label>/', $html);
         self::assertStringContainsString('name="kalaka_mail_hourly_budget"', $html);
