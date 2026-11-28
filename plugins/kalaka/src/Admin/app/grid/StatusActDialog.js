@@ -30,16 +30,22 @@ import {
 } from './statusActs';
 import { CONFIRM, MONEY, STATUS_ACTS } from './texts';
 
-// The description is the body sentence (first id) and the block under it, the money table with the capacity lines
-// and the sentences (second id); the warnings are not in it, each warning notice speaks itself once, through
-// WordPress's own `speak` region (not N722's region). [UNAPPROVED N719] [UNAPPROVED N722] [UNAPPROVED N1310]
+// The description is the body sentence (first id), the server's warnings in their visual order (one wrapper each,
+// `kg-act-warning-N`), then the block under them, the money table with the capacity lines and the sentences (last
+// id); a warning still speaks itself once through WordPress's own `speak` region (not N722's region).
+// [UNAPPROVED N719] [UNAPPROVED N722] [UNAPPROVED N1310]
 // The line's „x / y” figure, kept on one line at 320 px (N716): [ text, figure ] or [ the line ].
 const capacityParts = ( line ) => {
 	const found = /^(.*: )(\d+ \/ \d+)$/.exec( line );
 	return found ? [ found[ 1 ], found[ 2 ] ] : [ line ];
 };
 
-const DESCRIPTION_IDS = 'kg-act-description kg-act-money';
+/** The warning's wrapper id by its place in the read's list (one-based). */
+const warningId = ( index ) => `kg-act-warning-${ index + 1 }`;
+
+/** The dialog's description, in visual order: the body sentence, the warnings, then the money block. */
+const descriptionIds = ( warnings ) =>
+	[ 'kg-act-description', ...warnings.map( ( _, index ) => warningId( index ) ), 'kg-act-money' ].join( ' ' );
 
 /**
  * @param {Object}   props
@@ -129,7 +135,7 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 			size="medium"
 			className="kg-dialog"
 			shouldCloseOnClickOutside={ false }
-			aria={ { describedby: DESCRIPTION_IDS } }
+			aria={ { describedby: descriptionIds( warnings ) } }
 		>
 			<form onSubmit={ submit } noValidate ref={ form }>
 				<div className="screen-reader-text" role="status" aria-live="polite" aria-atomic="true">
@@ -140,10 +146,12 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 				<div id="kg-act-description">
 					<p>{ bodyOf( act ) }</p>
 				</div>
-				{ warnings.map( ( text ) => (
-					<Notice key={ text } status="warning" isDismissible={ false }>
-						{ text }
-					</Notice>
+				{ warnings.map( ( text, index ) => (
+					<div key={ text } id={ warningId( index ) } className="kg-act-warning">
+						<Notice status="warning" isDismissible={ false }>
+							{ text }
+						</Notice>
+					</div>
 				) ) }
 				<div id="kg-act-money" className="kg-act-block">
 					{ /* Admit's serial line keeps its place under the warning. [UNAPPROVED T713] */ }

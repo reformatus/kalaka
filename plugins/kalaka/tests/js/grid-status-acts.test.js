@@ -190,17 +190,29 @@ describe( 'each dialog', () => {
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	test( 'the dialog is described by its body sentence first, then the block under it; the warning is in neither', async () => {
+	test( 'the dialog is described in visual order: the body sentence, then each warning, then the block under them', async () => {
 		await render( 'withdraw', { ...MONEY_LEFT, seats: OVER.seats, warnings: [ FULL_TEXT ], retention: 'everything_paid' } );
 		const ids = host.querySelector( '[role="dialog"]' ).getAttribute( 'aria-describedby' ).split( ' ' );
-		expect( ids ).toHaveLength( 2 );
-		const [ text, rest ] = ids.map( ( id ) => host.querySelector( `#${ id }` ) );
+		expect( ids ).toEqual( [ 'kg-act-description', 'kg-act-warning-1', 'kg-act-money' ] );
+		const [ text, warning, rest ] = ids.map( ( id ) => host.querySelector( `#${ id }` ) );
 		expect( text.querySelector( 'p' ).textContent ).toBe( STATUS_ACTS.withdrawBody );
 		expect( text.querySelector( '.kg-act-capacity' ) ).toBeNull();
+		expect( warning.textContent ).toContain( FULL_TEXT );
 		expect( rest.querySelector( '.kg-act-money' ) ).not.toBeNull();
 		expect( rest.querySelector( '.kg-act-capacity' ) ).not.toBeNull();
-		expect( text.textContent + rest.textContent ).not.toContain( FULL_TEXT );
-		expect( host.querySelector( 'textarea' ).closest( '#kg-act-description, #kg-act-money' ) ).toBeNull();
+		// Visual order: the body first, then the warning, then the block.
+		expect( text.compareDocumentPosition( warning ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBeTruthy();
+		expect( warning.compareDocumentPosition( rest ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBeTruthy();
+		expect( host.querySelector( 'textarea' ).closest( '#kg-act-description, #kg-act-warning-1, #kg-act-money' ) ).toBeNull();
+	} );
+
+	test( 'every act that shows warnings has them in its description, one after the other', async () => {
+		const second = 'A jelentkező várólistás, ezért a felvétel helyet foglal.';
+		await render( 'admit', { ...OVER, warnings: [ FULL_TEXT, second ] } );
+		const ids = host.querySelector( '[role="dialog"]' ).getAttribute( 'aria-describedby' ).split( ' ' );
+		expect( ids ).toEqual( [ 'kg-act-description', 'kg-act-warning-1', 'kg-act-warning-2', 'kg-act-money' ] );
+		expect( host.querySelector( '#kg-act-warning-1' ).textContent ).toContain( FULL_TEXT );
+		expect( host.querySelector( '#kg-act-warning-2' ).textContent ).toContain( second );
 	} );
 
 	test( 'the content follows the owner\'s order: body, warnings, money table, capacity list, sentences, reason, buttons', async () => {
