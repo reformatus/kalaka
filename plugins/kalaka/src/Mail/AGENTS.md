@@ -86,8 +86,9 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   facts); the three are never conflated. Each one replaces the account's last link.
 - While an event's account mode is not `off`, its "registered" mail must
   read `account.password_link` and cannot be switched off
-  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`) and in
-  `UpdateActionMail`.
+  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`), in
+  `UpdateActionMail`, and, for a change of the event's account mode to one with
+  accounts, in `AccountLinkRule::modeProblem()` (read through `Api\AccountMail`).
 - `MailComposer::recipient()` returns `null` for a registration without a
   contact email (failed as `invalid_address`) and throws only
   `RecipientUnavailable` when the address cannot be determined (no
@@ -115,7 +116,7 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   line queues it yet; `ActionMail::isWired()` is the one declared list of the
   points that work, the list the screen shows (a point that is not wired can be
   set up and switched on, but nothing sends it), and the PR that adds a producer
-  keeps it current. [UNAPPROVED R334] It has five action mails; admission from the waitlist sends
+  keeps it current. [UNAPPROVED R334] It has four action mails; admission from the waitlist sends
   "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.

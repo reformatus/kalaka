@@ -17,7 +17,6 @@ enum ActionMail: string
     case Waitlisted = 'waitlisted';
     case PaymentRecorded = 'payment_recorded';
     case Confirmed = 'confirmed';
-    case LinkRegenerated = 'link_regenerated';
 
     /**
      * Whether an act on this line queues this mail: the one declared list of the points that work (owner
@@ -30,7 +29,7 @@ enum ActionMail: string
     {
         return match ($this) {
             self::Registered, self::Waitlisted, self::Confirmed => true,
-            self::PaymentRecorded, self::LinkRegenerated => false,
+            self::PaymentRecorded => false,
         };
     }
 
@@ -42,7 +41,6 @@ enum ActionMail: string
             self::Waitlisted => 'Jelentkezés várólistára helyezve',
             self::PaymentRecorded => 'Befizetés rögzítve',
             self::Confirmed => 'Jelentkezés véglegesítve',
-            self::LinkRegenerated => 'Személyes link lecserélve',
         };
     }
 }

@@ -473,7 +473,7 @@ final class GridModel
      */
     private function meta(string $column, array $fields, int $eventId): array
     {
-        // Kód carries the default order and sorts both ways; Szám is a plain number sort. [UNAPPROVED N60]
+        // Kód carries the default order and sorts both ways; Szám is a plain number sort.
         // The two times are display-only.
         $displayOnly = in_array($column, ['registered_at', 'submitted_at'], true);
         $meta = ['column' => $column, 'sortable' => !$displayOnly, 'numeric' => false];
@@ -533,7 +533,7 @@ final class GridModel
         }
         // „Nincs válasz” in the filter of every list-type field column, required or not: a required field can still
         // be empty (behind a condition, in an additional form not yet sent, on a registration made before the field
-        // existed). [UNAPPROVED N66]
+        // existed).
         if ($type === 'choice' || $type === 'consent') {
             $meta['empty'] = true;
         }

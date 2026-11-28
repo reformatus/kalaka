@@ -132,6 +132,26 @@ erDiagram
 
 - A **submission** is the frozen original: the answers as JSON plus the form
   version, never changed. A view of it comes later, at low priority.
+- **A draft** keeps a registration form's answers before its submit, in its
+  own table, in the same answer-set shape as a submission. A logged-in
+  person's draft is saved as they type, one per form, and opens on any
+  device. A **guest draft**, in every account mode, holds the answers a link
+  or the quiz handed over and the guest's own typing, which is saved into it
+  from their first answer, under a claim token in a cookie (set by the first
+  answer or the handoff, whichever comes first), until the form is sent or
+  the event's registration closes; once its holder is logged in it becomes
+  their draft, or, when they have one and the link changes one of its
+  values, they choose: merge (the link's answers win), keep the draft, or
+  keep the link. A link that changes none of its values leaves their draft
+  as it is. A link's or the quiz's answers that meet a guest draft holding
+  the guest's own typing wait in a guest draft of their own, apart from it,
+  until the next page load: with no typing there, or when they change none of
+  its values, they settle at once; otherwise the guest chooses the same three
+  ways, settled on their own guest draft, which keeps its token. A save from a
+  page opened before a claim or a choice that changed the draft is refused,
+  never written over it. The submit deletes the draft in its transaction, and the periodic
+  run deletes the drafts of an event whose registration has closed or that
+  is archived; a draft has no other expiry.
 - **A registration has one or more submissions.** A registration form's
   submission creates it; each submit of an additional form appends another
   ([Forms](events-and-forms.md#forms-and-the-registration-slot)). A
@@ -175,6 +195,9 @@ erDiagram
 - **Only capacity (waitlisted) and withdrawal or removal keep a registration
   from being `registered`.** Deposit or aid status never makes a registration
   invalid.
+- **A live registration is a registered one:** a waitlisted, withdrawn or
+  removed registration is not live. One test in code decides it, for counts, seats
+  and every rule that applies to live registrations.
 - **Confirmation sits beside status, not in it:** it is defined only for
   `registered` registrations, a system decision recorded from payments or a
   manual flag ([Money](money.md#confirmation)). Participants see one phase
@@ -182,6 +205,11 @@ erDiagram
   removed) through the phase tracker.
 - **Withdrawal and removal have the same effect on money:** the event's
   retention rule ([Money](money.md#withdrawal-removal-and-substitution)).
+- **The event's seats are its counted `registered` registrations:** the
+  status is the one stored fact, so no seat row is written for the event's
+  places.
+  Whether a submit is waitlisted stays the capacity check and the latch
+  below.
 - **One capacity per event.** Every form in the registration slot counts
   toward it, except **"not counted"** registrations (e.g. children under 13
   at the event's own start, who come with a parent).
@@ -240,14 +268,16 @@ reference and check-in barcode.
     token does not stay in the address bar or the history.
   - **An account** picks the active registration among the registrations it
     owns. When the account owns the registration a cookie names, the account
-    wins: access follows the account.
+    wins: access follows the account. Until the account picker is built, being
+    logged in sets nothing: only a secret link makes a registration active.
   - The active registration **expires** 24 hours after its link was
-    followed (following it again starts anew), and **"kilépés"** clears it.
+    followed (following it again starts anew), and **"kijelentkezés"**
+    clears it and logs a logged-in account out.
 - **The participant side is built from blocks** that admins place on any
   page, not from a fixed portal page: e.g. the registration's status, its
   bank-transfer details, a picker among an account's registrations,
-  "kilépés", or a small additional form. They show the active registration.
-  The exact set of blocks is still to be agreed with the owner.
+  "kijelentkezés", or a small additional form. They show the active
+  registration. The exact set of blocks is still to be agreed with the owner.
 - **A page holding a participant block is never cached.**
 - **Forms start from the active registration:** an additional form writes
   to it, and a registration form may prefill from it
@@ -256,9 +286,6 @@ reference and check-in barcode.
   **stored readable,** so every email can carry the registrant's link. They
   are treated as secrets: our own code never writes one into a log line or an
   exception message, and they are masked in exports.
-- **Organizers can regenerate a link:** an audited use case; the old link
-  stops working immediately. Mailing the new link is an action mail, switched
-  on or off per event like the others.
 - **The contact email is not unique.** "Resend my link" mails the links of
   every registration with that address. When a second guest registration with
   the same email is submitted to the same event, the registrant sees a soft
@@ -269,8 +296,8 @@ reference and check-in barcode.
 - **The form link a registration came through is stored as a fact**
   ([Forms](events-and-forms.md#form-links-and-admin-submissions)), filterable
   in views.
-- **A hidden attribution field** can carry a key from another page, e.g. the
-  module recommender's answers. Erasing the registration deletes the field
+- **A hidden attribution field** can carry a key from another site, e.g. the
+  submission ID of IVK's quiz, which keeps the quiz's answers there. Erasing the registration deletes the field
   value, so those answers stay, unlinked and anonymous, for statistics.
 - **An erasure anonymises** the registration's personal field values and
   submissions.

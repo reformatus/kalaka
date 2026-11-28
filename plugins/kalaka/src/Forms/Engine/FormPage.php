@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormDraft;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValueContext;
@@ -95,13 +96,13 @@ final class FormPage
         }
 
         $form = $formId > 0 ? $this->forms->form($formId) : null;
-        $facts = $form === null ? null : $this->host->facts($form);
+        $now = Runner::current()->clock()->now();
+        $facts = $form === null ? null : $this->host->facts($form, $now);
         $post = $form === null ? null : get_post($form->id);
         if ($form === null || $facts === null || !$post instanceof \WP_Post) {
             return FormPageView::refused(FormPageView::UNAVAILABLE);
         }
 
-        $now = Runner::current()->clock()->now();
         $refusals = $this->refusals($form, $post, $now);
         if ($refusals !== []) {
             return $this->refusal($refusals[0], $form, $now, $post);
@@ -118,9 +119,18 @@ final class FormPage
      */
     private function refusals(Form $form, \WP_Post $post, \DateTimeImmutable $now): array
     {
-        return self::withoutAccount(
-            $this->host->refusals($form, $now, self::currentRoles(), !post_password_required($post))
-        );
+        return self::withoutAccount(self::refusalsOf($this->host, $form, $post, $now));
+    }
+
+    /**
+     * The one "can this form be used now" check, for the form's page, its routes and the draft handoff: the
+     * host's refusals for the current user's roles and whether the post's password was given.
+     *
+     * @return list<AccessRefusal>
+     */
+    public static function refusalsOf(FormHost $host, Form $form, \WP_Post $post, \DateTimeImmutable $now): array
+    {
+        return $host->refusals($form, $now, self::currentRoles(), !post_password_required($post));
     }
 
     /**
@@ -154,9 +164,11 @@ final class FormPage
             ),
             AccessRefusal::OutsideRegistrationWindow => FormPageView::refused($this->outsideWindow($form, $now)),
             // The account never refuses the page (`withoutAccount()`); listed for the match only.
-            AccessRefusal::EventNotOpen, AccessRefusal::AccountRequired => FormPageView::refused(
-                FormPageView::UNAVAILABLE
-            ),
+            AccessRefusal::EventNotOpen,
+            AccessRefusal::OutsideOpenPeriod,
+            AccessRefusal::AccountRequired,
+            AccessRefusal::RegistrationMayNotSubmit => FormPageView::refused(FormPageView::UNAVAILABLE),
+            AccessRefusal::NoActiveRegistration => FormPageView::refused(FormPageView::NO_ACTIVE_REGISTRATION),
         };
     }
 
@@ -190,9 +202,14 @@ final class FormPage
     {
         $definition = $this->forms->definition($form, null, true);
 
-        // What the form opens with: the host's stored values as answers (none for a new registration),
-        // and what the form shows for them.
-        $answers = $this->prefilled($definition, $this->host->prefill($form));
+        // What the form opens with: the host's stored values (none for a new registration) with the person's
+        // draft over them (S74), as answers, and what the form shows for them. A draft's text its type finds an
+        // error in opens as typed; any other draft answer this version's types do not accept opens empty.
+        $draft = $this->host->draft($form);
+        $answers = $this->prefilled(
+            $definition,
+            array_replace($this->host->prefill($form), $this->forms->acceptedValues($definition, $draft->answers))
+        ) + $this->forms->rejectedText($definition, $draft->answers);
         $availability = $this->forms->availability($definition, $answers, $values);
         $here = self::here();
         $content = FieldMarkup::withPrefill($answers, fn (): string => $this->render(
@@ -221,9 +238,78 @@ final class FormPage
             // S15 (owner ruling 2026-11-18): the account block's window, for a form with an account step.
             'account' => $step === null ? null : self::account($form, $here),
             'triggers' => $availability->triggers,
+            // The answers the page opened with, of the triggers that show: the script re-fetches at start-up only
+            // when the browser restored others (#193's review).
+            'opened' => self::opened($answers, $availability),
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
-        ], null, $this->host->submitToken());
+        ] + self::draftData($form, $draft), null, $this->host->submitToken());
+    }
+
+    /**
+     * The answers the page opened with of the triggers that show, which the script compares at start-up with
+     * what the browser holds. A trigger that does not show is not sent, and the script does not read it; of
+     * a choice, only the options it offers, the ones its markup renders.
+     *
+     * @param array<string, mixed> $answers
+     * @return array<string, mixed>
+     */
+    private static function opened(array $answers, FormAvailability $availability): array
+    {
+        $opened = [];
+        foreach ($availability->triggers as $key) {
+            if (!$availability->shows($key) || !array_key_exists($key, $answers)) {
+                continue;
+            }
+            $answer = $answers[$key];
+            $offered = $availability->offeredOptions($key);
+            if ($offered !== null && is_array($answer)) {
+                $answer = array_values(array_intersect($answer, $offered));
+            } elseif ($offered !== null && is_string($answer) && !in_array($answer, $offered, true)) {
+                continue;
+            }
+            $opened[$key] = $answer;
+        }
+
+        return $opened;
+    }
+
+    /**
+     * The script's part of the draft (S74): the autosave route while the person's (or a guest's) draft is
+     * saved, and the claim route while a link's answers wait for the person's choice against the draft.
+     * Nothing otherwise.
+     *
+     * @return array<string, mixed>
+     */
+    private static function draftData(Form $form, FormDraft $draft): array
+    {
+        $data = [];
+        if ($draft->autosave) {
+            // `Rest\FormRoutes::saveDraft()`.
+            $data['draftUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft');
+            // The draft's claim count, sent back with every save: a save from before a claim is refused.
+            $data['draftClaims'] = $draft->claims;
+            if ($draft->guestStart) {
+                // A guest with no guest draft: the first answer is saved at once, which gives the cookie.
+                $data['draftStart'] = true;
+            }
+        }
+        if ($draft->claimConflict) {
+            // `Rest\FormRoutes::resolveDraftClaim()`; the choice is the person's (the popup, UX).
+            $data['draftClaimUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft/claim');
+            // How many fields the link's answers would change (pass 2): the merge choice's line.
+            $data['draftClaimChanges'] = $draft->linkChanges;
+            // The popup's texts (`Blocks/form/claim.js`), the count in merge's line.
+            $data['draftClaimTexts'] = DraftClaimTexts::popup($draft->linkChanges, $draft->guestChoice);
+        }
+        if ($draft->claimNotice !== null) {
+            // The choice that settled the claim, on the load after it, and its one-line notice, shown once
+            // above the form by the form's script.
+            $data['draftClaimNotice'] = $draft->claimNotice->value;
+            $data['draftClaimNoticeText'] = DraftClaimTexts::notice($draft->claimNotice);
+        }
+
+        return $data;
     }
 
     /**

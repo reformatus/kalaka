@@ -203,7 +203,7 @@ export function KeyPanel({ name, clientId, attributes, setAttributes }) {
 							{ variant: 'primary', disabled: blocked, accessibleWhenDisabled: true, onClick: done },
 							'Kész'
 						),
-						el(Button, { variant: 'tertiary', onClick: () => setDraft(null) }, 'Mégse')
+						el(Button, { variant: 'tertiary', onClick: () => setDraft(null) }, 'Mégsem')
 					)
 			  ),
 		options.length > 0 &&

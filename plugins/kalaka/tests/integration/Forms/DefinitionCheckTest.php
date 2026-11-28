@@ -7,9 +7,11 @@ namespace Kalaka\Tests\Integration\Forms;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\BrokenFormsWarning;
+use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Tests\Integration\LogCapture;
 
@@ -196,6 +198,32 @@ final class DefinitionCheckTest extends FormsTestCase
         $data = $response->get_data();
         self::assertIsArray($data);
         self::assertStringContainsString('contact_email_count', (string) $data['message']);
+    }
+
+    /** modules-and-extensions.md, "Failure isolation": an outside requirement that throws is skipped. */
+    public function testAThrowingSlotRequirementIsSkippedAndTheFormStillRenders(): void
+    {
+        $id = $this->insertChecked($this->slotFields());
+        $before = Contributions::current();
+        // The field types stay, so the form still parses; the failing requirement joins them.
+        $contributions = new Contributions();
+        foreach ($before->fieldTypes() as $type) {
+            $contributions->fieldType($type);
+        }
+        $contributions->slotRequirement(new ThrowingSlotRequirement());
+        Contributions::record($contributions);
+        try {
+            [$log] = $this->captureLog(function () use ($id): void {
+                $definition = $this->forms->definition($this->readForm($id), null, true);
+                self::assertCount(2, $definition->fields);
+            });
+            self::assertStringContainsString('slot requirement', $log);
+            self::assertStringContainsString('lejárt a kérés', $log);
+            // The page serves the form rather than closing it with `required_field_missing`.
+            self::assertNotNull($this->forms->form($id));
+        } finally {
+            Contributions::record($before);
+        }
     }
 
     public function testABrokenDraftCanBeSaved(): void

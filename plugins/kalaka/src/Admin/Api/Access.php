@@ -207,16 +207,17 @@ final class Access
     }
 
     /**
-     * The fine check of a field change, run inside `execute`: whether the actor may write the column
-     * (`field:<key>`) of the registration, which the run must already hold locked, so the view's filter is
-     * read as it is under the lock. Full access may; otherwise a held view must list the column read-write
-     * and contain the registration.
+     * Whether the actor may write the column (`field:<key>`) of the registration: full access may; otherwise a
+     * held view must list the column read-write and contain the registration. The fine check of a field change
+     * passes the run's `Context`, and the registration must already be locked there, so the view's filter is read
+     * as it is under the lock. Without a context it is a plain read, for a caller that must decide before the run
+     * starts or only displays; the act re-checks under the lock.
      *
-     * @throws SystemFailure when the run does not hold the registration's row lock
+     * @throws SystemFailure when a context is given and the run does not hold the registration's row lock
      */
-    public function mayWrite(Actor $actor, RegistrationKey $key, string $column, Context $context): bool
+    public function mayWrite(Actor $actor, RegistrationKey $key, string $column, ?Context $context = null): bool
     {
-        if (!$context->holdsRegistration($key)) {
+        if ($context !== null && !$context->holdsRegistration($key)) {
             $error = new SystemFailure(null, new \LogicException('The fine check needs the registration locked.'));
             throw $error;
         }

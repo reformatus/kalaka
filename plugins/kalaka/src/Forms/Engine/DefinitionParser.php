@@ -14,28 +14,31 @@ use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\OptionsFieldType;
 use Kalaka\Forms\Api\RequestFieldType;
+use Kalaka\Forms\Api\RequestOptions;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Api\PageDefinition;
 use Kalaka\Forms\Engine\Condition\Chain;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
 use Kalaka\Forms\Engine\Condition\Chains;
 use Kalaka\Forms\Engine\Condition\Condition;
+use Kalaka\Forms\Engine\Condition\ConditionKeys;
 use Kalaka\Forms\Engine\Condition\ConditionParser;
 use Kalaka\Forms\Engine\Condition\DeclaredScope;
 use Kalaka\Forms\Engine\Condition\FormScope;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
+use Kalaka\Forms\Engine\FieldType\NumberFieldType;
 use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
 use Kalaka\Forms\Engine\Value\DocumentCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
-use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
  * Reads the field blocks of a form's block markup, in document order, whatever core blocks and condition branches
  * they sit in; each field carries the branches it sits in, and a choice field the availability conditions of its
  * options. A request field (`Api\RequestFieldType`) gets its options from the set it names, through the host
- * (`FormHost::requestOptions()`), with their conditions, which are then read like a choice field's (a stored earlier
- * version takes them without, S44); outside the set's choice window it is closed (S44). The chains are numbered in
+ * (`FormHost::requestOptions()`); each option's condition comes from the block's own `optionConditions` (option key
+ * to condition), which are then read like a choice field's. The
+ * chains are numbered in
  * document order, and every key a condition reads is collected. The chain numbers are read from `Condition\ChainMarks`,
  * the marks the branch blocks render with. Any problem makes the form unusable (`SystemFailure`, naming the problem
  * and the field key, never a label or an option).
@@ -128,11 +131,8 @@ final class DefinitionParser
     /** The form being parsed. */
     private ?Form $form = null;
 
-    /**
-     * Whether the version being parsed is the form's current one: a stored earlier version takes a set's options
-     * without their conditions (S44).
-     */
-    private bool $current = true;
+    /** Whether the parse is the save check: a set's option condition for an option the set lacks is refused. */
+    private bool $saving = false;
 
     /** the page whose blocks are being collected; null outside pages */
     private ?int $page = null;
@@ -152,12 +152,25 @@ final class DefinitionParser
         int $version,
         string $content,
         Contributions $contributions,
-        FormHost $host
+        FormHost $host,
+        bool $saving = false
     ): FormDefinition {
-        $this->factTypes = $host->factTypes();
+        // A key the form holds as a field is read from its answers, never from the host's list of stored values.
+        $blocks = parse_blocks($content);
+        $this->factTypes = array_diff_key($host->factTypes($form), self::fieldKeys($blocks, $contributions));
+        if (!$saving) {
+            // Reading any revision: a key its conditions read that the host knows is gone reads as empty, so
+            // a removed custom point never closes a form or an older revision (a save refuses it instead).
+            $gone = array_values(array_diff(
+                ConditionKeys::in($blocks),
+                array_keys($this->factTypes),
+                array_keys(self::fieldKeys($blocks, $contributions))
+            ));
+            $this->factTypes += $gone === [] ? [] : $host->goneTypes($form, $gone);
+        }
         $this->host = $host;
         $this->form = $form;
-        $this->current = $version === $form->version;
+        $this->saving = $saving;
         $this->afterSubmitTypes = $host->afterSubmitTypes();
         $this->chains = [];
         $this->read = [];
@@ -167,12 +180,12 @@ final class DefinitionParser
         $this->account = null;
         $fields = [];
         try {
-            $this->topLevel(ChainMarks::mark(array_values(parse_blocks($content))), $contributions, $fields);
+            $this->topLevel(ChainMarks::mark(array_values($blocks)), $contributions, $fields);
             $this->slotRules->check($form->id, $form->placement, $fields, $this->pages);
             // A typed placeholder the part it sits in cannot fill is a problem of the definition, so the save
             // check and every read of the current version (`Forms::definition()`, the broken-form scan) agree. An
             // earlier version is read as it was. [UNAPPROVED N1182]
-            $unknown = $this->current
+            $unknown = $version === $form->version
                 ? self::unknownPlaceholders($content, $this->factTypes, $this->afterSubmitTypes)
                 : [];
             if ($unknown !== []) {
@@ -203,8 +216,30 @@ final class DefinitionParser
             $this->pages = [];
             $this->host = null;
             $this->form = null;
-            $this->current = true;
+            $this->saving = false;
         }
+    }
+
+    /**
+     * The keys of the field blocks anywhere in the blocks, in no order.
+     *
+     * @param array<array<string, mixed>> $blocks
+     * @return array<string, true>
+     */
+    private static function fieldKeys(array $blocks, Contributions $contributions): array
+    {
+        $keys = [];
+        foreach ($blocks as $block) {
+            $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
+            $name = is_string($block['blockName'] ?? null) ? $block['blockName'] : '';
+            if (isset($contributions->fieldTypes()[$name]) && is_string($attributes['key'] ?? null)) {
+                $keys[$attributes['key']] = true;
+            }
+            $inner = is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : [];
+            $keys += self::fieldKeys($inner, $contributions);
+        }
+
+        return $keys;
     }
 
     /**
@@ -452,27 +487,31 @@ final class DefinitionParser
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a code and a key, never output
             throw new SystemFailure('invalid_scale ' . $key);
         }
+        if ($name === NumberFieldType::BLOCK_NAME && NumberFieldType::readSettings($attributes) === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a code and a key, never output
+            throw new SystemFailure('invalid_number ' . $key);
+        }
 
-        $closed = false;
         if ($type instanceof RequestFieldType) {
-            [$attributes, $closed] = $this->requestAttributes($type, $key, $attributes);
+            $attributes = $this->requestAttributes($type, $key, $attributes);
         }
 
         $optionConditions = $name === ChoiceFieldType::BLOCK_NAME || $type instanceof RequestFieldType
             ? $this->optionConditions($attributes, new FormScope($fields, $contributions, $this->factTypes))
             : [];
 
-        return new FormField($key, $name, $attributes, $branches, $optionConditions, $this->page, $closed);
+        return new FormField($key, $name, $attributes, $branches, $optionConditions, $this->page);
     }
 
     /**
-     * A request field's attributes with its set's options in `options`, and whether the set's choice window is
-     * closed now (S44). A field naming a set the host does not have is a problem; one naming none keeps its own
-     * options. A stored earlier version takes the options without their conditions: the answers of a submission
-     * were given against that version, whose fields need not hold a key a condition reads now (S44).
+     * A request field's attributes with its set's options in `options` (S44). A field naming a set the host does not
+     * have is a problem; one naming none keeps its own options. The block's `optionConditions` (option key →
+     * condition) become the options' `condition`, so every version reads its own block's conditions. A key the set
+     * has no option for is refused when the form is saved (`unknown_option`) and ignored when the definition is read,
+     * so a removed option never closes the form.
      *
      * @param array<string, mixed> $attributes
-     * @return array{array<string, mixed>, bool}
+     * @return array<string, mixed>
      * @throws SystemFailure
      */
     private function requestAttributes(RequestFieldType $type, string $key, array $attributes): array
@@ -480,7 +519,7 @@ final class DefinitionParser
         $setId = $type->requestSet($attributes);
         if ($setId === null) {
             // It names no set: its options are its own, as authored.
-            return [$attributes, false];
+            return $attributes;
         }
         $options = $this->host === null || $this->form === null
             ? null
@@ -489,14 +528,40 @@ final class DefinitionParser
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key
             throw new SystemFailure('unknown_set ' . $key);
         }
-        $attributes['options'] = $this->current
-            ? $options->options
-            : array_map(
-                static fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
-                $options->options
-            );
+        $attributes['options'] = $this->withConditions($key, $attributes['optionConditions'] ?? null, $options);
 
-        return [$attributes, !$options->openAt(Runner::current()->clock()->now())];
+        return $attributes;
+    }
+
+    /**
+     * The set's options, each with the block's condition for its key.
+     *
+     * @return list<array{value: string, label: string, condition?: array<array-key, mixed>}>
+     * @throws SystemFailure
+     */
+    private function withConditions(string $field, mixed $conditions, RequestOptions $options): array
+    {
+        if ($conditions === null) {
+            return $options->options;
+        }
+        if (!is_array($conditions)) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key
+            throw new SystemFailure('invalid_option_conditions ' . $field);
+        }
+        $values = array_column($options->options, 'value');
+        foreach (array_keys($conditions) as $optionKey) {
+            if ($this->saving && !in_array((string) $optionKey, $values, true)) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key
+                throw new SystemFailure('unknown_option ' . $field);
+            }
+        }
+        $withConditions = [];
+        foreach ($options->options as $option) {
+            $condition = $conditions[$option['value']] ?? null;
+            $withConditions[] = $condition === null ? $option : $option + ['condition' => $condition];
+        }
+
+        return $withConditions;
     }
 
     /**
@@ -535,7 +600,7 @@ final class DefinitionParser
     }
 
     /**
-     * The availability conditions of a choice field's options (S76): an option may carry a
+     * The availability conditions of a choice field's or a request field's options (S76): an option may carry a
      * `condition`, which reads the fields before the choice field and the event's keys.
      * Decision N4 (#156): the option attribute `condition`.
      *

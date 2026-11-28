@@ -887,8 +887,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
     }
 
-    /** T6, appended to T5a, T5b or T5c only while the event's confirmed mail is on (the ruling 2026-11-23, Q4). */
-    public function testTheMailNoteIsAppendedOnlyWhileTheConfirmedMailIsOn(): void
+    /** The warning is T5a, T5b or T5c only: the confirmed mail's sentence (T6) is not part of it (owner 2026-11-27). */
+    public function testTheWarningSaysNothingOfTheMailEvenWhileTheConfirmedMailIsOn(): void
     {
         $this->addRegistration('00A0');
         $this->addDecision('00A0', 'confirmation', 'confirmed');
@@ -902,7 +902,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ['kalaka_confirm_manually', 'kalaka_view_money']
         );
         $warning = fn (int $user): ?string => $this->detail($user)['registration']['unconfirm_warning'];
-        $note = ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.';
+        $note = 'levél';
         $generic = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
         $nothingDue = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra '
             . 'visszaigazolt lesz.';
@@ -916,11 +916,15 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
+            'body_id' => null,
         ]);
         ObjectCache::clear();
 
-        self::assertSame($generic . $note, $warning($blind), 'T5c and T6.');
-        self::assertSame($nothingDue . $note, $warning($seeing), 'T5b and T6.');
+        // The mail is on, and the warning still says nothing of it.
+        self::assertSame($generic, $warning($blind), 'T5c only.');
+        self::assertSame($nothingDue, $warning($seeing), 'T5b only.');
+        self::assertStringNotContainsString($note, (string) $warning($blind));
+        self::assertStringNotContainsString($note, (string) $warning($seeing));
 
         $wpdb->update(
             $wpdb->prefix . 'kalaka_action_mails',
@@ -928,7 +932,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ['event_id' => $this->event, 'mail' => 'confirmed']
         );
         ObjectCache::clear();
-        self::assertSame($generic, $warning($blind), 'Off again: the note goes.');
+        self::assertSame($generic, $warning($blind), 'Off again: unchanged.');
     }
 
     public function testTheReconfirmsKeyTellsTheReasonToAMoneyViewHolderAndOnlyYesToOthers(): void
