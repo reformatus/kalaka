@@ -173,7 +173,13 @@ final class EventPage
      * One figure: „label: number”, and the button of its window when `$opens` names one. The button's accessible
      * name is its own word and the window's title („Részletek: Küldési hibák”, the lektor's form).
      */
-    private static function figure(string $key, string $label, int $number, string $opens = '', string $window = ''): string
+    private static function figure(
+        string $key,
+        string $label,
+        int $number,
+        string $opens = '',
+        string $window = ''
+    ): string
     {
         $id = 'kalaka-figure-' . $key;
         $html = '<li><span id="' . esc_attr($id) . '">' . esc_html($label) . '</span>: <strong>' . $number
