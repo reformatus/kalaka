@@ -6,8 +6,9 @@ title: Money
 
 ## Core money scope
 
-- **Core:** a fixed price per registration, full payment and manual charges
-  and discounts, with its **payment due** date type. Core ships no money field types.
+- **Core:** a fixed price per registration, full payment, manual charges and
+  discounts, an event's extra charges and its donation, with its **payment
+  due** date type. Core ships no money field types.
 - **Payment due** is N days after the later of the moment the registration
   last became `registered` (at submit, admission or restore) and its last
   answer to a request, a changed yes or no or amount (a note added alone does
@@ -35,6 +36,33 @@ title: Money
      request source's writer, so the extension stays the award's only writer;
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
+- **Extra charges and the donation are core,** two fee components at the
+  extras stage that the participant pays. An event's extra charges are a
+  key, a label, an amount and a field type (a consent or a number) each, set
+  through the money settings apply; each declares the participant field with
+  its key ([Fields](events-and-forms.md#fields)), which calls it, and the amount is
+  multiplied by the answer's whole value (a charge key no field uses charges
+  nobody). Each extra charge a registration owes is its own line,
+  `extras:<key>`, with no condition of its own. The donation is the value of
+  the event's number field with the fixed key `adomany`, which Kaláka sets,
+  as one `donation` line, charged exactly as stored; empty, 0 or a negative
+  value writes none, and it has no setting. Support and the congregation
+  share never cover either.
+- **The price ladder** is a fee component at the tier stage. A tier is a
+  key, a label and an amount, in order; it has no condition and no
+  deadline. A registration chooses its tier only through the participant
+  field `price_tier` the ladder declares, a choice of its tiers that forms
+  join, and the chosen tier's current amount is its base price. A
+  registration form of an event with tiers must hold `price_tier` as a
+  required field, outside any condition, or it is closed until fixed; a
+  form's own conditions on the field's options decide who may pick which
+  tier. A later change of any other answer never re-checks the tier. A
+  chosen tier no longer in the ladder, or no answer at all, is never a base
+  of zero: the use case is refused, saying why. Staff set a tier before an
+  admission or a restore, and the periodic run flags the registration
+  "evaluation failed" ([Foundation](foundation.md#failures)). The ladder
+  sets only the base price. The event's fixed price is the base only
+  without a ladder, whatever the ladder owes a registration.
 - Price-ladder tier quotas are separate from the event's waitlist. Each
   tier's quota is configured once, and texts render from it. Places in
   tier and support quotas follow [Quota places](#quota-places).
@@ -120,7 +148,7 @@ title: Money
   any recorded payment method. WooCommerce refunds keep their own path
   ([Refunds](#refunds)).
 - **A correction** is a "record payment" or "record refund" row of either
-  direction, flagged as a correction, with a required reason, **no method and
+  direction, flagged as a correction, with an optional reason, **no method and
   no value date**: it counts from the time it is recorded. It is a payment
   fact like any recorded payment, so confirmation and balances count it with no
   special case. One use case records it, under the same action as "record
@@ -154,17 +182,16 @@ title: Money
   included; **nothing is due** when every payer's target is zero or below.
   Confirmation reads payment facts, never charge lines. A request that
   awaits an answer does not block it: payments still count.
-- **The manual flag** ("may come without paying") is a fact: set with a
-  reason, audited, carrying its own set time. Staff can always take it back,
+- **The manual flag** ("may come without paying") is a fact: set with an
+  optional reason, audited, carrying its own set time. Staff can always take it back,
   through staff's unconfirm; that is allowed also when payments or nothing
   due then confirm the registration again at once.
 - **Staff's unconfirm** („Visszaigazolás visszavonása”) is the one way to take
-  a confirmation back. It is a fact: recorded with a reason, who and when,
+  a confirmation back. It is a fact: recorded with an optional reason, who and when,
   audited, and allowed on any confirmed registration. It revokes the manual
   flag if set and records `unconfirmed`; then confirmation is decided again at
   once, so payments that reach the threshold or nothing due confirm it again.
-  Staff are warned before that happens, and, while the event's confirmed mail is
-  on, that the registrant then gets that mail.
+  Staff are warned before that happens.
 
 | Transition | When |
 |---|---|
@@ -212,17 +239,24 @@ only at the participant's side.
 
 ## Quota places
 
-Tier places of the price ladder and support-offer places are extension
-decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+Tier places of the price ladder and support-offer places are seats, under the
+one seat rule
+([Foundation](foundation.md#facts-decisions-and-computed-values)).
 
-- **Held** when the registration becomes `registered` (at submit, admission or
-  restore), decided under a `FOR UPDATE` lock on the tier or offer row.
-  Waitlisted registrations hold no place.
-- **Released** on withdrawal or removal.
-- **Reassigned only by a staff act:** staff give a freed place to a requester
-  from a list in registration order, so nobody's money changes
-  automatically.
-- **A restored registration** gets a place only if one is free.
+- **Taken** at submit, admission or restore, or when a `registered`
+  registration's additional form makes a new choice of a limited option, under
+  a `FOR UPDATE` lock on the tier or offer row. Waitlisted registrations hold
+  no place (and have no additional forms).
+- **A full one cannot be chosen:** the submit is refused, as for a full set
+  option. Staff can still place a registration by hand, warned that the pool
+  is full.
+- **Released** on withdrawal or removal, and when an answer refuses the
+  offer (a partner approves or refuses through the same act as staff). A tier
+  or an offer, once written, is locked like every money-relevant value, so an
+  additional form never changes it away.
+- **A restored or admitted registration** keeps what it chose and takes its
+  places, over the limit where a pool is full, with the "full" warning to
+  staff, as the one seat rule says for every staff act.
 
 ## Withdrawal, removal and substitution
 
@@ -245,10 +279,9 @@ An extension: the registrant's congregation pays part or all of the **base
 price** (the chosen tier, or the fixed price without a ladder), never extras
 such as lunch or a donation.
 
-- **Each tier sets its share mode:** none, declared by the participant, or
-  the whole base price. Without a ladder, the fixed price is the tier and
-  the event sets its share mode. The share is then zero, the amount the
-  registrant declares, or the base price. A fee component writes a zero-sum
+- **The ladder sets only the base price;** the share between payers is
+  decided by the registrant's answers, never by the tier. The share is
+  zero, the amount the registrant declares, or the base price. A fee component writes a zero-sum
   pair, participant −X′ and congregation +X′, where
   X′ = max(0, min(share, base price − support)). Support thus reduces
   the participant's part first, and the congregation's only below zero.
@@ -284,15 +317,15 @@ such as lunch or a donation.
   owner's ruling 2026-11-18), in SQL over the stored answer (`JSON_CONTAINS`
   over `JSON_EXTRACT(value, '$.path[*].ext')`), under the same per-event
   `EXPLAIN` test.
-- **Support offers per event on any node,** the root included, apply to the
-  node and everything below it: amount, quota (people and/or budget),
-  conditions on facts, "must be requested", and "must be confirmed by the
-  body" (in its view or through a form link).
-- **Stacking:** one flag per offer, "withdrawn if a lower-level support
-  applies", on by default (the most specific wins); off, it adds to the lower
-  one. Offers are evaluated from the congregation upwards, and a higher offer
-  takes a quota place ([Quota places](#quota-places)) only if it ends up
-  applying.
+- **Support offers per event on any node,** the root included, several per
+  node, are offered to the node and everything below it, and the registrant
+  selects them: amount, whether it needs a request (answered by staff or by
+  the body, where a partner approves, through the one "answer a request" act;
+  while the selection awaits an answer, no payment is asked and no due date is
+  shown), and an optional limit of places (people only). Who sees an offer is
+  set up on the form, as for price tiers and extra charges: an offer carries
+  no condition of its own. A selected offer with a limit takes a place
+  ([Quota places](#quota-places)).
 - **Each applying offer is one participant-side `charge` line** of the
   support stage, written by the materializer and labelled with its granting
   node.
@@ -308,15 +341,17 @@ such as lunch or a donation.
 - **There is no tariff snapshot.** Money is always computed from the event's
   current settings plus the registration's field values and facts. A fee
   component reads its own current settings; a registration admitted from the
-  waitlist pays today's price.
+  waitlist pays today's price, with a ladder the current amount of the tier
+  it chose.
 - **Every time-dependent rule for a registration counts from the moment it
   last became `registered`** (`registered_at`, a personal fact), never from
-  "now" and never from the submit: price-tier deadlines, payment due,
-  everything; payment due alone also restarts at a later answer to a
-  request. A registration that became `registered` before an early price
-  ended keeps that price at every later evaluation. A waitlisted registration
-  is not registered, so an admission from the waitlist counts from its
-  admission. A deadline's day ends at midnight in the site time zone
+  "now" and never from the submit: payment due, everything; payment due
+  alone also restarts at a later answer to a request. A price-ladder tier
+  chosen at submit is kept, also at an
+  admission from the waitlist, at the tier's current amount; any date guard on
+  an early price is the form's condition on `price_tier`'s options, checked at
+  submit. A waitlisted registration is not registered, so an admission from
+  the waitlist counts from its admission. A deadline's day ends at midnight in the site time zone
   ([Cross-cutting rules](foundation.md#cross-cutting-rules)).
 - **Personal facts still recompute automatically:** e.g. a price-ladder
   choice, the aid award, staff status (a field value written by the staff
@@ -329,7 +364,10 @@ such as lunch or a donation.
 - **Saving money settings is preview → confirm → apply**
   ([Bulk changes](foundation.md#bulk-changes)). The preview composes every
   `registered` and `waitlisted` registration with the proposed settings and
-  writes nothing, showing what each payer owes now and would owe. The apply
+  writes nothing, showing what each payer owes now and would owe, and how
+  many registrations would become confirmed and how many "confirmed" mails
+  would go (a dry run of [Confirmation](#confirmation) against the proposed
+  composition; a registration confirmed already is not counted). The apply
   saves the settings, then re-evaluates each of them in its own transaction,
   and the materializer writes the difference as `charge` lines. Its report
   lists the failed registrations, with retry and skip; a failed or skipped
@@ -354,7 +392,9 @@ flowchart LR
   support → share → aid → extras. A fee component declares which stage it
   belongs to, and core composes the stages in order; there are no order
   numbers. Aid comes out of the participant's part only and never reduces
-  the congregation's share.
+  the congregation's share. A component may put computed values, never
+  stored, into the facts the later stages read, such as the price ladder's
+  applied tier, `price_tier.applied`.
 - **It converges:** it writes only the difference between target and
   recorded, per component, item and payer, so it can run any number of times, with
   line idempotency keys.

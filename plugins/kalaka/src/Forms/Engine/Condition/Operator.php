@@ -20,7 +20,7 @@ enum Operator: string
     public function isAllowedFor(ValueType $type): bool
     {
         return match ($type) {
-            ValueType::Number, ValueType::Date => $this !== self::Contains,
+            ValueType::Number, ValueType::Date, ValueType::Datetime => $this !== self::Contains,
             ValueType::Text, ValueType::Choice => in_array($this, [self::Equals, self::Contains, self::Empty], true),
         };
     }

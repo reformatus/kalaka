@@ -25,6 +25,16 @@ final class InstantTest extends \WP_UnitTestCase
         self::assertEquals($time, Instant::fromStorage('2026-11-30 08:00:00.123456'));
     }
 
+    public function testAnUnsetOrZeroStoredDateReadsAsNull(): void
+    {
+        self::assertNull(Instant::fromStoredOrNull(null));
+        self::assertNull(Instant::fromStoredOrNull(''));
+        self::assertNull(Instant::fromStoredOrNull('0000-00-00 00:00:00'));
+        self::assertNull(Instant::fromStoredOrNull('0000-00-00 00:00:00.000000'));
+        $stored = '2026-11-30 08:00:00.000000';
+        self::assertEquals(Instant::fromStorage($stored), Instant::fromStoredOrNull($stored));
+    }
+
     public function testALocalTimeIsReadInTheSiteZone(): void
     {
         $at = Instant::fromLocal('2026-11-30 08:00');

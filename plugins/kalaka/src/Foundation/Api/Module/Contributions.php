@@ -6,13 +6,16 @@ namespace Kalaka\Foundation\Api\Module;
 
 use Kalaka\Forms\Api\BlockHost;
 use Kalaka\Forms\Api\FieldType;
+use Kalaka\Forms\Api\SlotRequirement;
 use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
 use Kalaka\Payments\Api\OnlineRefs;
 use Kalaka\Payments\Api\PaymentProvider;
+use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\SeatClaimSource;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
 final class Contributions
@@ -28,6 +31,9 @@ final class Contributions
     /** @var array<string, FieldType> */
     private array $fieldTypes = [];
 
+    /** @var list<SlotRequirement> */
+    private array $slotRequirements = [];
+
     /** @var list<ThemeAdapter> */
     private array $themeAdapters = [];
 
@@ -42,6 +48,12 @@ final class Contributions
 
     /** @var array<string, PaymentProvider> */
     private array $paymentProviders = [];
+
+    /** @var array<string, FeeComponent> */
+    private array $feeComponents = [];
+
+    /** @var list<SeatClaimSource> */
+    private array $seatClaimSources = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -112,6 +124,25 @@ final class Contributions
     public function fieldTypes(): array
     {
         return $this->fieldTypes;
+    }
+
+    /**
+     * A requirement on an event's registration form is an outside point (modules-and-extensions.md, "The
+     * extension surface"): participant field keys the form must hold (`Forms\Api\SlotRequirement`).
+     */
+    public function slotRequirement(SlotRequirement $requirement): void
+    {
+        $this->slotRequirements[] = $requirement;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<SlotRequirement>
+     */
+    public function slotRequirements(): array
+    {
+        return $this->slotRequirements;
     }
 
     /**
@@ -213,5 +244,53 @@ final class Contributions
     public function paymentProviders(): array
     {
         return array_values($this->paymentProviders);
+    }
+
+    /**
+     * A fee component is an inside point (modules-and-extensions.md, "The extension surface"; money.md,
+     * "Materializer"). Its ID is `[a-z][a-z0-9_]*`, at most 50 characters, and unique: a malformed or repeated
+     * ID fails the contributing module (Pricing refuses one that is core's own).
+     */
+    public function feeComponent(FeeComponent $component): void
+    {
+        $id = $component->id();
+        if (preg_match('/\A[a-z][a-z0-9_]{0,49}\z/', $id) !== 1) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a component ID, never output
+            throw new \InvalidArgumentException('Invalid fee component ID ' . $id . '.');
+        }
+        if (isset($this->feeComponents[$id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a component ID, never output
+            throw new \InvalidArgumentException('Fee component already contributed: ' . $id . '.');
+        }
+        $this->feeComponents[$id] = $component;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<FeeComponent>
+     */
+    public function feeComponents(): array
+    {
+        return array_values($this->feeComponents);
+    }
+
+    /**
+     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
+     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     */
+    public function seatClaimSource(SeatClaimSource $source): void
+    {
+        $this->seatClaimSources[] = $source;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<SeatClaimSource>
+     */
+    public function seatClaimSources(): array
+    {
+        return $this->seatClaimSources;
     }
 }

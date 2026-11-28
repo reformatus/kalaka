@@ -37,8 +37,8 @@ page, and the account area
   „Még fizetendő”, or „Túlfizetés” when overpaid, whether or not anything is payable now.
 - The money table is built from `ParticipantMoney` alone (`StatusMarkup`; the mail look is `MailMarkup`, reached
   through `Api\MailMoney`), with the owner's words in `MoneyWords`; the owed lines are the read's, signed, the base
-  price included. The page's popovers are native (`popover`, `popovertarget`), with an ID of their own per table
-  on a page. Whether a money table shows is one rule, `RegistrationStatusView::showsMoney()`, read by the page
+  price included. The page's movement details (type, method, day, the whole note) are the native `title` tooltip of the info
+  mark and of a shortened note, never a popover. Whether a money table shows is one rule, `RegistrationStatusView::showsMoney()`, read by the page
   and by the mail's money block: none for a waitlisted registration.
 - The transfer block renders nothing unless the registration is `registered`,
   its event is published, no request awaits an answer, the participant's balance is
@@ -58,5 +58,21 @@ page, and the account area
   its markup; a theme's row lines and colours are the theme adapter's); the
   texts read correctly without either. Every text is the frozen spec's or
   approved.
+- The leave block `kalaka/leave` (`[kalaka_leave]`) is page content only and renders nothing unless there is
+  an active registration or a logged-in account, or while the site is closed (the transfer block's rule). It
+  is one form with one button that posts the page's own address as `return_url` to
+  `POST kalaka-portal/v1/leave`: one press, no confirmation step.
+- The leave route, in this order: the same-site check first (a post from another site gets the plain 403
+  page, never JSON); the `logged_in` cookie read and validated by the route itself, and its user set, before
+  `wp_logout()` (a REST request without a nonce has no user by then); `wp_logout()` for an account; the
+  active-registration cookie cleared; a 303 to a same-site `return_url`, else the home page, with no body.
+  No nonce (the registrant may be a guest), no state, no audit.
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
+- `kalaka_push_subscriptions` (the parked PWA scope) is the module's only
+  table: one row per registration and device, keyed by (event, code,
+  endpoint hash); `key_p256dh` and `key_auth` are secret columns. Nothing
+  writes it yet. A row is deleted on unsubscribe, on the registration's
+  withdrawal, when the event ends and when the push service rejects its
+  endpoint; there is no last-seen column. Portal's "never stores a secret"
+  above is about a registration's secret, not these keys.

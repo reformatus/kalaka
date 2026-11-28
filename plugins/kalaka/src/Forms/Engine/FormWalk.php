@@ -27,8 +27,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * holds; a field that does not show is skipped before its answer is looked at, so whatever was sent
  * for it is dropped, it is never required and never an error. A shown choice field offers only the
  * options whose condition holds, and a sent option that is not offered is dropped like a hidden
- * answer. A request field outside its set's choice window (`FormField::$closed`, S44) does not show. A
- * condition reads an earlier field's valid answer as its value, an earlier field that
+ * answer. A condition reads an earlier field's valid answer as its value, an earlier field that
  * was not answered, dropped or in error as empty, and the caller's facts (the event's keys) for
  * any other key. No chain is ever pending: an unanswered choice, required or optional, reads as
  * empty, so a chain on it shows its `else` until an option is picked, and the fields shown at that
@@ -76,8 +75,7 @@ final class FormWalk
             if ($field->page !== null && !isset($pages[$field->page])) {
                 $pages[$field->page] = $this->pageShows($definition, $field->page, $facts);
             }
-            $isShown = !$field->closed
-                && ($field->page === null || $pages[$field->page])
+            $isShown = ($field->page === null || $pages[$field->page])
                 && $this->isShown($field->branches, $facts);
             $shown[$field->key] = $isShown;
             $value = null;
@@ -221,12 +219,7 @@ final class FormWalk
     ): ?Value {
         $sent = $answers[$field->key] ?? null;
         // a consent sent as false is an answer, "no" (stored `0`), unless the consent is required
-        $isConsent = $field->blockName === ConsentFieldType::BLOCK_NAME;
-        if (
-            !array_key_exists($field->key, $answers)
-            || $this->isBlank($sent, $isConsent)
-            || ($isConsent && $sent === false && $field->isRequired())
-        ) {
+        if (!array_key_exists($field->key, $answers) || self::noAnswer($field, $sent)) {
             if ($field->isRequired()) {
                 $errors[$field->key] = $field->blockName === ConsentFieldType::BLOCK_NAME
                     ? ConsentFieldType::NOT_GIVEN
@@ -256,11 +249,29 @@ final class FormWalk
         return null;
     }
 
-    /** `""`, whitespace only and `[]` are no answer, and `false` for any field but a consent (where it is "no"). */
-    private function isBlank(mixed $value, bool $isConsent): bool
+    /**
+     * The value a sent answer stores, by the one rule a walk and every other reader of answers share: null for an
+     * answer its type refuses.
+     *
+     * @throws InvalidInput
+     */
+    public static function storedOf(FormField $field, FieldType $type, mixed $sent): ?string
     {
-        return ($value === false && !$isConsent)
-            || $value === []
-            || (is_string($value) && preg_match('/\A[\s\p{Z}]*\z/u', $value) === 1);
+        $answer = $type->answer(new FieldTypeInput($sent, $field->attributes));
+
+        return $answer->error === null ? $answer->value : null;
+    }
+
+    /**
+     * `""`, whitespace only and `[]` are no answer, and `false` for any field but a consent (where it is "no",
+     * unless the consent is required).
+     */
+    private static function noAnswer(FormField $field, mixed $sent): bool
+    {
+        $isConsent = $field->blockName === ConsentFieldType::BLOCK_NAME;
+
+        return ($sent === false && (!$isConsent || $field->isRequired()))
+            || $sent === []
+            || (is_string($sent) && preg_match('/\A[\s\p{Z}]*\z/u', $sent) === 1);
     }
 }

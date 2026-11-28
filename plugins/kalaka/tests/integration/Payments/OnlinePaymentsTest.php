@@ -36,7 +36,6 @@ final class OnlinePaymentsTest extends ConfirmationTestCase
             'version' => 1,
             'enabled' => 1,
             'body_id' => null,
-            'layout' => 1,
         ]);
     }
 

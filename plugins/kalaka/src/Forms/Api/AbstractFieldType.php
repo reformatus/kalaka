@@ -27,6 +27,12 @@ abstract class AbstractFieldType implements FieldType
         return Value::text($stored, $stored);
     }
 
+    /** A type without settings keeps none on the participant field. */
+    public function settings(array $attributes): array
+    {
+        return [];
+    }
+
     /** The stored string, as a text control holds it; null for none. */
     public function prefill(FieldTypeInput $input): mixed
     {

@@ -14,7 +14,10 @@ use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Mail\Body\ActionMailComposer;
+use Kalaka\Mail\Body\BodyCheck;
+use Kalaka\Mail\Body\MailBlocks;
 use Kalaka\Mail\Body\MailRenderer;
+use Kalaka\Mail\BodyUnusable;
 use Kalaka\Mail\Sender;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
@@ -112,7 +115,7 @@ final class MoneyMailTest extends MailBodyTestCase
         $body = $this->document($this->event, $inner);
         $this->switchOn($this->event, $mail, $body);
 
-        return (new MailRenderer())->render($this->event, $mail, $this->key(), $line)->html;
+        return (new MailRenderer())->render($this->event, $mail, $this->key(), self::now(), $line)->html;
     }
 
     private function keys(): string
@@ -144,7 +147,8 @@ final class MoneyMailTest extends MailBodyTestCase
         );
 
         $online = $this->line('payment', '-2000');
-        $html = (new MailRenderer())->render($this->event, 'payment_recorded', $this->key(), $online)->html;
+        $html = (new MailRenderer())
+            ->render($this->event, 'payment_recorded', $this->key(), self::now(), $online)->html;
         self::assertSame('Befizetés 2 000 Ft Online 2026. november 29.', self::text($html));
     }
 
@@ -351,6 +355,144 @@ final class MoneyMailTest extends MailBodyTestCase
         self::assertStringContainsString('Befizetés Készpénz · 2026. 11. 29. · „Teszt” + 12 000 Ft', $text);
         self::assertStringContainsString('Még fizetendő 48 000 Ft', $text);
         self::assertSame('sent', $this->deliveries()[0]['status']);
+    }
+
+    /** A paragraph or an HTML block that holds only the typed key. */
+    private static function alone(string $typed, string $as = 'paragraph'): string
+    {
+        return $as === 'html'
+            ? "<!-- wp:html -->\n" . $typed . "\n<!-- /wp:html -->"
+            : "<!-- wp:paragraph -->\n<p>" . $typed . "</p>\n<!-- /wp:paragraph -->";
+    }
+
+    public function testTheTypedKeysRenderExactlyWhatTheirBlocksRender(): void
+    {
+        $this->line('manual_payment', '-8000', 'cash', '2026-11-27', 'Teszt');
+        $money = $this->render('<!-- wp:kalaka/mail-money /-->', 'confirmed');
+        $transfer = $this->render('<!-- wp:kalaka/mail-transfer /-->', 'confirmed');
+        self::assertStringContainsString('<table', $money);
+        self::assertStringContainsString('<table', $transfer);
+
+        foreach (['paragraph', 'html'] as $as) {
+            self::assertSame($money, $this->render(self::alone('{{money_table}}', $as), 'confirmed'), $as);
+            self::assertSame($money, $this->render(self::alone('{{ money_table }}', $as), 'confirmed'), $as);
+            self::assertSame($transfer, $this->render(self::alone('{{transfer_details}}', $as), 'confirmed'), $as);
+        }
+        // Both in one body, beside other text: the same as the two blocks beside it.
+        $typed = $this->render(
+            $this->paragraph('Szia') . "\n" . self::alone('{{money_table}}') . "\n"
+            . self::alone('{{transfer_details}}'),
+            'confirmed'
+        );
+        $blocks = $this->render(
+            $this->paragraph('Szia') . "\n<!-- wp:kalaka/mail-money /-->\n<!-- wp:kalaka/mail-transfer /-->",
+            'confirmed'
+        );
+        self::assertSame(self::text($blocks), self::text($typed));
+        self::assertStringNotContainsString('{{', $typed);
+    }
+
+    public function testTheTypedTransferKeyRendersNothingWhileNothingIsDue(): void
+    {
+        self::assertStringContainsString(
+            'Összeg 60 000 Ft',
+            self::text($this->render(self::alone('{{transfer_details}}'), 'confirmed'))
+        );
+
+        $this->line('manual_payment', '-60000', 'bank_transfer', '2026-11-29');
+        $html = $this->render(self::alone('{{transfer_details}}'), 'confirmed');
+
+        self::assertSame('', trim(self::text($html)));
+        self::assertStringNotContainsString('<table', $html);
+    }
+
+    public function testTheTypedMoneyKeyFollowsThePageAndRendersNothingForAWaitlistedRegistration(): void
+    {
+        global $wpdb;
+        $this->key();
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['status' => 'waitlisted'],
+            ['event_id' => $this->event, 'code' => '12A3']
+        );
+        ObjectCache::clear();
+
+        $html = $this->render(self::alone('{{money_table}}'), 'waitlisted');
+
+        self::assertSame('', trim(self::text($html)));
+        self::assertStringNotContainsString('<table', $html);
+    }
+
+    public function testATypedKeyInsideAConditionsBranchRenders(): void
+    {
+        $empty = ['match' => 'all', 'items' => [['key' => 'registration.code', 'operator' => 'empty']]];
+        $inner = $this->branch('if', $this->paragraph('Nincs kód'), $empty) . "\n"
+            . $this->branch('else', self::alone('{{money_table}}'));
+
+        $html = $this->render($inner, 'confirmed');
+
+        self::assertStringContainsString('Fizetendő összesen 60 000 Ft', self::text($html));
+        self::assertStringNotContainsString('Nincs kód', $html);
+    }
+
+    public function testAManualMailRendersTheTypedKeysToo(): void
+    {
+        $body = $this->document(
+            $this->event,
+            self::alone('{{money_table}}') . "\n" . self::alone('{{transfer_details}}')
+        );
+
+        $html = (new MailRenderer())->renderBody($this->event, $body, $this->key(), self::now())->html;
+
+        self::assertSame(
+            self::text($this->render('<!-- wp:kalaka/mail-money /--><!-- wp:kalaka/mail-transfer /-->', 'confirmed')),
+            self::text($html)
+        );
+    }
+
+    /** @return array<string, array{string}> */
+    public static function misplacedKeys(): array
+    {
+        return [
+            'inline in a paragraph' => [
+                '<!-- wp:paragraph --><p>Tartozásod: {{money_table}}</p><!-- /wp:paragraph -->',
+            ],
+            'in a link' => [
+                '<!-- wp:paragraph --><p><a href="{{transfer_details}}">x</a></p><!-- /wp:paragraph -->',
+            ],
+            'in a heading' => [
+                '<!-- wp:heading --><h2>{{money_table}}</h2><!-- /wp:heading -->',
+            ],
+        ];
+    }
+
+    /** @dataProvider misplacedKeys */
+    public function testATypedKeyAnywhereButAloneIsAnUnknownPlaceholderAtSaveAndFailsTheMailAtSend(string $inner): void
+    {
+        $unknown = BodyCheck::unknown($inner, $this->event);
+        self::assertNotNull($unknown);
+        self::assertStringContainsString('{{', $unknown->keys[0]);
+        self::assertNotNull(BodyCheck::refusal(0, $inner, $this->event));
+
+        $this->switchOn($this->event, 'confirmed', $this->brokenDocument($this->event, $inner));
+        try {
+            (new MailRenderer())->render($this->event, 'confirmed', $this->key(), self::now());
+            self::fail('Expected a failure.');
+        } catch (BodyUnusable $e) {
+            self::assertStringStartsWith('unknown_placeholder {{', $e->problem);
+        }
+    }
+
+    public function testAKeyStandingAloneIsNotRefusedAtSaveAndAnyOtherBodyIsLeftAsTyped(): void
+    {
+        self::assertNull(BodyCheck::unknown(self::alone('{{money_table}}'), $this->event));
+        self::assertNull(BodyCheck::problem(self::alone('{{transfer_details}}', 'html'), $this->event));
+        self::assertNull(BodyCheck::refusal(0, self::alone('{{ money_table }}'), $this->event));
+        self::assertSame('<p>{{event.name}}</p>', MailBlocks::expand('<p>{{event.name}}</p>'));
+        self::assertSame(
+            self::alone('{{event.name}}'),
+            MailBlocks::expand(self::alone('{{event.name}}'))
+        );
     }
 
     /** The text of rendered HTML: cells and paragraphs apart, whitespace and no-break spaces collapsed. */

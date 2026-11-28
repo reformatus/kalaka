@@ -25,6 +25,7 @@ import textEdit from '../text-field/edit';
 import choiceEdit, { Options } from '../choice-field/edit';
 import consentEdit from '../consent-field/edit';
 import scaleEdit from '../scale-field/edit';
+import numberEdit from '../number-field/edit';
 import ifEdit from '../if/edit';
 import elseIfEdit from '../else-if/edit';
 import elseEdit from '../else/edit';
@@ -57,6 +58,7 @@ const blocks = {
 	'kalaka/choice-field': field(choiceEdit),
 	'kalaka/consent-field': field(consentEdit),
 	'kalaka/scale-field': field(scaleEdit),
+	'kalaka/number-field': field(numberEdit),
 	'kalaka/if': { edit: ifEdit, save: branchSave, __experimentalLabel: conditionLabel('kalaka/if') },
 	'kalaka/else-if': { edit: elseIfEdit, save: branchSave, __experimentalLabel: conditionLabel('kalaka/else-if') },
 	'kalaka/else': { edit: elseEdit, save: branchSave },
