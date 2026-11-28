@@ -17,6 +17,8 @@ final readonly class SubmitRequest
      * @param list<string> $roles the current user's roles; none for a guest
      * @param RegistrationKey|null $target the registration an additional form writes to (the active one);
      *     null for a registration form
+     * @param ?string $draftClaim the guest draft's claim token of the request's cookie (S74): the submit
+     *     deletes that draft when it is the form's
      */
     public function __construct(
         public int $formId,
@@ -26,6 +28,7 @@ final readonly class SubmitRequest
         public array $roles = [],
         public bool $passwordGiven = false,
         public ?RegistrationKey $target = null,
+        public ?string $draftClaim = null,
     ) {
     }
 }

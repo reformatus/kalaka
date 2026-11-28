@@ -279,8 +279,8 @@ values and conditions, prefill and form links
   walk's errors filtered to that page's shown fields.
 - A re-fetch or a submit accepts only the form's latest version
   (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
-- The form page's two public routes (`Engine\Rest\FormRoutes`, `kalaka-portal/v1`)
-  are registered only through `Boundary::route()` and call
+- The form page's public routes (`Engine\Rest\FormRoutes`, `kalaka-portal/v1`:
+  the availability, the submit, the draft and the draft claim) are registered only through `Boundary::route()` and call
   `LoadState::requireOpen()` first. The availability route only reads: it
   never runs a use case or writes. The submit route calls `SubmitGuard` (S14's
   rate limit, `RateLimiter`: per account when logged in, else per address from
@@ -313,14 +313,40 @@ values and conditions, prefill and form links
   an extension's through `Api\FieldMarkup::prefilled()`).
   `EventFormHost` gives none yet.
 - The script keeps every answer while the page is open and sends only the
-  answers of fields that show; it keeps nothing across a reload.
+  answers of fields that show. It keeps nothing across a reload itself: a
+  guest's answers, handed over or typed, survive as their guest
+  draft, and a logged-in person's own answers as their draft, which the
+  autosave sends to the draft route (`FormHost::saveDraft()`), and which nothing saves
+  once a send starts, once the person's choice on a link's answers is sent,
+  or once the route refuses a save as from before a claim.
+- A form opens with its host's draft (`FormHost::draft()`) over its stored
+  values. The engine keeps only the draft answers the form's types accept,
+  each checked alone (`FormEngine::accepted()`); the rest open empty.
+- Public prefill (`kalaka[<key>]`) is read only by `DraftHandoff`, on `wp`,
+  for a page placing one usable registration form: each answer is first
+  cleaned by its type's prefill rules (`FieldType::prefill()`, as a stored
+  value is: bad parts dropped, the rest kept, null drops it), then checked
+  alone with the type (`Forms::linkAnswers()`). What is left becomes a
+  guest draft that waits in its own cookie (`kalaka_handoff`; in every account mode, the cookie
+  lasting until the event's registration closes), and the
+  request ends in an uncached 303 without them. No value of the request is logged. The handoff never
+  reads or changes the draft the `kalaka_draft` cookie names: the page the 303 leads to settles it (a
+  handoff waiting in its cookie is work for any visitor, `hasWork()`): it becomes that cookie's draft, or
+  settles silently when it changes none of a guest's values, or the guest chooses in the claim popup. A
+  logged-in request to that page claims the cookie's guest draft there, never in the
+  render.
+- The claim popup (`Blocks/form/claim.js`, a `@wordpress/components` Modal)
+  is the only React on a public page: `render.php` enqueues it only while the
+  page's context carries `draftClaimUrl`. It sends the choice only through the
+  store action `resolveDraftClaim`, and its texts come from the server
+  (`Engine\DraftClaimTexts`).
 - The submit token (`FormHost::submitToken()`; for an event form
   `Registrations\Api\SubmitToken`) is issued by the server on every render of a form page, into a hidden field, and sent back
   unchanged on every send of that page; it never goes into a cookie,
   storage, a URL or a log line.
 - The form engine is `Forms\Engine` (parse, walk, validate, conditions, field
   types, values and markup, theme adapters, `BlockGate`, `ChainMarks`, the form
-  posts, the form page and its two routes) with its contract, every
+  posts, the form page and its four routes) with its contract, every
   `Forms\Api` type but the facade `Forms`, `EventValues` and `AfterSubmit`,
   which stay at their names (deptrac: the layers `Forms Engine` and
   `Forms Engine Api`). It may use only Foundation Api, its own Api, WordPress
@@ -329,13 +355,18 @@ values and conditions, prefill and form links
 - The engine asks one host, `Api\FormHost`, for everything about what a form
   belongs to: the facts a condition reads and their types, the access
   refusals and the window, the key problem against keys beyond the form, the
-  stored values the form opens with, the options of the set a
-  request field names, the submit token and the submit, the after-submit
-  section's keys, the participant fields' texts for a label the form leaves empty (`labelFallbacks()`),
-  and whether the form needs an account (`accountStep()`).
-  Kaláka's event form, `EventFormHost`, is the first host; `Api\Forms` and
-  the form page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to
-  the engine.
+  stored values the form opens with, the person's draft (`draft()`,
+  `saveDraft()`, `resolveDraftClaim()`; an event form's host also keeps the
+  handoff's and the claim's, in every account mode, and a guest's save, which
+  creates their guest draft and sets its cookie on the first answer, counted
+  through `SubmitGuard::checkHandoff()` only when it creates one; `DraftHandoff` counts each
+  handoff request through `SubmitGuard::checkHandoff()`, the submit's budget),
+  the options of the set a request field names, the submit token and the
+  submit, the after-submit section's keys, the participant fields' texts for
+  a label the form leaves empty (`labelFallbacks()`), and whether the form
+  needs an account (`accountStep()`). Kaláka's event form, `EventFormHost`, is
+  the first host; `Api\Forms` and the form page's wiring (`Module.php`,
+  `Blocks/form/render.php`) hand it to the engine.
 - A request field (`Api\RequestFieldType`, e.g. the module ranking; S44)
   that names an assignment set holds no options of its own: the definition
   parse fills its `options` from the host (`FormHost::requestOptions()`),

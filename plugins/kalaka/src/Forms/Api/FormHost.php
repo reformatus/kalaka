@@ -14,10 +14,11 @@ use Kalaka\Foundation\Api\Actor\Actor;
  *
  * The nine ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
  * access refusals (`refusals()`, `window()`), the scope a field key must be unique in (`keyProblem()`),
- * the values the form opens with (`prefill()`), the options of the set a request field names
- * (`requestOptions()`), what a submit does (`submitToken()`, `submit()`), what the after-submit section
- * reads (`afterSubmitTypes()`), whether the form needs an account (`accountStep()`), and the texts it
- * shows where a form leaves a label empty (`labelFallbacks()`).
+ * the values the form opens with (`prefill()`), the person's draft (`draft()`, `saveDraft()`,
+ * `resolveDraftClaim()`), the options of the set a request field names (`requestOptions()`), what a submit
+ * does (`submitToken()`, `submit()`), what the after-submit section reads (`afterSubmitTypes()`), whether
+ * the form needs an account (`accountStep()`), and the texts it shows where a form leaves a label empty
+ * (`labelFallbacks()`).
  */
 interface FormHost
 {
@@ -83,6 +84,40 @@ interface FormHost
      * @return array<string, string>
      */
     public function prefill(Form $form): array;
+
+    /**
+     * The person's draft the form opens with (S74), read when the page renders, outside any transaction:
+     * its answers are laid over `prefill()`'s. An empty `FormDraft` when there is none.
+     */
+    public function draft(Form $form): FormDraft;
+
+    /**
+     * Keeps the answers as the person's draft of the form (S74, the autosave), as a use case: a logged-in
+     * person's draft, or a guest's guest draft under the claim token of the request's cookie, which the host
+     * sets (owner ruling 2026-11-26). Any other actor is refused.
+     *
+     * @param int $version the form version the answers were given against
+     * @param int $claims the draft's claim count the page opened with (`FormDraft::$claims`)
+     * @throws \Kalaka\Foundation\Api\Error\VersionConflict when a claim changed the draft since
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function saveDraft(
+        Form $form,
+        int $version,
+        AnswerSet $answers,
+        int $page,
+        int $claims,
+        Actor $actor
+    ): void;
+
+    /**
+     * Settles a link's answers against the person's own draft with the person's choice (S74); for a guest, the
+     * handoff that waits against their own guest draft (N1106). Safe to repeat: the same choice again answers as
+     * the first did; a claim that cannot be applied is refused.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void;
 
     /**
      * The options of the set a request field names (`RequestFieldType`), for the

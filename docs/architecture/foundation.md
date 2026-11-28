@@ -501,7 +501,9 @@ of deferred work gets exactly the guarantee it needs:
   Sheets system. It evaluates only work that has fallen due over time (late
   fees, scheduled mails, reminders) and retries registrations flagged
   "evaluation failed" (once an hour, and on every run an admin or WP-CLI
-  starts), then runs the sender. The sender runs even when the sweep or the
+  starts), deletes the drafts that are done
+  ([Registrations](registrations-and-identity.md#submissions-and-values)),
+  then runs the sender. The sender runs even when the sweep or the
   retries fail; the last-run time is written only after they complete. An
   admin or WP-CLI can also start it at any time; this is safe because every effect is claim-guarded.
 - **Keeping the 5-minute run cheap:** it sweeps only published, non-archived
