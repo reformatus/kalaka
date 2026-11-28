@@ -83,7 +83,10 @@ export default function FieldsBlock( {
 		);
 		focusOpener( key );
 	};
-	const editing = open && fields.find( ( field ) => field.key === open );
+	// A re-read can drop a field's edit data (no longer writable): the dialog then closes instead of rendering
+	// a field it cannot edit.
+	const found = open && fields.find( ( field ) => field.key === open );
+	const editing = found && controlOf( found ) !== null ? found : null;
 
 	return (
 		<div className="kg-fields">

@@ -36,7 +36,7 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 	const [ busy, setBusy ] = useState( false );
 	const sending = useRef( false );
 	const form = useRef();
-	const options = field.edit.options || [];
+	const options = field.edit?.options || [];
 	const [ warnings, setWarnings ] = useState( [] );
 	const full = isFull( field, picked );
 

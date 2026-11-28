@@ -132,6 +132,17 @@ describe( 'which fields get a control', () => {
 		expect( host.querySelectorAll( 'dd' )[ 1 ].textContent ).toBe( FIELDS.empty );
 	} );
 
+	test( 'a re-read that drops the open field\'s edit data closes the dialog instead of throwing', async () => {
+		const props = { config, code: 'x', stale: false, reload: () => {}, onSaved: () => {} };
+		await mount( createElement( FieldsBlock, { ...props, detail: { fields: [ NAME ] } } ) );
+		await act( async () => host.querySelector( 'button' ).click() );
+		expect( host.querySelector( '[role="dialog"]' ) ).not.toBeNull();
+		const locked = { ...NAME, writable: false, edit: undefined };
+		await act( async () => root.render( createElement( FieldsBlock, { ...props, detail: { fields: [ locked ] } } ) ) );
+		expect( host.querySelector( '[role="dialog"]' ) ).toBeNull();
+		expect( host.querySelectorAll( 'button' ) ).toHaveLength( 0 );
+	} );
+
 	test( 'no list without fields, no button while stale', async () => {
 		await mount( createElement( FieldsBlock, { config, code: 'x', detail: { fields: [] }, stale: false, reload: () => {}, onSaved: () => {} } ) );
 		expect( host.innerHTML ).toBe( '' );
