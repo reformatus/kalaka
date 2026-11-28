@@ -20,7 +20,7 @@ final class Module extends AbstractModule
      * the registration belongs to, null while it has none; set once, by a logged-in person's submit, and
      * never changed after. `registered_by` is the act that last made the registration `registered` (`submit`,
      * `admission`, `restore`: `Api\RegisteredBy`), written only together with `registered_at`; null for a
-     * registration that never was. [UNAPPROVED N518]
+     * registration that never was.
      */
     private const REGISTRATIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_registrations (
@@ -166,7 +166,7 @@ SQL;
             'Egy jelentkező kérelmének megválaszolása: támogatási kérelem vagy jóváhagyásra váró támogatás.'
         );
 
-        // The status acts' labels and descriptions are placeholders until the owner's words. [UNAPPROVED T501-T504]
+        // The status acts' labels and descriptions are placeholders until the owner's words. [UNAPPROVED T502-T503]
         Abilities::register(
             new Status\AdmitRegistration(),
             'Jelentkező felvétele a várólistáról',
@@ -175,14 +175,14 @@ SQL;
         );
         Abilities::register(
             new Status\WithdrawRegistration(),
-            // [UNAPPROVED T977, T978] Before: 'Jelentkezés visszavonása', 'Egy jelentkezés visszavont állapotba
+            // Before: 'Jelentkezés visszavonása', 'Egy jelentkezés visszavont állapotba
             // helyezése, mert a jelentkező visszalépett; a helyei felszabadulnak.'
             'Megjelölés lemondottként',
             'Egy jelentkezés megjelölése lemondottként, ha a jelentkező lemondta; a helyei felszabadulnak.'
         );
         Abilities::register(
             new Status\RemoveRegistration(),
-            // [UNAPPROVED T979, T980] Before: 'Jelentkezés törlése', 'Egy jelentkezés törölt állapotba helyezése
+            // Before: 'Jelentkezés törlése', 'Egy jelentkezés törölt állapotba helyezése
             // indoklással; a helyei felszabadulnak, az adatai megmaradnak.'
             'Megjelölés töröltként',
             'Egy jelentkezés megjelölése töröltként; a helyei felszabadulnak, az adatai megmaradnak.'
@@ -190,7 +190,7 @@ SQL;
         Abilities::register(
             new Status\RestoreRegistration(),
             'Jelentkezés visszaállítása',
-            // [UNAPPROVED T981] The lektor's text; the label stays.
+            // The lektor's text; the label stays.
             'Egy lemondott vagy törölt jelentkezés visszaállítása az előző állapotába: ha rögzített volt, '
             . 'újra lefoglalja a helyeit, ha várólistás volt, visszakerül a várólistára.'
         );

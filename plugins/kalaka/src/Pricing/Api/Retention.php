@@ -7,14 +7,14 @@ namespace Kalaka\Pricing\Api;
 /**
  * What an event keeps when a registration leaves (money.md, "Withdrawal, removal and substitution"): the retention
  * line's names. The rules themselves are `RetentionRule`s, chosen per event in its money settings; the default is
- * to keep everything paid. Nothing is refunded either way. [UNAPPROVED N526]
+ * to keep everything paid. Nothing is refunded either way.
  */
 final class Retention
 {
     /** The source key of the retention line, owed by a payer of a registration that left. */
     public const LINE = 'retention';
 
-    /** The label of the retention line. [UNAPPROVED T505] */
+    /** The label of the retention line. */
     public const LABEL = 'Megtartott összeg';
 
     /** The IDs of core's own rules; a contributed rule may not take them. */

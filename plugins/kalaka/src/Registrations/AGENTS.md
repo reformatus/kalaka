@@ -53,8 +53,9 @@ the waitlist and reference codes
   `Seats::retake()` (claims, the event's places, `AssignmentSeats::retake()`),
   and queue the "registered" mail (admission, caused by the registration; a restore, caused by the registration at
   the version it wrote, so every restore mails). A restore to the waitlist queues the "waitlisted" mail the same way.
-  Withdraw and remove queue no mail and free seats only through `Seats::releaseAll()`. The preview (`preview: true`)
-  reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it ignores a
+  Withdraw and remove queue no mail, free seats only through `Seats::releaseAll()` and revoke the registration's
+  manual confirmation flag through `Pricing\Api\ManualConfirmations::revokeOnLeaving()` in the same transaction.
+  The preview (`preview: true`) reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it ignores a
   `reason`, and says `requires_reason` (kept in the shape, always false: no act needs a reason). It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
   count once the act is done: `taken + 1` when it takes the seat, `taken` when it frees it; a leaving act lists the
   pools the registration holds, outcome `released`) and `limit`, the "full" warning, and for withdraw, remove and restore the per-payer money
@@ -66,9 +67,11 @@ the waitlist and reference codes
   allowed from `registered` and `waitlisted` only, and only until the event's registration closes (after that it is
   refused as `Api\WithdrawClosed`, `kalaka_withdraw_closed`, and the preview says `allowed: false`; only staff can
   withdraw), no reason, no mail, nobody on the waitlist moves up.
-  Its preview (`preview: true`) is `{allowed, paid, owed_after}` for the registrant's own payer only (the
-  `participant` payer of the same composition the staff preview uses), writes nothing and leaves no audit entry; a
-  status that changed under the lock is `StatusActRefused`. [UNAPPROVED N660-N663, N666]
+  Its preview (`preview: true`) is `{allowed, paid, owed_after, retained, surplus}` for the registrant's own payer only
+  (the `participant` payer of the same composition the staff preview uses; `retained` is the part of `paid` the
+  event's retention rule keeps, never more than `paid`, and `surplus` the rest, owed back and never refunded
+  automatically), writes nothing and leaves no audit entry; a status that changed under the lock is
+  `StatusActRefused`. [UNAPPROVED N660, N662, N666, R345]
 - Submissions are append-only: never updated or deleted. Field values hold the
   current state, one row per field, and are what edits change.
 - A submit writes field values only through the event's participant-field list

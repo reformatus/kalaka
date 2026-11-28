@@ -246,7 +246,6 @@ final class RegistrationCommand
      * The wrapper of a status act: arguments in, the act as a preview first, the question, then the use case through
      * the runner, the outcome printed. Every rule (which status allows the act, the reason) is the use case's; a
      * refusal prints its own message. The command holds no rule of its own; `--reason` is optional for every act.
-     * [UNAPPROVED N522]
      *
      * @param list<string> $args
      * @param array<string, mixed> $assoc

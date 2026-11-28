@@ -46,7 +46,7 @@ retention and the materializer
   a component cannot say, so leaving does not fail on it; a rule that needs the fee decides what null means). A rule
   that throws, or returns anything but Money in the event's currency per payer, fails as
   `FeeComponentFailed('retention')`. The ID `retention` is core's line key:
-  `Contributions::feeComponent()` refuses it. [UNAPPROVED N671]
+  `Contributions::feeComponent()` refuses it.
 - A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings as plain data and reads
   them back (`settingsToArray()`, `settingsFromArray()` into `ProposedComponentSettings`), so
   `wp kalaka money-settings show|preview|apply` (`Cli/`) carries every component's settings as JSON by component
@@ -90,7 +90,7 @@ retention and the materializer
   `Api\FeeComposition`, as one `retention` line per payer (label
   `Retention::LABEL`). The kept amount is held to the payer's own payments: it never owes more than was paid and
   refunds nothing. A restore makes the line read zero and the materializer reverses it; a
-  change of the rule re-evaluates the registrations that left too. [UNAPPROVED N526, T505, N674]
+  change of the rule re-evaluates the registrations that left too.
 - The money phase runs first in the evaluation, before the decision rules,
   with the registration's row lock held.
 - A money settings change goes preview → apply: the preview writes nothing;
@@ -129,7 +129,9 @@ retention and the materializer
 - Whether a registration is confirmed is read only through `Api\Confirmations` (`isConfirmed()`, or `confirmedOf()`
   for a batch of one event); nobody else names the decision's kind or state.
 - The manual flag is a fact in `kalaka_manual_confirmations`, set only by
-  `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
+  `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm` or by the leaving of its registration
+  (`Api\ManualConfirmations::revokeOnLeaving()`, which Registrations' withdraw and remove call inside their
+  transaction; a restore does not bring the flag back).
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
   registration), written only by `kalaka/unconfirm`. Both use cases take the
   per-event action `kalaka_confirm_manually` and a required reason. Setting a

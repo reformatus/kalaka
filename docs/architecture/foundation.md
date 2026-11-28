@@ -598,7 +598,8 @@ sort on the first two ([Views and grants](#views-and-grants)).
     (confirmation after staff's unconfirm: `unconfirmed`, then `confirmed`);
     core writes each one that changes the state.
   - **A kind is declared with a Hungarian label and its states, each with a
-    Hungarian label;** the grid shows them for every kind.
+    Hungarian label, and an icon and tone for each state;** the grid and the
+    registration's detail show them for every kind.
   - Extensions contribute transition rules through a decision point, and core
     writes the records
     ([Modules](modules-and-extensions.md#the-extension-surface)).

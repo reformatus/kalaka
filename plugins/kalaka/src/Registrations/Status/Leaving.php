@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\FeeComposition;
+use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Seats;
@@ -22,7 +23,8 @@ use Kalaka\Registrations\RegistrationRepository;
 /**
  * The one copy of what a leaving act does and what it would do to money (registrations-and-identity.md, "Status,
  * capacity and waitlist"; money.md, "Withdrawal, removal and substitution"): take the registration's lock
- * (`StatusLock`), write the status and free every seat (`Seats::releaseAll()`). The staff acts
+ * (`StatusLock`), write the status, free every seat (`Seats::releaseAll()`) and revoke the manual confirmation flag
+ * (`ManualConfirmations::revokeOnLeaving()`). The staff acts
  * (`StatusChange`) and the participant's own withdrawal (`WithdrawOwnRegistration`) both call it, so the lock, seat
  * and money sequence is written once. It writes no reason and no mail; the caller's actor and the runner's audit
  * entry carry who and why. [UNAPPROVED N510, N660]
@@ -37,6 +39,7 @@ final class Leaving
         private readonly FeeComposition $composition = new FeeComposition(),
         private readonly Ledger $ledger = new Ledger(),
         private readonly Events $events = new Events(),
+        private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
     ) {
     }
 
@@ -56,6 +59,9 @@ final class Leaving
         $registration->status = $act->target();
         $this->registrations->upsert($registration, $context);
         $this->seats->releaseAll($key, $context);
+        // The manual confirmation flag does not survive a leaving, and a restore does not bring it back (owner
+        // 2026-11-27); the staff acts and the participant's own withdrawal share this. [UNAPPROVED N1145]
+        $this->manualConfirmations->revokeOnLeaving($key, $context);
 
         return true;
     }
