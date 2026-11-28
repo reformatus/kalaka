@@ -451,6 +451,28 @@ final class Forms
     }
 
     /**
+     * A link's or the quiz's answers (`kalaka[<key>]`, S74), each cleaned by its type's prefill rules (the parts
+     * the type makes nothing of dropped, the rest kept), then checked alone with the type; the rest are
+     * dropped silently (`Engine\FormEngine::linkAnswers()`).
+     */
+    public function linkAnswers(FormDefinition $definition, AnswerSet $answers): AnswerSet
+    {
+        return $this->engine->linkAnswers($definition, $answers);
+    }
+
+    /**
+     * The keys whose value a link's or the quiz's answers (`$over`) set differently from the person's draft
+     * (`$base`), compared as the values the form's types would store (`Engine\FormEngine::changedKeys()`).
+     * Empty when the link changes nothing (S74: no choice to make then).
+     *
+     * @return list<string>
+     */
+    public function changedKeys(FormDefinition $definition, AnswerSet $base, AnswerSet $over): array
+    {
+        return $this->engine->changedKeys($definition, $base, $over);
+    }
+
+    /**
      * What the form shows for answers as they stand (a draft, "if submitted now"; S76): the read model
      * every render and re-render of the form's page builds from. Pure; errors in the answers are not
      * reported here, an answer in error reads as empty.

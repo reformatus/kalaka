@@ -145,6 +145,40 @@ the waitlist and reference codes
 - Site-wide, the author archive of any user with no published posts is a
   404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
   participant accounts' names (N21). Authors with posts keep theirs.
+- Drafts (`kalaka_drafts`, S74) are keyed event first: a user draft is one
+  per event, form and user; a guest draft is found only by the SHA-256 of
+  its claim token (`Api\DraftClaim`), which is never stored, logged or
+  audited. A guest draft has no expiry of its own: it lives until the form is sent (the submit deletes
+  it) or the event's registration has closed (the periodic run's `DraftSweep`; owner ruling 2026-11-26),
+  in every account mode. A draft's answers and claim hash are secret columns: the audit
+  names the draft, never their values.
+- A draft is written only by its use cases: `kalaka-portal/save-draft` (a
+  logged-in person's draft, or a guest's guest draft under their cookie's
+  token: the first save creates it), `kalaka-portal/hand-over-prefill` (a
+  handoff waits as a guest draft under its own token, in the cookie
+  `kalaka_handoff`, and never reads or changes the draft the cookie
+  `kalaka_draft` names), `kalaka-portal/settle-handoff` (the next load: it
+  becomes the browser's draft, settles silently as keep_draft when it changes
+  none of a guest's values, or waits for the choice),
+  `kalaka-portal/claim-draft`, `kalaka-portal/resolve-draft-claim`,
+  `kalaka-portal/resolve-guest-handoff` (a guest's choice, settled on their
+  own guest draft; the request proves itself with both tokens, the handoff's
+  locked first),
+  `kalaka/sweep-drafts`, and the submit, which deletes the person's draft and
+  the cookie's guest draft of the form in its own transaction. A draft never
+  creates a registration and holds no place.
+- A claim that changes what a user draft holds (the guest draft becomes it,
+  merge, keep_link), or a guest's own draft (their choice on a handoff:
+  merge, keep_link), raises its `claims` count, and nothing else does. An
+  autosave carries the count its page opened with; a different count is a
+  `VersionConflict`, never a write. A link that changes none of the draft's
+  values is settled as keep_draft, with no choice.
+- A claim is settled once per claim token. The person's draft (or the guest's
+  own, for a handoff) records the
+  token's hash and the choice (`resolved_claim`, `resolved_choice`, a secret
+  column and its choice); the same choice again changes nothing and answers
+  the same, and any other choice, or a claim gone, is refused
+  (`DraftClaimRefused`).
 - A seat is a fact (`kalaka_seats`, one row per registration and pool), written only through `Api\Seats`,
   and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore or
   staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken

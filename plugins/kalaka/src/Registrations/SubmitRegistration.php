@@ -31,6 +31,7 @@ use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Api\SubmitTokenReused;
+use Kalaka\Registrations\Draft\DraftRepository;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
 use Kalaka\Registrations\Submission\Submission;
@@ -49,7 +50,8 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * `SubmitTokenReused` (N6); the event must still be the version the answers were checked against;
  * the form's requirements at this moment; then the capacity check, the reference code and the rows, and
  * last the action mail of the resulting status (`registered` or `waitlisted`), queued in the same run with
- * the registration as its cause (`ActionMails::due()`; a mail switched off queues nothing).
+ * the registration as its cause (`ActionMails::due()`; a mail switched off queues nothing), and the
+ * person's draft of the form is deleted (S74).
  *
  * Accounts (S15): a guest's submit to a `mandatory` event is one of the form's refusals, checked here under
  * the lock with the others (`account_required`). The owner account was decided before the transaction
@@ -93,6 +95,8 @@ final class SubmitRegistration implements PublicUseCase
         private readonly ?AccountOutcome $account = null,
         private readonly ?\Throwable $walkFailure = null,
         private readonly ?string $fingerprint = null,
+        private readonly ?string $draftClaimHash = null,
+        private readonly DraftRepository $drafts = new DraftRepository(),
         private readonly array $seatClaims = [],
     ) {
     }
@@ -238,8 +242,31 @@ final class SubmitRegistration implements PublicUseCase
             $key,
             Subject::registration($key),
         );
+        $this->deleteDrafts($context);
 
         return SubmitResult::created($key, $status);
+    }
+
+    /**
+     * S74: the submit ends the person's draft of the form, in its transaction: a logged-in person's own,
+     * and the guest draft of the form the request's cookie names (a guest's from a link or the quiz).
+     */
+    private function deleteDrafts(Context $context): void
+    {
+        // The guest draft first, then the person's own: the order every draft writer locks them in.
+        if ($this->draftClaimHash !== null) {
+            $guest = $this->drafts->ofClaim($this->draftClaimHash, $context);
+            if ($guest !== null && $guest->isGuestOf($this->form->id)) {
+                $this->drafts->delete($guest, $context);
+            }
+        }
+        $actor = $context->actor();
+        if ($actor instanceof AccountActor) {
+            $own = $this->drafts->ofUser($this->form->eventId, $this->form->id, $actor->userId, $context);
+            if ($own !== null) {
+                $this->drafts->delete($own, $context);
+            }
+        }
     }
 
     /**

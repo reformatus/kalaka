@@ -21,6 +21,7 @@ use Kalaka\Forms\Engine\FormPage;
 use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\Engine\ThemeAdapters;
 use Kalaka\Forms\EventFormHost;
+use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Portal\Api\ActiveRegistration;
 
@@ -62,6 +63,11 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
             : 'style="' . esc_attr('--kalaka-error-color: ' . $kalakaColour) . '"';
         $kalakaButtonClass = FieldMarkup::classAttribute(ElementRole::SubmitButton, 'wp-element-button');
         $kalakaFormClass = FieldMarkup::classAttribute(ElementRole::Form);
+        // S74: the claim popup, only while a link's answers wait for the person's choice.
+        if (isset($kalakaView->context['draftClaimUrl'])) {
+            wp_enqueue_script(Module::CLAIM_SCRIPT);
+            wp_enqueue_style('wp-components');
+        }
         ?>
 <noscript><p><?php echo esc_html('Az űrlap kitöltéséhez kapcsold be a JavaScriptet a böngésződben.'); ?></p></noscript>
 <form novalidate<?php echo $kalakaFormClass; ?> data-wp-interactive="kalaka/form"
