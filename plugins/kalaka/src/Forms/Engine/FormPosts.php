@@ -18,6 +18,9 @@ final class FormPosts
     public const META_EVENT_ID = 'kalaka_event_id';
     public const META_PLACEMENT = 'kalaka_placement';
     public const META_REQUIRED_ROLE = 'kalaka_required_role';
+    /** An additional form's open period: each end a date reference in JSON (`OpenPeriod`). */
+    public const META_OPENS = 'kalaka_opens';
+    public const META_CLOSES = 'kalaka_closes';
 
     /** The statuses of the forms whose fields count for their event: every one but `trash` and `auto-draft`. */
     public const HOLDING_STATUSES = ['publish', 'future', 'draft', 'pending', 'private'];
@@ -65,6 +68,8 @@ final class FormPosts
             return null;
         }
         $role = get_post_meta($post->ID, self::META_REQUIRED_ROLE, true);
+        $opens = get_post_meta($post->ID, self::META_OPENS, true);
+        $closes = get_post_meta($post->ID, self::META_CLOSES, true);
 
         return new Form(
             $post->ID,
@@ -72,7 +77,9 @@ final class FormPosts
             $placement,
             is_string($role) && $role !== '' ? $role : null,
             $post->post_password !== '',
-            $this->latestRevision($post->ID)
+            $this->latestRevision($post->ID),
+            is_string($opens) && $opens !== '' ? $opens : null,
+            is_string($closes) && $closes !== '' ? $closes : null,
         );
     }
 

@@ -140,7 +140,7 @@ final class ViewQuery extends Query
         if ($sort === 'status') {
             $order = 'r.status' . $direction . ', ' . $serialOrder;
         } elseif ($sort === 'serial') {
-            // The computed sorszám as a number [UNAPPROVED N64]; the rows with none (withdrawn, removed) sort first
+            // The computed sorszám as a number; the rows with none (withdrawn, removed) sort first
             // ascending, and a tie (the same number in `registered` and `waitlisted`) falls back to the default order.
             [$ranked, $joinArgs] = RegistrationTables::serialNumbers(
                 $this->table(RegistrationTables::REGISTRATIONS),
@@ -563,7 +563,7 @@ final class ViewQuery extends Query
         $text = is_string($value) ? $value : '';
 
         if ($column === 'serial') {
-            // The computed sorszám as a number, with the operators of any number column. [UNAPPROVED N65]
+            // The computed sorszám as a number, with the operators of any number column.
             [$ranked, $rankedArgs] = RegistrationTables::serialNumbers(
                 $this->table(RegistrationTables::REGISTRATIONS),
                 $eventId

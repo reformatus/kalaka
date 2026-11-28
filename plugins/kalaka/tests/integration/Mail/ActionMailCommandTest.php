@@ -117,12 +117,12 @@ final class ActionMailCommandTest extends MailBodyTestCase
 
         self::assertSame('table', $this->printed[0][0]);
         self::assertSame(
-            ['registered', 'waitlisted', 'payment_recorded', 'confirmed', 'link_regenerated'],
+            ['registered', 'waitlisted', 'payment_recorded', 'confirmed'],
             array_column($this->printed[0][1], 'mail')
         );
         self::assertSame(
             ['mail' => 'waitlisted', 'label' => 'Jelentkezés várólistára helyezve', 'enabled' => 'yes',
-                'body_id' => (string) $body, 'layout' => 'yes'],
+                'body_id' => (string) $body],
             $this->printed[0][1][1]
         );
         self::assertSame('no', $this->printed[0][1][0]['enabled']);

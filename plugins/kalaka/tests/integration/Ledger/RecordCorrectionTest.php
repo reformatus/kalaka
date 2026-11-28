@@ -82,6 +82,7 @@ final class RecordCorrectionTest extends ManualEntryTestCase
         self::assertSame('1000.00000000', $sum->paid->amount());
     }
 
+    /** The owner's rulings #217 N1204 and #218 N1222: the reason is optional; none leaves no note. */
     public function testTheReasonIsOptional(): void
     {
         foreach ([['reason' => '   '], ['reason' => '']] as $position => $override) {
@@ -93,6 +94,12 @@ final class RecordCorrectionTest extends ManualEntryTestCase
 
         self::assertCount(3, $this->lines());
         self::assertSame([], $this->notes());
+    }
+
+    public function testTheReasonIsStillAtMostFiveHundredCharacters(): void
+    {
+        $this->expectException(InvalidInput::class);
+        $this->exec(new RecordCorrection(), $this->correction(['reason' => str_repeat('a', 501)]));
     }
 
     public function testNoMethodAndNoValueDateAreTaken(): void

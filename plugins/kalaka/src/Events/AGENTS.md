@@ -38,6 +38,9 @@ Events is events, their states, timeline points, date types, capacity and the
   `kalaka/reopen-event` write the latch.
 - Only a published event takes the full latch.
 - `currency` is `utf8mb4_nopad_bin`: compared exactly.
+- `status_page_post_id` is the event's one status-page slot: a plain
+  WordPress post ID, null for none. Nothing reads, writes or validates it
+  yet (the PWA scope is parked).
 - The payment and account settings (`account_mode`, `payment_due_days`, the three
   transfer texts) are written only by `kalaka/update-event`, as optional keys; the
   readers take the texts as entered, so no shape beyond the column's length is checked.

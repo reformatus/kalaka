@@ -17,7 +17,7 @@ export const isInactive = ( item ) =>
 /**
  * A cell as shown: the status with its icon, a decision as an icon with screen-reader text, the code in
  * monospace. Every cell of an inactive row carries `kg-inactive` (dimmed against DataViews' own text colour, which
- * an active row keeps), so a view that does not list Állapot shows no row dimmed. [UNAPPROVED N25]
+ * an active row keeps), so a view that does not list Állapot shows no row dimmed.
  */
 export default function Cell( { column, item } ) {
 	const text = cellText( column, item );

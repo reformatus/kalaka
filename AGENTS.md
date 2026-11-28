@@ -77,8 +77,10 @@ change.
 
 ## Ground rules
 
-- UI text is Hungarian, hard-coded, with no translation layer. Code
-  identifiers and comments are in English.
+- UI text is Hungarian, hard-coded, with no translation layer. The one
+  exception: a plugin's declared field names and labels may be overridden in
+  that plugin's own settings, kept in its one names option. Code identifiers
+  and comments are in English.
 - Nothing reaches the UI that the owner has not approved: no extra fields,
   labels, settings, styling or polish.
 - Minimums: WordPress 7.0, PHP 8.3, MariaDB 10.3 and later (no features newer
