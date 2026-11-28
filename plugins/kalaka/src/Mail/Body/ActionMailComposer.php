@@ -27,7 +27,7 @@ final class ActionMailComposer implements MailComposer
         return $this->values->recipient($delivery->registration);
     }
 
-    public function compose(Delivery $delivery, string $to): MailMessage
+    public function compose(Delivery $delivery, string $to, \DateTimeImmutable $now): MailMessage
     {
         // A "payment recorded" mail is caused by a ledger line: its key is the line's ID.
         $line = $delivery->causeType === ActionMails::LINE_CAUSE && ctype_digit($delivery->causeKey)
@@ -37,6 +37,7 @@ final class ActionMailComposer implements MailComposer
             $delivery->registration->eventId,
             $delivery->mail,
             $delivery->registration,
+            $now,
             $line
         );
 

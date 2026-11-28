@@ -53,7 +53,7 @@ final class StatusBlockTest extends PortalTestCase
 
         $html = $this->statusBlock();
         self::assertStringContainsString(
-            '<p>Azonosító: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
+            '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
             . '<p><strong>Fizetésre vár.</strong></p><h3>Pénzügyek</h3><table class="kalaka-money"><tbody>',
             $html
         );
@@ -68,11 +68,16 @@ final class StatusBlockTest extends PortalTestCase
         // Registered 2026-11-30 in Budapest + 7 days.
         self::assertStringContainsString('<p class="kalaka-deadline">Fizetési határidő: 2026. december 7.</p>', $html);
         self::assertSame(
-            'Jelentkezésem állapota Azonosító: 12A3 Fizetésre vár. Pénzügyek Részvételi díj + 51 000 Ft'
-            . ' Fizetendő összesen 51 000 Ft Befizetés + 20 000 Ft 2026. 11. 29. ⓘBefizetés · 2026. 11. 29.'
+            'Jelentkezésem állapota Jelentkezési kód: 12A3 Fizetésre vár. Pénzügyek Részvételi díj + 51 000 Ft'
+            . ' Fizetendő összesen 51 000 Ft Befizetés + 20 000 Ft 2026. 11. 29. ⓘ'
             . ' Befizetve összesen 20 000 Ft Még fizetendő 31 000 Ft Fizetési határidő: 2026. december 7. '
             . self::NOTE,
             self::text($html)
+        );
+        self::assertStringContainsString(
+            '<span class="kalaka-info-button" role="img" title="Befizetés · 2026. 11. 29."'
+            . ' aria-label="Befizetés · 2026. 11. 29.">ⓘ</span>',
+            $html
         );
         // The state word, and the last row's label and amount: the bold is in the markup, not in the CSS.
         self::assertSame(2, substr_count($html, '<strong>') - 1, 'only the state word and the last row are bold');
@@ -151,7 +156,7 @@ final class StatusBlockTest extends PortalTestCase
         self::assertStringContainsString('<strong>Fizetésre vár.</strong>', $this->statusBlock());
     }
 
-    public function testAwaitingAnAnswerShowsThePinkNoticeTheBoldAmountNoDeadlineAndNoTransfer(): void
+    public function testAwaitingAnAnswerShowsNoNoticeThePlainAmountNoDeadlineAndNoTransfer(): void
     {
         $key = $this->stored('12A3', at: '2026-11-20 10:00:00');
         $this->charge($key, '48000');
@@ -159,11 +164,9 @@ final class StatusBlockTest extends PortalTestCase
         $this->activate($key);
 
         $html = $this->statusBlock($read);
-        self::assertStringContainsString(
-            'has-pale-pink-background-color has-text-color has-black-color"><p><strong>Elbírálás alatt.</strong>'
-            . ' Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges összeget.</p></div>',
-            $html
-        );
+        self::assertStringNotContainsString('Elbírálás alatt', $html);
+        self::assertStringNotContainsString('has-pale-pink-background-color', $html);
+        self::assertStringContainsString('<strong>Fizetésre vár.</strong>', $html);
         self::assertStringNotContainsString('Lejárt', $html);
         self::assertStringContainsString(
             '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Még fizetendő</strong></th>'
@@ -179,7 +182,7 @@ final class StatusBlockTest extends PortalTestCase
         self::assertTrue($read->forActive()?->payment?->awaitsAnswer);
     }
 
-    public function testOnceAnsweredTheNoticeGoesAndTheDeadlineAndTheTransferBlockComeBack(): void
+    public function testOnceAnsweredTheDeadlineAndTheTransferBlockComeBack(): void
     {
         $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
         $this->charge($key, '48000');
@@ -195,9 +198,9 @@ final class StatusBlockTest extends PortalTestCase
         self::assertFalse($read->forActive()?->payment?->awaitsAnswer);
     }
 
-    public function testAConfirmedRegistrationStillAwaitingAnAnswerShowsTheNoticeNotTheGreenBox(): void
+    public function testAConfirmedRegistrationStillAwaitingAnAnswerShowsTheGreenBox(): void
     {
-        // Pins the order as built (M10, a box for the owner): awaiting an answer comes before confirmed.
+        // Owner 2026-11-27 (merge-queue Q6): the block has no overall under-review state, so confirmed shows.
         $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
         $this->charge($key, '48000');
         $this->pay($key, '48000');
@@ -206,8 +209,8 @@ final class StatusBlockTest extends PortalTestCase
         $this->activate($key);
 
         $html = $this->statusBlock($read);
-        self::assertStringContainsString('<strong>Elbírálás alatt.</strong>', $html);
-        self::assertStringNotContainsString('Visszaigazolva', $html);
+        self::assertStringContainsString('<strong>Visszaigazolva.</strong>', $html);
+        self::assertStringNotContainsString('Elbírálás alatt', $html);
     }
 
     public function testAnAnswerLaterThanTheRegistrationRestartsTheDueClock(): void
@@ -315,7 +318,7 @@ final class StatusBlockTest extends PortalTestCase
         );
         self::assertStringNotContainsString('Még fizetendő', $html);
         self::assertStringNotContainsString("\u{2212}", $html);
-        // The amount text only: a bare '-2' also matches element ids such as kalaka-info-20 in a full run.
+        // The amount text only: a bare '-2' also matches element ids in a full run.
         self::assertStringNotContainsString("-2\u{00A0}000", $html);
         self::assertStringNotContainsString('-2 000', $html);
         self::assertStringNotContainsString('SQ-8', $html);
@@ -345,7 +348,7 @@ final class StatusBlockTest extends PortalTestCase
 
         self::assertSame(
             '<section class="kalaka-status"><h2>Jelentkezésem állapota</h2>'
-            . '<p>Azonosító: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
+            . '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
             . '<div class="wp-block-group has-background has-very-light-gray-background-color has-text-color'
             . ' has-black-color"><p><strong>Várólistán vagy.</strong> Amíg nem kerülsz be, nem kell fizetned.</p>'
             . '</div></section>',

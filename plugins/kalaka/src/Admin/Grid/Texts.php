@@ -18,16 +18,20 @@ final class Texts
     /** The column labels of Kaláka's own columns. */
     public const CODE = 'Kód';
     public const STATUS = 'Állapot';
-    // [UNAPPROVED T1] The column label only: „Sorszám” was too long for the column (owner's walk, topic 6a G5).
+    // The column label only: „Sorszám” was too long for the column (owner's walk, topic 6a G5).
     public const SERIAL = 'Szám';
     /** The first submission's time and the moment the registration became registered. [UNAPPROVED T18, T19] lektored */
-    public const SUBMITTED_AT = 'Jelentkezés ideje';
-    public const REGISTERED_AT = 'Rögzítés ideje';
+    public const SUBMITTED_AT = 'Beküldés ideje';
+    public const REGISTERED_AT = 'Rögzítetté vált';
+    /** The title of the awaits-an-answer column: the panel's „Válaszra vár” (reused from #232 T4). */
+    public const AWAITS_ANSWER = 'Válaszra vár';
 
     /** A given consent in a cell and as the counted member; a shown but unticked one (stored '0'). */
     public const YES = 'Igen';
     /** A shown but unticked consent (a stored "0") in a cell. */
     public const NO = 'Nem';
+    /** A cell that does not apply (N/A), different from „Nem”: the awaits-an-answer column of a registration that is not registered. [UNAPPROVED T1120] */
+    public const NOT_APPLICABLE = '–';
 
     /** A parameter term in a view's condition: the value is given at each grant. */
     public const PER_GRANT = 'a hozzáférésnél megadott érték';

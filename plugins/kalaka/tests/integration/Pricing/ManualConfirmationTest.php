@@ -27,8 +27,8 @@ use Kalaka\Tests\Integration\Ledger\ManualEntryTestCase;
 
 /**
  * The manual confirmation flag and staff's unconfirm (money.md, "Confirmation"; the owner's ruling 2026-11-19):
- * set and unconfirm with a required reason, audited, idempotent, carried by `kalaka_confirm_manually` inside
- * its grant's view or full access, and evaluated in the same run.
+ * set and unconfirm with an optional reason (the owner's rulings #217 N1204 and #218 N1222), audited, idempotent,
+ * carried by `kalaka_confirm_manually` inside its grant's view or full access, and evaluated in the same run.
  */
 final class ManualConfirmationTest extends ManualEntryTestCase
 {
@@ -277,8 +277,6 @@ final class ManualConfirmationTest extends ManualEntryTestCase
     public static function badInput(): array
     {
         return [
-            'no reason' => [['reason' => '']],
-            'a blank reason' => [['reason' => '   ']],
             'a reason too long' => [['reason' => str_repeat('a', 501)]],
             'a malformed code' => [['code' => 'abc']],
         ];
@@ -337,10 +335,38 @@ final class ManualConfirmationTest extends ManualEntryTestCase
         self::assertCount(1, $this->flagRows());
     }
 
-    public function testAMissingReasonIsRefused(): void
+    public function testSettingWithAnEmptyOrMissingReasonSucceedsAndStoresItEmpty(): void
     {
-        $this->expectException(InvalidInput::class);
-        $this->exec(new SetManualConfirmation(), ['event_id' => $this->event, 'code' => '00A0']);
+        self::assertSame(['changed' => true], $this->exec(new SetManualConfirmation(), $this->input(['reason' => ''])));
+
+        $rows = $this->flagRows();
+        self::assertCount(1, $rows);
+        self::assertSame('', $rows[0]['reason']);
+        $entry = $this->entryOf('kalaka/set-manual-confirmation');
+        self::assertSame('succeeded', $entry['outcome']);
+        self::assertNull($entry['reason']);
+    }
+
+    public function testSettingWithNoReasonAtAllSucceeds(): void
+    {
+        self::assertSame(
+            ['changed' => true],
+            $this->exec(new SetManualConfirmation(), ['event_id' => $this->event, 'code' => '00A0'])
+        );
+        self::assertSame('', $this->flagRows()[0]['reason']);
+    }
+
+    public function testUnconfirmingWithAnEmptyReasonSucceedsAndStoresItEmpty(): void
+    {
+        $this->exec(new SetManualConfirmation(), $this->input());
+        $this->runner = $this->runnerAt('2026-12-01 10:00');
+
+        self::assertSame(['changed' => true], $this->exec(new Unconfirm(), $this->input(['reason' => ''])));
+
+        $rows = $this->flagRows('kalaka_unconfirmations');
+        self::assertCount(1, $rows);
+        self::assertSame('', $rows[0]['reason']);
+        self::assertNull($this->entryOf('kalaka/unconfirm')['reason']);
     }
 
     public function testAnUnknownRegistrationIsNotFound(): void

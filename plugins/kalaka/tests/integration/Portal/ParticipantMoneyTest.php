@@ -536,18 +536,17 @@ final class ParticipantMoneyTest extends PortalTestCase
 
         self::assertSame($counts[0], $counts[1]);
         // The registration, the event, the decisions, the summary, the participant's balance (the rule of what is
-        // payable now reads `balancesOf()`, never the summary), the statement and the manual fees. The fact source
-        // (`factsOf()`, for awaits-an-answer and the due date) adds none while no request source is contributed: this
-        // base has none. Once one is (a support offer, a church-aid plugin), `awaits()` and `lastAnsweredAt()` each
-        // read the field values, so the count there is higher, but it still does not grow with the line count.
-        self::assertSame(7, $counts[0]);
+        // payable now reads `balancesOf()`, never the summary), the statement, the manual fees and the lines
+        // (`entriesOf()`, which finds the other payers: none here, so no more), and the fact source's two request
+        // reads (whether a request awaits an answer and its last changed answer).
+        self::assertSame(10, $counts[0]);
     }
 
     // ----- The table's markup (owner topics 10 and 11, rounds 2 and 3) -----
 
     /**
-     * The table's rows as the status block renders them: each `classes: cell | cell | …`, the popover text left
-     * out, no-break spaces as spaces.
+     * The table's rows as the status block renders them: each `classes: cell | cell | …`, no-break spaces as
+     * spaces.
      *
      * @return list<string>
      */
@@ -559,7 +558,6 @@ final class ParticipantMoneyTest extends PortalTestCase
         preg_match_all('/<tr(?: class="([^"]*)")?>(.*?)<\/tr>/s', $html, $rows, PREG_SET_ORDER);
         $out = [];
         foreach ($rows as [, $classes, $inner]) {
-            $inner = (string) preg_replace('/<div[^>]*popover>.*?<\/div>/s', '', $inner);
             preg_match_all('/<t[hd][^>]*>(.*?)<\/t[hd]>/s', $inner, $cells);
             $cells = array_map(
                 static fn (string $cell): string => trim(str_replace("\u{00A0}", ' ', wp_strip_all_tags($cell))),
@@ -658,7 +656,7 @@ final class ParticipantMoneyTest extends PortalTestCase
         self::assertSame('kalaka-total: Befizetve összesen |  | −500 Ft |  | ', $rows[4]);
     }
 
-    public function testALongNoteIsCutAtThirtySixCharactersIntoAButtonThatOpensThePopoverWithTheWholeNote(): void
+    public function testALongNoteIsCutAtThirtySixCharactersAndItsTitleHoldsTheWholeNote(): void
     {
         $key = $this->stored('12A3');
         $this->source($key, '10000', 'fixed_price');
@@ -671,39 +669,26 @@ final class ParticipantMoneyTest extends PortalTestCase
         $html = StatusMarkup::status($view, false);
 
         self::assertSame(36, mb_strlen(mb_substr($long, 0, 36)));
-        self::assertMatchesRegularExpression(
-            '/<td class="kalaka-method"><em>Átutalás · <button type="button" class="kalaka-note"'
-            . ' popovertarget="(kalaka-info-\d+)">'
-            . '„közlemény helytelen volt: nem volt b…”<\/button><\/em><\/td>/u',
-            $html
-        );
-        preg_match('/popovertarget="(kalaka-info-\d+)">„közlemény/u', $html, $id);
+        $details = "Befizetés · Átutalás · 2026. 12. 02.\n„" . $long . '”';
         self::assertStringContainsString(
-            '<div id="' . $id[1] . '" class="kalaka-info-pop" popover><p>Befizetés · Átutalás · 2026. 12. 02.</p>'
-            . '<p>„' . $long . '”</p></div>',
+            '<td class="kalaka-method"><em>Átutalás · <span class="kalaka-note" title="' . $details . '">'
+            . '„közlemény helytelen volt: nem volt b…”</span></em></td>',
             $html
         );
+        // The info mark carries the same text as its title and its accessible name; no popover, no button.
+        self::assertStringContainsString(
+            '<span class="kalaka-info-button" role="img" title="' . $details . '"'
+            . ' aria-label="' . $details . '">ⓘ</span>',
+            $html
+        );
+        self::assertStringNotContainsString('popover', $html);
+        self::assertStringNotContainsString('<button', $html);
         // The row with the cut note shows ⓘ on a wide screen; the row with a whole note does not.
         self::assertStringContainsString('class="kalaka-move kalaka-rule kalaka-more"', $html);
         self::assertStringContainsString('<tr class="kalaka-move">', $html);
-        self::assertSame(1, substr_count($html, '<button type="button" class="kalaka-note"'));
-        self::assertSame(2, substr_count($html, 'aria-label="Részletek"'));
+        self::assertSame(1, substr_count($html, 'class="kalaka-note"'));
+        self::assertSame(2, substr_count($html, 'class="kalaka-info-button"'));
         self::assertStringContainsString('<td class="kalaka-method"><em>Készpénz · „rövid”</em></td>', $html);
-    }
-
-    public function testEveryPopoverHasItsOwnIdAcrossTwoTablesOnOnePage(): void
-    {
-        $key = $this->stored('12A3');
-        $this->source($key, '10000', 'fixed_price');
-        $this->manual($key, LineKind::ManualPayment, '-1000', '2026-12-02', PaymentMethod::Cash);
-        $view = $this->read()->of($key);
-        self::assertNotNull($view);
-
-        $html = StatusMarkup::status($view, false) . StatusMarkup::status($view, false);
-        preg_match_all('/<div id="(kalaka-info-\d+)"/', $html, $ids);
-
-        self::assertCount(2, $ids[1]);
-        self::assertCount(2, array_unique($ids[1]));
     }
 
     public function testManualTitlesAndAnErasedTitleReadByTheirTypeInTheMarkup(): void

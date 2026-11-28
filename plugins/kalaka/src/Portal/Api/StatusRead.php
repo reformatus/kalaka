@@ -10,10 +10,12 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Api\Phase;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Entry\Boundary;
+use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\Payer;
+use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PayerSummary;
 use Kalaka\Payments\Api\CardAmountLimits;
 use Kalaka\Payments\Api\PaymentProviderInput;
@@ -34,10 +36,20 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * and never evaluates.
  *
  * `money` is read for every status, the registration's own money table beside the totals of `payment`.
+ * `otherPayerMoney` follows the same rule as `money` and no more: one table for each other payer with lines, for
+ * every status that shows its details (`RegistrationStatus::showsDetails()`: all but waitlisted, which shows only
+ * its state, so the list is empty there), because each table mirrors the participant's (a withdrawn registration
+ * keeps its rows and movements on both sides). `money` itself is not gated in the read, the markup shows a
+ * waitlisted registration its state alone; the new list is gated here in the read. The list's order is Ledger's
+ * payer order (the `PayerKinds` declared order, then payers without a kind), never the order of the lines.
+ * `payment->otherPayers` keeps its own rule (registered only). The payers come from `PayerKinds::payersOf()`
+ * over one `entriesOf()` statement, so the set agrees with the money tab's; each payer with lines then costs
+ * one statement (and its owed lines' names), a registration with no other payer costs the one `entriesOf()`
+ * statement. [UNAPPROVED N692]
  *
  * Whether the registration is confirmed comes from Pricing's `Confirmations`. Whether a request awaits an answer
- * is computed (`RegistrationFacts::awaitsAnswer`), never read from a stored flag: it replaces the old payment
- * hold. [UNAPPROVED N12]
+ * is computed (`RegistrationFacts::awaitsAnswer`), never read from a stored hold: it replaces the old payment
+ * hold.
  */
 final class StatusRead
 {
@@ -52,6 +64,7 @@ final class StatusRead
         ?MoneyRead $money = null,
         private readonly PaymentProviders $providers = new PaymentProviders(),
         private readonly PaymentsInFlight $inFlight = new PaymentsInFlight(),
+        private readonly PayerKinds $payerKinds = new PayerKinds(),
     ) {
         $this->money = $money ?? new MoneyRead(labels: $labels);
     }
@@ -86,7 +99,7 @@ final class StatusRead
         $can = new RegistrationCan();
         $card = null;
         $amounts = null;
-        if ($registration->status === RegistrationStatus::Registered) {
+        if ($registration->status->isLive()) {
             $now = Runner::current()->clock()->now();
             $decisions = $this->decisions->currentOf($key);
             $confirmed = Confirmations::confirmedIn($decisions);
@@ -94,8 +107,8 @@ final class StatusRead
                 $confirmed,
                 $decisions[ConfirmationRule::KIND]->effectiveAt ?? null
             );
-            $facts = $this->registrations->factsOf($key, $event);
-            $awaits = $facts !== null && $facts->awaitsAnswer;
+            $facts = $this->registrations->factsOf($key, $event, $now);
+            $awaits = $facts !== null && $facts->awaitsAnswer === true;
             $payment = $this->payment($registration, $event, $confirmed, $awaits, $now, $facts?->paymentDue());
             // One balance read per status read: the rule's input is the balance, never the display summary.
             $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
@@ -113,11 +126,41 @@ final class StatusRead
             $payment,
             $transfer,
             $this->money->of($key, $event->currency),
+            $registration->status->showsDetails() ? $this->otherPayerMoney($key, $event->currency) : [],
             $can,
             $card,
             $cardRefusal,
             $amounts,
         );
+    }
+
+    /**
+     * One table for each payer other than the participant that has lines, in Ledger's payer order
+     * (`PayerKinds::payersOf()`, the declared order of the kinds), not line order.
+     * [UNAPPROVED N692]
+     *
+     * @return list<OtherPayerMoney>
+     */
+    private function otherPayerMoney(RegistrationKey $key, Currency $currency): array
+    {
+        $entries = $this->ledger->entriesOf($key);
+        $withLines = [];
+        foreach ($entries as $entry) {
+            $withLines[$entry->payer] = true;
+        }
+        unset($withLines[Payer::PARTICIPANT]);
+        if ($withLines === []) {
+            return [];
+        }
+
+        $tables = [];
+        foreach ($this->payerKinds->payersOf($key, $entries, true) as $payer => $label) {
+            if (isset($withLines[$payer])) {
+                $tables[] = new OtherPayerMoney($payer, $label ?? $payer, $this->money->of($key, $currency, $payer));
+            }
+        }
+
+        return $tables;
     }
 
     /**
@@ -131,7 +174,7 @@ final class StatusRead
         if ($registration === null || $event === null || $registration->status !== RegistrationStatus::Registered) {
             return null;
         }
-        $facts = $this->registrations->factsOf($key, $event);
+        $facts = $this->registrations->factsOf($key, $event, Runner::current()->clock()->now());
         $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
         $availability = self::availability($event);
 

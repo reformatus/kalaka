@@ -92,6 +92,7 @@ final class FieldTypeRegistryTest extends FormsTestCase
                 'kalaka/choice-field',
                 'kalaka/consent-field',
                 'kalaka/scale-field',
+                'kalaka/number-field',
             ],
             array_keys($types)
         );
@@ -156,6 +157,80 @@ final class FieldTypeRegistryTest extends FormsTestCase
         self::assertInstanceOf(MoneyRelevantFieldType::class, $types['acme/test-surcharge-field']);
         self::assertNotInstanceOf(MoneyRelevantFieldType::class, $types['kalaka/test-rating-field']);
         self::assertNotInstanceOf(MoneyRelevantFieldType::class, $types['kalaka/name-field']);
+    }
+
+    public function testAFormFieldIsMoneyRelevantWhenItsBlockTypeIs(): void
+    {
+        $this->bootWithTestTypes();
+        wp_set_current_user($this->fullAccessUser());
+        $this->insertChecked(
+            $this->block('kalaka/test-rating-field', ['key' => 'stars'])
+            . $this->block('acme/test-surcharge-field', ['key' => 'extra']),
+            ['kalaka_event_id' => 7, 'kalaka_placement' => 'additional']
+        );
+
+        $fields = new \Kalaka\ParticipantFields\Api\ParticipantFields();
+        $byKey = [];
+        foreach ($fields->of(7) as $field) {
+            $byKey[$field->key] = $field;
+        }
+        self::assertTrue($fields->lockedAfterFirstWrite($byKey['extra']));
+        self::assertFalse($fields->lockedAfterFirstWrite($byKey['stars']));
+    }
+
+    public function testAMoneyTypeStaysLockedWhenAnAdoptionClaimsNothingAndForARowFromBeforeTheFlag(): void
+    {
+        $this->bootWithTestTypes();
+        wp_set_current_user($this->fullAccessUser());
+        $this->insertChecked(
+            $this->block('acme/test-surcharge-field', ['key' => 'extra']),
+            ['kalaka_event_id' => 7, 'kalaka_placement' => 'additional']
+        );
+        $this->runner->run(
+            new \Kalaka\Tests\Integration\Foundation\AdminProbe(
+                static function (array $input, \Kalaka\Foundation\Api\UseCase\Context $context): void {
+                    (new \Kalaka\ParticipantFields\Api\ParticipantFields())->declareExtensionField(
+                        $context,
+                        7,
+                        'extra',
+                        'acme/test-surcharge-field',
+                        'Felár',
+                        null,
+                        true,
+                        'test_module',
+                        null,
+                        false
+                    );
+                }
+            ),
+            [],
+            new \Kalaka\Foundation\Api\Actor\CliActor(null)
+        );
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => 7,
+            'field_key' => 'older',
+            'version' => 1,
+            'type' => 'acme/test-surcharge-field',
+            'title' => 'Régi',
+            'source' => 'extension',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 9,
+            'form_writable' => 1,
+            'money_relevant' => 0,
+        ]);
+
+        $fields = new \Kalaka\ParticipantFields\Api\ParticipantFields();
+        $byKey = [];
+        foreach ($fields->of(7) as $field) {
+            $byKey[$field->key] = $field;
+        }
+        self::assertSame('extension', $byKey['extra']->source);
+        self::assertTrue($fields->lockedAfterFirstWrite($byKey['extra']), 'An adoption claiming nothing stays locked.');
+        self::assertTrue($byKey['extra']->moneyRelevant, 'The stored claim is not lowered.');
+        self::assertFalse($byKey['older']->moneyRelevant);
+        self::assertTrue($fields->lockedAfterFirstWrite($byKey['older']), 'A row from before the flag locks by type.');
     }
 
     public function testAKalakaBlockThatIsNeitherATypeNorARegisteredBlockMakesTheFormUnusable(): void

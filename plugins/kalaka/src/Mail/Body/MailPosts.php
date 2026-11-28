@@ -18,6 +18,25 @@ final class MailPosts
 
     public const META_EVENT_ID = 'kalaka_event_id';
 
+    /**
+     * Whether the event's levélkeret (the mail layout) wraps a mail made from this template: a boolean of the
+     * template, true until it is set (owner 2026-11-27, walkthrough 8). The one place the choice lives: no action
+     * mail and no manual send carries it.
+     */
+    public const META_USES_FRAME = 'kalaka_uses_frame';
+
+    /** Whether a template is wrapped in the levélkeret: true when the meta was never set, whatever the post. */
+    public function usesFrame(int $id): bool
+    {
+        if ($id <= 0 || !metadata_exists('post', $id, self::META_USES_FRAME)) {
+            return true;
+        }
+        $value = get_post_meta($id, self::META_USES_FRAME, true);
+
+        // A false is stored by WordPress as an empty string.
+        return !in_array($value, ['', '0', 0, false, 'false'], true);
+    }
+
     /** The event a `kalaka_mail` post belongs to; null for any other post or one with no valid event. */
     public function eventOf(int $id): ?int
     {
@@ -62,7 +81,13 @@ final class MailPosts
             throw new BodyUnusable('other_event ' . $id);
         }
 
-        return new MailDocument($post->ID, $post->post_title, $post->post_content, $this->latestRevision($post->ID));
+        return new MailDocument(
+            $post->ID,
+            $post->post_title,
+            $post->post_content,
+            $this->latestRevision($post->ID),
+            $this->usesFrame($post->ID),
+        );
     }
 
     /**

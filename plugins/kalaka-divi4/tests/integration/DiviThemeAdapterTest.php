@@ -116,6 +116,18 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         self::assertTrue(wp_style_is('kalaka-divi4', 'enqueued'));
         $css = implode('', (array) wp_styles()->get_data('kalaka-divi4', 'after'));
         self::assertStringContainsString(Module::IPHONE_CONTROLS, $css);
+        self::assertStringContainsString('.et_pb_contact_form .kalaka-number__affix', $css);
+        self::assertStringContainsString('--kalaka-number-affix-colour', $css);
+        // The padding is scoped to the modifier classes: a number without an affix keeps Divi's own padding.
+        self::assertStringContainsString(
+            '.et_pb_contact_form .kalaka-number--prefix input{padding-left:var(--kalaka-number-prefix-room,0)}',
+            $css
+        );
+        self::assertStringContainsString(
+            '.et_pb_contact_form .kalaka-number--suffix input{padding-right:var(--kalaka-number-suffix-room,0)}',
+            $css
+        );
+        self::assertStringNotContainsString('.kalaka-number input{', $css);
         // Scoped to Kaláka's fields inside the form Divi styles, and only to checkboxes and radio buttons;
         // the ranking's +/× toggle, a checkbox Kaláka draws itself, is left out.
         self::assertSame(
@@ -145,14 +157,15 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         self::assertStringContainsString(
             '.et_pb_contact_form{--kalaka-control-background:#eee;--kalaka-control-color:#666;'
                 . '--kalaka-control-hover-background:#ddd;--kalaka-border-color:transparent;--kalaka-radius:0;'
-                . '--kalaka-button-background:#eee;--kalaka-button-color:#666;--kalaka-button-hover-background:#ddd}',
+                . '--kalaka-button-background:#eee;--kalaka-button-color:#666;--kalaka-button-hover-background:#ddd;'
+                . '--kalaka-number-affix-colour:#b3b3b3}',
             $css
         );
         // Every property it sets or reads is one core's base documents (Blocks/form/view.css): no misspelt name.
         // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a local file
         $base = (string) file_get_contents(dirname(__DIR__, 3) . '/kalaka/src/Forms/Blocks/form/view.css');
         preg_match_all('/--kalaka-[a-z-]+/', $css, $used);
-        self::assertCount(8, array_unique($used[0]));
+        self::assertCount(11, array_unique($used[0]));
         foreach (array_unique($used[0]) as $property) {
             self::assertStringContainsString('`' . $property . '`', $base, $property);
         }

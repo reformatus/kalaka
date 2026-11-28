@@ -50,8 +50,6 @@ final class RankingFieldFormTest extends FormsTestCase
             'event_id' => $this->event,
             'name' => 'Modulok',
             'required' => false,
-            'window_opens_at' => null,
-            'window_closes_at' => null,
             'published' => false,
         ], new CliActor(null));
         foreach (self::OPTIONS as $position => $option) {
@@ -59,10 +57,9 @@ final class RankingFieldFormTest extends FormsTestCase
                 'set_id' => $this->set,
                 'key' => $option['value'],
                 'label' => $option['label'],
-                'capacity' => null,
+                'limit' => null,
                 'leaders' => '',
                 'place' => '',
-                'condition' => null,
                 'position' => $position,
             ], new CliActor(null));
         }
@@ -101,6 +98,29 @@ final class RankingFieldFormTest extends FormsTestCase
             'min' => 1,
             'max' => 2,
         ]);
+    }
+
+    /** The track choice the conditional ranking reads (the events' participant field, declared first). */
+    private function trackField(): string
+    {
+        return $this->field('choice', 'szolgalati_terulet', ['options' => [
+            ['value' => 'ifivezeto', 'label' => 'Ifivezető'],
+            ['value' => 'pro', 'label' => 'PRO'],
+        ]]);
+    }
+
+    /**
+     * A ranking whose "Modul C" is offered only to the PRO track (the block's `optionConditions`).
+     *
+     * @param array<string, mixed> $attributes
+     */
+    private function conditionalRanking(array $attributes = []): string
+    {
+        $onPro = ['match' => 'all', 'items' => [
+            ['key' => 'szolgalati_terulet', 'operator' => 'equals', 'value' => 'pro'],
+        ]];
+
+        return $this->ranking('modulok', $attributes + ['optionConditions' => ['modul_c' => $onPro]]);
     }
 
     /** @param array<string, mixed> $attributes */
@@ -425,7 +445,7 @@ final class RankingFieldFormTest extends FormsTestCase
      *
      * @param array<string, string> $stored
      */
-    private function page(array $stored, int $max = 2, bool $own = false): string
+    private function page(array $stored, int $max = 2, bool $own = false, ?string $track = null): string
     {
         $day = static fn (int $offset): string => Runner::current()->clock()->now()->setTimezone(wp_timezone())
             ->setTime(0, 0)->modify(sprintf('%+d days', $offset))->format('Y-m-d H:i');
@@ -438,7 +458,12 @@ final class RankingFieldFormTest extends FormsTestCase
         ]);
         $this->transition(new PublishEvent(), $this->event);
         $attributes = ['required' => true, 'max' => $max];
-        $formId = $this->eventForm($own ? $this->own('modulok', $attributes) : $this->ranking('modulok', $attributes));
+        $ranking = $own ? $this->own('modulok', $attributes) : $this->ranking('modulok', $attributes);
+        if ($track !== null) {
+            $ranking = $this->trackField() . $this->conditionalRanking($attributes);
+            $stored += ['szolgalati_terulet' => $track];
+        }
+        $formId = $this->eventForm($ranking);
 
         return (new FormPage(new PrefillingHost(new EventFormHost(), $stored)))->html(
             $formId,
@@ -511,6 +536,34 @@ final class RankingFieldFormTest extends FormsTestCase
 
         self::assertSame(2, preg_match_all('#value="(modul_[a-c])"[^>]* checked>#', self::ranked($html), $keys));
         self::assertSame(['modul_b', 'modul_c'], $keys[1]);
+        self::assertStringNotContainsString('Hibás vagy hiányzó adat.', $html);
+    }
+
+    public function testThePageOffersAnOptionOnlyToTheTrackItsConditionNames(): void
+    {
+        // The first render (`FormPage::offeredOnly()`): the option whose condition fails is not on the page.
+        $other = $this->page([], 2, false, 'ifivezeto');
+        self::assertStringContainsString('value="modul_a"', $other);
+        self::assertStringNotContainsString('value="modul_c"', $other);
+        self::assertStringNotContainsString('Modul C', $other);
+    }
+
+    public function testThePageOffersTheOptionToTheTrackItsConditionNames(): void
+    {
+        $html = $this->page([], 2, false, 'pro');
+
+        self::assertStringContainsString('value="modul_a"', $html);
+        self::assertStringContainsString('value="modul_c"', $html);
+    }
+
+    public function testAStoredRankingHoldingAnOptionNotOfferedOpensWithoutIt(): void
+    {
+        // The prefill walks the answers like a submit: "Modul C" was ranked, but the track now offers it no more.
+        $html = $this->page(['modulok' => '["modul_c","modul_a"]'], 2, false, 'ifivezeto');
+
+        self::assertSame(1, preg_match_all('#value="(modul_[a-c])"[^>]* checked>#', self::ranked($html), $keys));
+        self::assertSame(['modul_a'], $keys[1]);
+        self::assertStringNotContainsString('value="modul_c"', $html);
         self::assertStringNotContainsString('Hibás vagy hiányzó adat.', $html);
     }
 }

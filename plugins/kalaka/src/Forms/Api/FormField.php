@@ -15,11 +15,9 @@ final readonly class FormField
     /**
      * @param array<string, mixed> $attributes
      * @param list<FormBranch> $branches the branches the field sits in, outermost first; none outside any
-     * @param array<string, Condition> $optionConditions a choice field's option value → its availability
+     * @param array<string, Condition> $optionConditions a choice or request field's option value → its availability
      *     condition (S76), for the options that have one; passed along outside the engine, never inspected (N1)
      * @param int|null $page the number of the page the field sits on; null in a form without pages
-     * @param bool $closed a request field outside its set's choice window: it does not show, and whatever is
-     *     sent for it is dropped (S44, C3)
      */
     public function __construct(
         public string $key,
@@ -28,7 +26,6 @@ final readonly class FormField
         public array $branches = [],
         public array $optionConditions = [],
         public ?int $page = null,
-        public bool $closed = false,
     ) {
     }
 

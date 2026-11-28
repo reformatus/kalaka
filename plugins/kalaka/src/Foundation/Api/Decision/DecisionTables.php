@@ -35,7 +35,7 @@ final class DecisionTables
      * The current state of one kind for the registration row `$row` as every reader of a column sees it: the
      * latest record, with the kind's base state (`DecisionDefault`) applied when it declares one: no record in
      * a status the kind is defined for reads the base state; any other status reads no state. The one SQL form
-     * of the read `Decisions` gives in PHP. [UNAPPROVED N7]
+     * of the read `Decisions` gives in PHP.
      *
      * @param literal-string $row the registrations table's alias
      * @param literal-string $outer the alias of the decision whose state is read

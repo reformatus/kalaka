@@ -5,7 +5,10 @@
  *   types included), each with the value type of its answer (`valueType()`);
  * - `pathFieldTypes`: the field-type block names whose value is a path (`Api\PathFieldType`), which a
  *   condition never compares with `equals`;
- * - `eventTypes`: the event's keys a form's condition may read (`Api\EventValues::TYPES`);
+ * - `eventTypes`: the keys a form's condition may read besides its fields, for the edited form's event and
+ *   placement (`EventFormHost::typesOf()`: the event's keys, the places left, the custom
+ *   points, and for an additional form the registration's status and stored values); the event keys alone
+ *   (`Api\EventValues::FORM_TYPES`) when the editor holds no saved form of an event;
  * - `afterSubmitTypes`: what the after-submit section's conditions may read (`Api\AfterSubmit::TYPES`);
  * - `hidden`: the gated blocks to hide in this editor (`Engine\BlockGate::hiddenHere()`; none in a form's).
  * - `dateReference`: the bounds of a date reference's moves (`Condition\DateReference::MAX_YEARS`,
@@ -18,7 +21,7 @@ const data = () => globalThis.kalakaFormEditor ?? {};
 
 const map = (value) => (value !== null && typeof value === 'object' ? value : {});
 
-/** Field block name → the value type of its answer ('text' | 'date' | 'choice' | 'number'). */
+/** Field block name → the value type of its answer ('text' | 'date' | 'datetime' | 'choice' | 'number'). */
 export const fieldTypes = () => map(data().fieldTypes);
 
 /** The field block names whose value is a path: `equals` is refused on them. */

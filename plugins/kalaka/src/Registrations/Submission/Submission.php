@@ -12,7 +12,7 @@ final readonly class Submission
     /**
      * @param array<string, mixed> $answers field key → answer as submitted
      * @param ?string $token the form page's submit token (`Api\SubmitToken`); a secret, never logged
-     * @param ?string $answersHash the fingerprint of the stored answers a repeat with the token must match
+     * @param ?string $answersHash the fingerprint of the answers as sent a repeat with the token must match
      */
     public function __construct(
         public RegistrationKey $registration,

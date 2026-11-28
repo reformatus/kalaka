@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Engine\BlockGate;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Admin\Api\AdminAccess;
@@ -21,6 +22,7 @@ use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\Engine\FieldType\DateFieldType;
 use Kalaka\Forms\Engine\FieldType\EmailFieldType;
 use Kalaka\Forms\Engine\FieldType\NameFieldType;
+use Kalaka\Forms\Engine\FieldType\NumberFieldType;
 use Kalaka\Forms\Engine\FieldType\PhoneFieldType;
 use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
 use Kalaka\Forms\Engine\FieldType\TextFieldType;
@@ -36,10 +38,16 @@ final class Module extends AbstractModule
     private const EMBED_BLOCK = 'form';
 
     /** The core field blocks, in `Blocks/`, each with its title in its `block.json`. */
-    private const BLOCKS = ['name', 'email', 'phone', 'date', 'text', 'choice', 'consent', 'scale'];
+    private const BLOCKS = ['name', 'email', 'phone', 'date', 'text', 'choice', 'consent', 'scale', 'number'];
 
     /** The handle of the form's view stylesheet, named by the embed block's `viewStyle`. */
     public const VIEW_STYLE = 'kalaka-form-view';
+
+    /**
+     * The handle of the claim popup's script (S74, `Blocks/form/claim.js`), which `render.php` enqueues only
+     * while a link's answers wait for the person's choice.
+     */
+    public const CLAIM_SCRIPT = 'kalaka-form-claim';
 
     /** The block category of Kaláka's blocks in the block editor's inserter. */
     public const BLOCK_CATEGORY = 'kalaka';
@@ -71,6 +79,7 @@ final class Module extends AbstractModule
         $to->fieldType(new ChoiceFieldType());
         $to->fieldType(new ConsentFieldType());
         $to->fieldType(new ScaleFieldType());
+        $to->fieldType(new NumberFieldType());
         $to->siteWarning(new BrokenFormsWarning());
         $to->seeder(new FormSeeder());
     }
@@ -88,6 +97,10 @@ final class Module extends AbstractModule
             add_action('wp_loaded', [$check, 'run']);
         }
         add_action('template_redirect', [$this, 'preventFormPageCaching']);
+        // S74: a link's or the quiz's answers handed to a registration form, before `template_redirect`.
+        add_action('wp', static function (): void {
+            (new DraftHandoff())->onWp();
+        });
         add_action('rest_api_init', [new FormRoutes(new EventFormHost()), 'register']);
         add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
         add_filter('rest_post_dispatch', [FormRoutes::class, 'sessionEnded'], 10, 3);
@@ -145,6 +158,7 @@ final class Module extends AbstractModule
             KALAKA_VERSION
         );
         $this->registerEmbedBlock($blocks . self::EMBED_BLOCK);
+        self::registerClaimScript($blocks . self::EMBED_BLOCK);
         foreach (self::BLOCKS as $name) {
             register_block_type($blocks . $name . '-field');
         }
@@ -167,6 +181,12 @@ final class Module extends AbstractModule
         // A published form never goes from working to broken through an edit.
         add_filter('wp_insert_post_data', [DefinitionCheck::class, 'onInsert'], 20, 2);
         add_filter('rest_pre_insert_' . FormPosts::POST_TYPE, [DefinitionCheck::class, 'onRestInsert'], 10, 2);
+        // A page's typed placeholders: every `{{key}}` inside a Kaláka block is a key the participant side
+        // declares (owner 2026-11-27, walkthrough 8.11 a); plain text outside those blocks is left alone.
+        add_filter('rest_pre_insert_post', [PageCheck::class, 'onRestInsert'], 10, 2);
+        add_filter('rest_pre_insert_page', [PageCheck::class, 'onRestInsert'], 10, 2);
+        add_filter('wp_insert_post_data', [PageCheck::class, 'onInsert'], 20, 2);
+        add_action('admin_notices', [PageCheck::class, 'notice']);
         // A form with fields keeps its event (owner ruling 2026-11-13, B2(a)), whatever writes the setting.
         add_filter('add_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);
         add_filter('update_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);
@@ -222,6 +242,29 @@ final class Module extends AbstractModule
     }
 
     /**
+     * The claim popup's script, from `build/`, on `wp-element` and `wp-components` (its asset file), with
+     * WordPress's components stylesheet. Without `build/` there is none, as there is no form script.
+     */
+    private static function registerClaimScript(string $built): void
+    {
+        $asset = $built . '/claim.asset.php';
+        $url = plugins_url('build/Forms/Blocks/' . self::EMBED_BLOCK . '/claim.js', KALAKA_FILE);
+        if (!is_file($asset) || $url === '') {
+            return;
+        }
+        $data = require $asset;
+        $dependencies = is_array($data) && is_array($data['dependencies'] ?? null) ? $data['dependencies'] : [];
+        $version = is_array($data) && is_string($data['version'] ?? null) ? $data['version'] : KALAKA_VERSION;
+        wp_register_script(
+            self::CLAIM_SCRIPT,
+            $url,
+            $dependencies,
+            $version,
+            ['in_footer' => true]
+        );
+    }
+
+    /**
      * The embed block's server render, as WordPress runs a `render` file: `$attributes` in scope.
      *
      * @param array<string, mixed> $attributes
@@ -251,7 +294,7 @@ final class Module extends AbstractModule
             return;
         }
         // The editor's own data, then the gated blocks to hide in this editor (none in a form's).
-        $data = wp_json_encode([...self::editorData(), 'hidden' => BlockGate::hiddenHere()]);
+        $data = wp_json_encode([...self::editorData(self::editedFormTypes()), 'hidden' => BlockGate::hiddenHere()]);
         wp_add_inline_script($handle, 'window.kalakaFormEditor = ' . $data . ';', 'before');
     }
 
@@ -261,6 +304,8 @@ final class Module extends AbstractModule
      * a path (`Api\PathFieldType`, never compared with `equals`), the keys a form's
      * and the after-submit section's conditions may read, and a date reference's bounds.
      *
+     * @param array<string, ValueType>|null $formTypes the keys the edited form's conditions may read (the host's,
+     *     per event and placement); the event keys alone when null
      * @return array{
      *     fieldTypes: array<string, string>,
      *     pathFieldTypes: list<string>,
@@ -269,7 +314,7 @@ final class Module extends AbstractModule
      *     dateReference: array{maxYears: int, maxDays: int}
      * }
      */
-    public static function editorData(): array
+    public static function editorData(?array $formTypes = null): array
     {
         $value = static fn (ValueType $type): string => $type->value;
 
@@ -282,10 +327,34 @@ final class Module extends AbstractModule
                 Contributions::current()->fieldTypes(),
                 static fn (FieldType $type): bool => $type instanceof PathFieldType
             )),
-            'eventTypes' => array_map($value, EventValues::FORM_TYPES),
+            'eventTypes' => array_map($value, $formTypes ?? EventValues::FORM_TYPES),
             'afterSubmitTypes' => array_map($value, AfterSubmit::TYPES),
             'dateReference' => ['maxYears' => DateReference::MAX_YEARS, 'maxDays' => DateReference::MAX_DAYS],
         ];
+    }
+
+    /**
+     * The keys the edited form's conditions may read (`EventFormHost::typesOf()`): the per-event list, from
+     * the form post's saved event and placement. Null when the editor holds no saved form of an event.
+     * The list is read when the editor loads, so it is stale if the form's event is changed meanwhile.
+     *
+     * @return array<string, ValueType>|null
+     */
+    private static function editedFormTypes(): ?array
+    {
+        $post = get_post();
+        if (!$post instanceof \WP_Post || $post->post_type !== FormPosts::POST_TYPE) {
+            return null;
+        }
+        $eventId = (int) get_post_meta($post->ID, FormPosts::META_EVENT_ID, true);
+        $event = $eventId > 0 ? (new Events())->find($eventId) : null;
+        if ($event === null) {
+            return null;
+        }
+        $placement = FormPlacement::tryFrom((string) get_post_meta($post->ID, FormPosts::META_PLACEMENT, true))
+            ?? FormPlacement::Registration;
+
+        return (new EventFormHost())->typesOf($event, $placement);
     }
 
     /**
@@ -404,5 +473,15 @@ final class Module extends AbstractModule
             'show_in_rest' => true,
             'auth_callback' => $fullAccess,
         ]);
+        // An additional form's open period (S60): each end a date reference in JSON (`OpenPeriod`), kept as
+        // written; one that does not resolve closes the form.
+        foreach ([FormPosts::META_OPENS, FormPosts::META_CLOSES] as $end) {
+            register_post_meta(FormPosts::POST_TYPE, $end, [
+                'type' => 'string',
+                'single' => true,
+                'show_in_rest' => true,
+                'auth_callback' => $fullAccess,
+            ]);
+        }
     }
 }

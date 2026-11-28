@@ -16,7 +16,11 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * transfer block may show (SB-4: registered, the event open, not awaiting an answer, a participant balance above zero
  * after rounding, and the event's bank details set). `money` is the participant's money table, set for every
  * status (a withdrawn or removed registration keeps its rows and movements); it is read beside `payment`,
- * whose `lines` go when the blocks switch to it. `can` is what the registrant may do now, and `cardPayment` the
+ * whose `lines` go when the blocks switch to it. `otherPayerMoney` is one `OtherPayerMoney` for each other payer
+ * that has lines on the registration, in Ledger's payer order (`PayerKinds::payersOf()`: the declared order of the
+ * kinds, never line order), empty when there is none or the registration is waitlisted (it shows only its state:
+ * `showsDetails()`); otherwise, like `money`, read for every status, while `payment->otherPayers` stays
+ * `registered` only. [UNAPPROVED N692] `can` is what the registrant may do now, and `cardPayment` the
  * latest card payment request (null for none, for a registration that is not registered, and while no provider
  * is contributed). `cardRefusal` is the code a refused no-script card payment post came back with, read once
  * by the active registration's page (null otherwise). `cardAmounts` is what a card payment may ask for, set only while
@@ -24,6 +28,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  */
 final readonly class RegistrationStatusView
 {
+    /** @param list<OtherPayerMoney> $otherPayerMoney */
     public function __construct(
         public RegistrationKey $key,
         public Availability $availability,
@@ -34,6 +39,7 @@ final readonly class RegistrationStatusView
         public ?PaymentView $payment,
         public ?TransferDetails $transfer,
         public ParticipantMoney $money,
+        public array $otherPayerMoney = [],
         public RegistrationCan $can = new RegistrationCan(),
         public ?CardPaymentView $cardPayment = null,
         public ?string $cardRefusal = null,

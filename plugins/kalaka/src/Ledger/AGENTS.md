@@ -48,6 +48,15 @@ corrections
   time zone at recording; a correction (a manual row flagged `correction`,
   the owner's ruling 2026-11-19, with no method) has no entered date and
   stores the time it is recorded. A `charge` carries neither.
+- The payer kinds are the participant and the kinds modules declare through a `PayerKindSource`
+  (`Contributions::payerKindSource()`; `PayerKinds` reads them): a source gives a kind (an ID and a label) and
+  says per event whether it applies (`appliesTo(PayerKindInput)`), a plain read that runs inside the record use
+  cases, in the admin detail read and in the participant status read (a throw rolls the use case back; in a read it is contained: the kind is
+  treated as not applying and logged, as `ThemeAdapters` does), and runs no other code. What the dialog shows is what the server accepts, by one rule (`PayerKinds::payersOf()` lists a
+  registration's payers, `mayRecordFor()` tests membership): the participant, the event's applying kinds, and every
+  payer that has lines on the registration. A payment, refund, correction, Díj or Kedvezmény is accepted for
+  exactly those, judged under the registration's lock, so a payer shown with lines after its kind stops applying
+  can still be refunded, corrected, charged and discounted.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
 - A manual charge or discount is a fact in `kalaka_manual_fees`: inserted
@@ -60,8 +69,9 @@ corrections
   and marked as completed it writes the fact and the paid entry in one run
   under one audit row; the paid entry is never a correction and nothing links
   the two.
-- Recording a manual payment or refund decides the "payment recorded" mail in the
-  same run (`Mail\Api\ActionMails::lineRecorded()`); a correction, a replay, a
+- Recording a manual payment or refund, and the paid entry of a „Díj” or
+  „Kedvezmény” ticked „Azonnal befizetve”, decides the "payment recorded" mail in
+  the same run (`Mail\Api\ActionMails::lineRecorded()`); a correction, a replay, a
   line of a payer other than the participant and every other use case decide
   none.
 - One grant action, `kalaka_record_money`, carries every manual money use

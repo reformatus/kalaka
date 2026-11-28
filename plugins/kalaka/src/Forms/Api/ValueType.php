@@ -9,6 +9,7 @@ enum ValueType: string
 {
     case Number = 'number';
     case Date = 'date';
+    case Datetime = 'datetime';
     case Text = 'text';
     case Choice = 'choice';
 }
