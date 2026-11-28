@@ -21,8 +21,8 @@ interface ProposedComponentSettings
 
     /**
      * The audited use case that saves the proposed settings, run by the apply through the runner. The apply asks
-     * every component for its save before it runs any, so settings that can no longer be saved refuse here
-     * (throw) while nothing is saved yet.
+     * for every component's save before it writes anything, so a settings object may refuse here what the
+     * save's transaction cannot look at (form posts).
      */
     public function save(): SettingsSave;
 }

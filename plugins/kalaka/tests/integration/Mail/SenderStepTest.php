@@ -12,7 +12,7 @@ use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
 use Kalaka\Foundation\Evaluation\PeriodicEvaluation;
 use Kalaka\Foundation\Periodic\PeriodicRun;
 use Kalaka\Foundation\Periodic\TimeRules;
-use Kalaka\Mail\Body\ActionMailComposer;
+use Kalaka\Mail\Body\KindComposer;
 use Kalaka\Mail\Module;
 use Kalaka\Mail\Sender;
 
@@ -115,7 +115,7 @@ final class SenderStepTest extends MailTestCase
         );
     }
 
-    public function testTheModulesSenderHasTheActionMailsComposer(): void
+    public function testTheModulesSenderHasTheKindComposer(): void
     {
         $contributions = new Contributions();
         (new Module())->contribute($contributions);
@@ -123,6 +123,6 @@ final class SenderStepTest extends MailTestCase
         self::assertInstanceOf(Sender::class, $sender);
 
         $composer = (new \ReflectionProperty(Sender::class, 'composer'))->getValue($sender);
-        self::assertInstanceOf(ActionMailComposer::class, $composer);
+        self::assertInstanceOf(KindComposer::class, $composer);
     }
 }

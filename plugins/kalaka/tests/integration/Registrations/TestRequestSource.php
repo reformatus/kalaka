@@ -4,19 +4,24 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Registrations;
 
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Context;
-use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\Answer;
+use Kalaka\Registrations\Api\AwaitingRule;
+use Kalaka\Registrations\Api\FieldTest;
+use Kalaka\Registrations\Api\FieldTestKind;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\RequestTerms;
 use Kalaka\Registrations\Api\SeatPool;
 
 /**
  * A test source of requests, standing for the offers and aid of slice B0: the field `support` holding `church`
- * is the offer `offer:church`; the field `aid_asked`, a positive amount, is the aid request `aid`. The answers go
+ * is the offer `offer:church`; the field `aid_asked`, filled, is the aid request `aid`. The answers go
  * to `support_answer` (`approved` or `refused`) and `aid_award` (the amount), the source's own fields.
  */
 final class TestRequestSource implements RequestSource
@@ -31,8 +36,15 @@ final class TestRequestSource implements RequestSource
     /** The module slug the test source writes under (`Registrations::writeValue()`'s declarer). */
     public const DECLARER = 'kalaka-test';
 
-    public function __construct(private readonly Registrations $registrations = new Registrations())
-    {
+    /**
+     * @param ?int $fullPrice the aid request's full price in forints, a stand-in for the aid extension's composed
+     *                        price; null gives no terms
+     */
+    public function __construct(
+        private readonly Registrations $registrations = new Registrations(),
+        private readonly ?int $fullPrice = null,
+        private readonly ?SeatPool $pool = null,
+    ) {
     }
 
     public function requestsOf(RegistrationKey $registration, array $values): array
@@ -47,7 +59,7 @@ final class TestRequestSource implements RequestSource
                 'support_answer',
             );
         }
-        if ((float) ($values['aid_asked'] ?? '0') > 0) {
+        if (($values['aid_asked'] ?? '') !== '') {
             $requests[] = new Request(self::AID, RequestKind::Aid, 'Támogatási kérelem', ['aid_asked'], 'aid_award');
         }
 
@@ -61,47 +73,41 @@ final class TestRequestSource implements RequestSource
             : ($values['aid_award'] ?? '') !== '';
     }
 
+    /**
+     * The church offer: `support` holds `church` and `support_answer` is neither `approved` nor `refused`; the aid
+     * request: `aid_asked` is filled and `aid_award` is empty. Exactly `requestsOf()` and `isAnswered()`.
+     */
+    public function awaitingRule(int $eventId): ?AwaitingRule
+    {
+        return new AwaitingRule([
+            [
+                new FieldTest('support', FieldTestKind::OneOf, ['church']),
+                new FieldTest('support_answer', FieldTestKind::NoneOf, ['approved', 'refused']),
+            ],
+            [
+                new FieldTest('aid_asked', FieldTestKind::Filled),
+                new FieldTest('aid_award', FieldTestKind::Empty),
+            ],
+        ]);
+    }
+
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
     {
-        if ($request->kind !== RequestKind::Offer) {
+        return $request->kind === RequestKind::Offer ? $this->pool : null;
+    }
+
+    public function terms(
+        RegistrationKey $registration,
+        Request $request,
+        array $values,
+        \DateTimeImmutable $now,
+    ): ?RequestTerms {
+        if ($request->kind !== RequestKind::Aid || $this->fullPrice === null) {
             return null;
         }
+        $canPay = ($values['aid_can_pay'] ?? '') === '' ? null : Money::of($values['aid_can_pay'], Currency::HUF);
 
-        return new class ($registration->eventId) implements SeatPool {
-            public function __construct(private readonly int $event)
-            {
-            }
-
-            public function eventId(): int
-            {
-                return $this->event;
-            }
-
-            public function key(): string
-            {
-                return TestRequestSource::POOL;
-            }
-
-            public function lockLevel(): LockLevel
-            {
-                return LockLevel::Other;
-            }
-
-            public function lockRow(): array
-            {
-                return ['kalaka_test_pool', [TestRequestSource::POOL]];
-            }
-
-            public function limit(): ?int
-            {
-                return null;
-            }
-
-            public function lock(Context $context): ?int
-            {
-                return null;
-            }
-        };
+        return new RequestTerms(Money::of($this->fullPrice, Currency::HUF), $canPay);
     }
 
     public function writeAnswer(

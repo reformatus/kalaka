@@ -14,7 +14,7 @@ Entry points: `init` (the block).
 
 S44: `RankingFieldType` is a `Forms\Api\RequestFieldType` and an `OptionsFieldType`: the `set` attribute decides, block by
 block, where the options come from (`requestSet()`). A block with a `set` holds no options of its own: core fills its
-`options` attribute from that set, offering only the options whose eligibility condition holds; `set` 0 is a set not
+`options` attribute from that set, offering only the options whose condition (the block's `optionConditions`, by option key) holds; `set` 0 is a set not
 chosen yet, refused on save. A block with no `set` holds its own `options`, as before sets existed. The editor's source
 choice (Lehetőségek › Lehetőségek forrása: Saját lehetőségek or Beosztás, after the settings) shows the options editor
 or the set picker, which reads `GET kalaka-admin/v1/events/{id}/assignment-sets`, and the canvas lists the options. A ranking the form

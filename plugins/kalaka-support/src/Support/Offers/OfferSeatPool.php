@@ -10,9 +10,10 @@ use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\SeatPool;
 
 /**
- * The places of one limited support offer under the one seat rule: the pool row is the offer's own row, its
- * limit the offer's limit of people (an offer with none has no pool). Its key is `offer.<offer key>`. The row is
- * at the quota lock level, so a submit locks and checks it before it writes the registration. [UNAPPROVED N96]
+ * The places of one support offer under the one seat rule: the pool row is the offer's own row, its limit the
+ * offer's limit of people, if any (every offer has a pool, limited or not). Its key is `offer.<offer key>`. The
+ * row is at the quota lock level, so a submit locks and checks it before it writes the registration.
+ * [UNAPPROVED N96]
  */
 final class OfferSeatPool implements SeatPool
 {

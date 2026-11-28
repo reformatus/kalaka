@@ -20,7 +20,8 @@ final readonly class AggregateSpec
             AggregateKind::Rows => true,
             AggregateKind::Members => $members !== []
                 && ($column === 'status' || $field || str_starts_with($column, 'decision:')),
-            AggregateKind::Yes, AggregateKind::Sum, AggregateKind::Filled, AggregateKind::Average => $field,
+            AggregateKind::Yes => $field || $column === 'awaits_answer',
+            AggregateKind::Sum, AggregateKind::Filled, AggregateKind::Average => $field,
         };
         if (!$fits || ($kind !== AggregateKind::Members && $members !== [])) {
             throw new InvalidInput();

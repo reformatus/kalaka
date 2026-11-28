@@ -27,6 +27,7 @@ use Kalaka\Pricing\Api\Materializer;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\SetFixedPrice;
 use Kalaka\Registrations\Answer\AnswerRequest;
+use Kalaka\Registrations\Api\AidAbovePrice;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -37,19 +38,19 @@ use Kalaka\Tests\Integration\Ledger\ManualEntryTestCase;
 /**
  * "Answer a request" end to end (the walkthrough's six cases, B1 to B3): one act for offers and aid, one answer
  * record per act, the answer as the source's own field value, a refusal freeing the seat, and the registration
- * evaluated in the same run (money, then confirmation, then mail). The "answered" mail and the due clock are later
- * slices.
+ * evaluated in the same run (money, then confirmation, then mail), and the "answered" mail queued once per
+ * answering act.
  * The fee components and the source are test doubles for B0's offers and aid.
  */
 final class AnswerRequestTest extends ManualEntryTestCase
 {
     private const KEY = '00A0';
 
-    private TestRequestSource $source;
+    private ?TestRequestSource $source = null;
 
-    private Requests $requests;
+    private ?Requests $requests = null;
 
-    private RecordingSeats $seats;
+    private ?AnswerPool $pool = null;
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook
     public function set_up(): void
@@ -83,9 +84,6 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
     protected function runnerAt(string $local): Runner
     {
-        $this->source ??= new TestRequestSource();
-        $this->requests ??= new Requests([$this->source]);
-        $this->seats ??= new RecordingSeats();
         $money = new Materializer(new CoreFeeComponents([
             new AnswerComponent('support', FeeStage::Support, 'support_answer', new Registrations(), '10000'),
             new AnswerComponent('aid', FeeStage::Aid, 'aid_award', new Registrations()),
@@ -101,9 +99,25 @@ final class AnswerRequestTest extends ManualEntryTestCase
         return new RegistrationKey($this->event, $code);
     }
 
+    /** The offer's pool; the run's event is only known after the parent's set_up(), so it is built here. */
+    private function pool(): AnswerPool
+    {
+        return $this->pool ??= new AnswerPool($this->event);
+    }
+
+    private function source(): TestRequestSource
+    {
+        return $this->source ??= new TestRequestSource(fullPrice: 30000, pool: $this->pool());
+    }
+
+    private function requests(): Requests
+    {
+        return $this->requests ??= new Requests([$this->source()]);
+    }
+
     private function useCase(): AnswerRequest
     {
-        return new AnswerRequest($this->requests, seats: $this->seats);
+        return new AnswerRequest($this->requests());
     }
 
     /**
@@ -201,7 +215,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
     private function awaits(): bool
     {
-        return $this->requests->awaits($this->key(), RegistrationStatus::Registered);
+        return $this->requests()->awaits($this->key(), RegistrationStatus::Registered);
     }
 
     public function testCase1AnAidRequestAnsweredYesLowersWhatIsDueAndIsAFactWithItsRecord(): void
@@ -269,7 +283,8 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertSame([self::huf('20000'), self::huf('20000'), self::huf('0')], $this->money());
         self::assertSame('confirmed', $this->confirmationState());
         self::assertSame((string) $partner, $this->answerRows()[0]['answered_by']);
-        self::assertNotContains('release:' . TestRequestSource::POOL, $this->seats->calls);
+        // A first "yes" takes no new seat: the submit's claim already took it; nothing is released either.
+        self::assertSame([], $this->seatRows());
     }
 
     /** The pass runs money, confirmation, mail: an answer that makes the payments enough confirms and queues the mail. */
@@ -281,7 +296,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-03 10:00');
@@ -323,19 +338,23 @@ final class AnswerRequestTest extends ManualEntryTestCase
     {
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-03 10:00');
+        $this->giveSeat();
         $first = $this->answer(TestRequestSource::OFFER, 'no');
 
         self::assertSame('refused', $this->value('support_answer'));
         self::assertSame([self::huf('30000'), self::huf('0'), self::huf('30000')], $this->money());
-        self::assertContains('release:' . TestRequestSource::POOL, $this->seats->calls);
-        self::assertNotContains('take:' . TestRequestSource::POOL, $this->seats->calls);
+        self::assertSame([], $this->seatRows(), 'the refusal frees the seat');
 
         $this->runner = $this->runnerAt('2026-12-06 10:00');
         $second = $this->answer(TestRequestSource::OFFER, 'yes');
 
         self::assertNotSame($first['answer'], $second['answer'], 'a changed answer has its own record');
         self::assertFalse($second['over_limit']);
-        self::assertContains('take:' . TestRequestSource::POOL, $this->seats->calls);
+        self::assertSame(
+            [['pool' => TestRequestSource::POOL, 'act' => 'answer']],
+            $this->seatRows(),
+            'a "yes" after a refusal takes the seat again, as the answer act'
+        );
         self::assertSame('approved', $this->value('support_answer'));
         self::assertSame([self::huf('20000'), self::huf('0'), self::huf('20000')], $this->money());
         $rows = $this->answerRows();
@@ -349,31 +368,37 @@ final class AnswerRequestTest extends ManualEntryTestCase
     public function testB1AYesWhileThePoolIsFullStandsAndSaysTheyWentOverTheLimit(): void
     {
         $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->giveSeat();
         $this->answer(TestRequestSource::OFFER, 'no');
-        $this->seats->full = true;
+        $this->pool()->limit = 0;
 
         $result = $this->answer(TestRequestSource::OFFER, 'yes');
 
         self::assertTrue($result['changed']);
         self::assertTrue($result['over_limit']);
         self::assertSame('approved', $this->value('support_answer'));
+        self::assertSame(
+            [['pool' => TestRequestSource::POOL, 'act' => 'answer']],
+            $this->seatRows(),
+            'the seat goes over the limit, the answer stands'
+        );
     }
 
     public function testCase6ANoAfterConfirmationRemovesTheSupportFreesTheSeatAndTheConfirmationStays(): void
     {
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-04 10:00');
+        $this->giveSeat();
         $this->pay('20000', '2026-12-03', 'k1');
         $this->answer(TestRequestSource::OFFER, 'yes');
         self::assertSame('confirmed', $this->confirmationState());
-        $this->seats->calls = [];
 
         $this->runner = $this->runnerAt('2026-12-10 10:00');
         $this->answer(TestRequestSource::OFFER, 'no');
 
         self::assertSame([self::huf('30000'), self::huf('20000'), self::huf('10000')], $this->money());
         self::assertSame('confirmed', $this->confirmationState());
-        self::assertSame(['lock:church', 'release:church'], $this->seats->calls);
+        self::assertSame([], $this->seatRows(), 'the "no" frees the seat it held');
         self::assertCount(2, $this->answerRows());
     }
 
@@ -391,16 +416,132 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertSame(self::huf('9000'), $this->value('aid_award'));
     }
 
+    /** The event's "answered" mail as the catalogue stores it. */
+    private function answeredMail(bool $enabled): void
+    {
+        global $wpdb;
+        $body = self::factory()->post->create(['post_type' => 'kalaka_mail', 'post_title' => 'Teszt levél']);
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'answered',
+            'version' => 1,
+            'enabled' => $enabled ? 1 : 0,
+            'body_id' => $body,
+        ]);
+    }
+
+    /** @return list<array<string, ?string>> */
+    private function deliveryRows(): array
+    {
+        global $wpdb;
+        $rows = $wpdb->get_results($wpdb->prepare(
+            'SELECT mail, code, kind, cause_type, cause_key FROM %i WHERE event_id = %d ORDER BY id',
+            $wpdb->prefix . 'kalaka_deliveries',
+            $this->event
+        ), ARRAY_A);
+        self::assertIsArray($rows);
+
+        /** @var list<array<string, ?string>> $rows */
+        return $rows;
+    }
+
+    public function testEveryAnsweringActQueuesOneAnsweredMailKeyedByItsRecordAndARepeatQueuesNone(): void
+    {
+        $this->answeredMail(true);
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $first = $this->answer(TestRequestSource::OFFER, 'no');
+
+        $repeat = $this->answer(TestRequestSource::OFFER, 'no');
+        self::assertFalse($repeat['changed']);
+        self::assertCount(1, $this->deliveryRows(), 'an identical repeat queues nothing');
+
+        $second = $this->answer(TestRequestSource::OFFER, 'yes');
+
+        self::assertSame(
+            [
+                ['answered', self::KEY, 'action', 'answer', (string) $first['answer']],
+                ['answered', self::KEY, 'action', 'answer', (string) $second['answer']],
+            ],
+            array_map('array_values', $this->deliveryRows()),
+            'a changed answer mails again, each keyed by its own answer record'
+        );
+        self::assertNotSame($first['answer'], $second['answer']);
+
+        $noted = $this->answer(TestRequestSource::OFFER, 'yes', ['note' => 'Telefonon megerősítve']);
+        self::assertTrue($noted['changed']);
+        $rows = $this->deliveryRows();
+        self::assertCount(3, $rows, 'a note added alone is an act and mails');
+        self::assertSame((string) $noted['answer'], $rows[2]['cause_key'], 'keyed by its own record');
+    }
+
+    public function testOneQualifyingAnswerSendsTheAnsweredMailAndTheConfirmedMailEachQueuedOnce(): void
+    {
+        global $wpdb;
+        $this->answeredMail(true);
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'confirmed',
+            'version' => 1,
+            'enabled' => 1,
+        ]);
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->runner = $this->runnerAt('2026-12-03 10:00');
+        $this->pay('20000', '2026-12-03', 'k1');
+        self::assertSame([], $this->deliveryRows());
+
+        $this->runner = $this->runnerAt('2026-12-05 10:00');
+        $result = $this->answer(TestRequestSource::OFFER, 'yes');
+
+        self::assertSame('confirmed', $this->confirmationState());
+        $rows = $this->deliveryRows();
+        self::assertCount(2, $rows, 'the act\'s mail and the confirmation\'s mail, once each');
+        self::assertSame('answered', $rows[0]['mail']);
+        self::assertSame('answer', $rows[0]['cause_type']);
+        self::assertSame((string) $result['answer'], $rows[0]['cause_key']);
+        self::assertSame('confirmed', $rows[1]['mail']);
+        self::assertSame('decision', $rows[1]['cause_type']);
+    }
+
+    /** The due clock counts only an answer that changed the yes or no or the amount, not a note alone. */
+    public function testANoteAloneDoesNotMoveTheLastAnswerTheDueClockCountsFrom(): void
+    {
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->runner = $this->runnerAt('2026-12-01 10:00');
+        $this->answer(TestRequestSource::OFFER, 'yes');
+        $this->runner = $this->runnerAt('2026-12-08 10:00');
+        $this->answer(TestRequestSource::OFFER, 'yes', ['note' => 'Telefonon megerősítve']);
+
+        $at = fn (): ?string => $this->requests()->lastAnsweredAt($this->key())
+            ?->setTimezone(wp_timezone())->format('Y-m-d H:i');
+        self::assertSame('2026-12-01 10:00', $at(), 'the note-only act is a row, but not a new answer');
+
+        $this->runner = $this->runnerAt('2026-12-10 10:00');
+        $this->answer(TestRequestSource::OFFER, 'no');
+        self::assertSame('2026-12-10 10:00', $at(), 'a changed yes or no moves it');
+    }
+
+    public function testTheAnsweredMailSwitchedOffOrNeverSetUpQueuesNone(): void
+    {
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->answer(TestRequestSource::OFFER, 'no');
+        self::assertSame([], $this->deliveryRows(), 'never set up');
+
+        $this->answeredMail(false);
+        $this->answer(TestRequestSource::OFFER, 'yes');
+        self::assertSame([], $this->deliveryRows(), 'switched off');
+        self::assertCount(2, $this->answerRows());
+    }
+
     public function testAbsenceOfAnAnswerIsNotAnAnswerOfZero(): void
     {
         $this->addValue($this->event, self::KEY, 'aid_asked', '12000');
-        $state = $this->requests->states($this->key())[0];
+        $state = $this->requests()->states($this->key())[0];
         self::assertTrue($state->awaits());
         self::assertNull($this->value('aid_award'));
 
         $this->answer(TestRequestSource::AID, 'no');
 
-        self::assertFalse($this->requests->states($this->key())[0]->awaits());
+        self::assertFalse($this->requests()->states($this->key())[0]->awaits());
         self::assertSame(self::huf('0'), $this->value('aid_award'));
     }
 
@@ -419,6 +560,31 @@ final class AnswerRequestTest extends ManualEntryTestCase
         }
         $this->expectException(InvalidInput::class);
         $this->answer(TestRequestSource::OFFER, 'yes', ['amount' => '5000']);
+    }
+
+    public function testAnAidYesAboveTheFullPriceIsRefusedWithItsOwnCodeAndAtThePriceItStands(): void
+    {
+        $this->addValue($this->event, self::KEY, 'aid_asked', '12000');
+
+        try {
+            $this->answer(TestRequestSource::AID, 'yes', ['amount' => '30001']);
+            self::fail('An award above the full price is refused.');
+        } catch (AidAbovePrice $e) {
+            self::assertSame('kalaka_aid_over_price', $e->errorCode());
+            self::assertInstanceOf(RuleViolation::class, $e);
+            self::assertSame('A támogatás nem lehet több a fizetendő összegnél.', $e->publicMessage());
+        }
+        self::assertSame([], $this->answerRows(), 'nothing is written');
+        self::assertNull($this->value('aid_award'));
+        self::assertTrue($this->awaits());
+
+        $this->answer(TestRequestSource::AID, 'yes', ['amount' => '30000']);
+        self::assertSame(self::huf('30000'), $this->value('aid_award'));
+        // The cap is on the yes only: a no is an award of 0, and an offer is unaffected.
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->answer(TestRequestSource::AID, 'no');
+        $this->answer(TestRequestSource::OFFER, 'yes');
+        self::assertSame(self::huf('0'), $this->value('aid_award'));
     }
 
     public function testAnUnknownRequestIsNotFoundAndAWithdrawnRegistrationIsRefused(): void
@@ -442,8 +608,8 @@ final class AnswerRequestTest extends ManualEntryTestCase
         $this->addRegistration($this->event, '00B0', 'withdrawn');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        self::assertFalse($this->requests->awaits($this->key('00B0'), RegistrationStatus::Withdrawn));
-        self::assertTrue($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+        self::assertNull($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Withdrawn));
+        self::assertNull($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
     }
 
     public function testAPartnerAnswersOnlyInsideTheirViewAndOnlyWithTheAction(): void
@@ -474,18 +640,51 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertTrue($this->answer(TestRequestSource::OFFER, 'yes', [], new UserActor($partner))['changed']);
     }
 
-    public function testAWaitlistedRegistrationTakesAndFreesNoSeatWhateverItAnswers(): void
+    public function testAWaitlistedRegistrationIsInactiveSoItsRequestIsNotAnswered(): void
     {
         $this->addRegistration($this->event, '00B0', 'waitlisted');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        $this->answer(TestRequestSource::OFFER, 'no', ['code' => '00B0']);
-        $second = $this->answer(TestRequestSource::OFFER, 'yes', ['code' => '00B0']);
+        try {
+            $this->answer(TestRequestSource::OFFER, 'yes', ['code' => '00B0']);
+            self::fail('A waitlisted registration is not answered.');
+        } catch (RuleViolation) {
+            self::assertSame([], $this->answerRows());
+            self::assertNull((new Registrations())->values($this->key('00B0'))['support_answer'] ?? null);
+            self::assertSame([], $this->seatRows(), 'only the lock; no take, no release');
+        }
+    }
 
-        self::assertTrue($second['changed']);
-        self::assertFalse($second['over_limit']);
+    public function testTheSameRegistrationIsAnswerableOnceAdmitted(): void
+    {
+        $this->addRegistration($this->event, '00B0', 'waitlisted');
+        $this->addValue($this->event, '00B0', 'support', 'church');
+        $this->admit('00B0');
+
+        self::assertTrue($this->answer(TestRequestSource::OFFER, 'yes', ['code' => '00B0'])['changed']);
         self::assertSame('approved', (new Registrations())->values($this->key('00B0'))['support_answer']);
-        self::assertSame(['lock:church', 'lock:church'], $this->seats->calls, 'no release, no take');
+    }
+
+    public function testAWaitlistedRegistrationAwaitsNothingUntilAdmission(): void
+    {
+        $this->addRegistration($this->event, '00B0', 'waitlisted');
+        $this->addValue($this->event, '00B0', 'support', 'church');
+
+        self::assertNull($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+
+        $this->admit('00B0');
+
+        self::assertTrue($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Registered));
+    }
+
+    private function admit(string $code): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['status' => 'registered', 'registered_at' => '2026-11-30 09:00:00.000000'],
+            ['event_id' => $this->event, 'code' => $code],
+        );
     }
 
     public function testAnAidRequestLocksNoSeatPool(): void
@@ -494,7 +693,40 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
         $this->answer(TestRequestSource::AID, 'yes', ['amount' => '12000']);
 
-        self::assertSame([], $this->seats->calls);
+        self::assertSame([], $this->seatRows(), 'an aid request has no pool: no seat call');
+    }
+
+    /**
+     * The seat rows the registration holds: `pool` and `act` each. A seat retaken by an answer stores
+     * `SeatAct::Answer`, so the act tells it from the submit's own `placement`.
+     *
+     * @return list<array{pool: string, act: string}>
+     */
+    private function seatRows(): array
+    {
+        global $wpdb;
+
+        return $wpdb->get_results($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test inspection; prefix and constants only
+            "SELECT pool, act FROM {$wpdb->prefix}kalaka_seats WHERE event_id = %d AND code = %s ORDER BY pool",
+            $this->event,
+            self::KEY
+        ), ARRAY_A);
+    }
+
+    /** The seat the submit's placement took, before an act that frees or retakes it. */
+    private function giveSeat(): void
+    {
+        global $wpdb;
+
+        $wpdb->insert($wpdb->prefix . 'kalaka_seats', [
+            'event_id' => $this->event,
+            'code' => self::KEY,
+            'pool' => TestRequestSource::POOL,
+            'version' => 0,
+            'taken_at' => '2026-12-01 10:00:00.000000',
+            'act' => 'placement',
+        ]);
     }
 
     /** Owner 2026-11-26: a reason is never required, a "yes" to an offer included. */

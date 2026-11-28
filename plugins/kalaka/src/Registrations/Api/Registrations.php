@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Api;
 
 use Kalaka\Events\Api\Event;
-use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
@@ -102,6 +102,7 @@ final class Registrations
             [],
             $fields->kinds,
             $this->requests->awaits($key, $registration->status),
+            $this->requests->lastAnsweredAt($key),
         );
     }
 
@@ -112,7 +113,7 @@ final class Registrations
      * `$declarer` is the writing module's ID, the one it declared the field with (`aid`, `support`):
      * one writer rule, a field is written by its declarer's own code only. The field must be one the event
      * declares, and not a "system" field, which stores nothing (foundation.md, "Facts, decisions and computed
-     * values"). The caller owns the field's type: this does not check it. [UNAPPROVED N11] [UNAPPROVED N137]
+     * values"). The caller owns the field's type: this does not check it.
      * A field another declarer holds (`declared_by`, CF3) is refused: a field is written by its declarer's own code
      * only. [UNAPPROVED N357]
      *
@@ -168,21 +169,6 @@ final class Registrations
     }
 
     /**
-     * The status of each of the event's registrations, by code: one statement.
-     *
-     * @return array<string, RegistrationStatus>
-     */
-    public function statusesOf(int $eventId): array
-    {
-        $statuses = [];
-        foreach ($this->list->forEvent($eventId) as $row) {
-            $statuses[$row['code']] = $row['status'];
-        }
-
-        return $statuses;
-    }
-
-    /**
      * The event's `registered` and `waitlisted` registrations, in the list's order: the ones a money settings
      * apply re-evaluates (withdrawn and removed are left out). One statement.
      *
@@ -199,6 +185,18 @@ final class Registrations
         }
 
         return $keys;
+    }
+
+    /**
+     * The statuses of some of an event's registrations, in one statement and without a lock; a code that is no
+     * registration of the event is absent from the result. A plain read.
+     *
+     * @param list<string> $codes
+     * @return array<string, RegistrationStatus> code → status
+     */
+    public function statusesOf(int $eventId, array $codes): array
+    {
+        return $this->list->statusesOf($eventId, $codes);
     }
 
     /**
@@ -226,15 +224,45 @@ final class Registrations
 
     /**
      * Refuses removing a chosen item: `ItemChosen` when an open registration of the event holds the value in the
-     * field. Staff and settings saves that remove a tier, an option or an offer call it, so one refusal and one
-     * code reach every surface. A plain read.
+     * field, or, with no value, has chosen the field at all (a positive number: a charge's consent or quantity,
+     * `openChose()`). Staff and settings saves that remove a tier, an option, an offer or a charge call it, so one
+     * refusal and one code reach every surface. A plain read.
      */
     public function refuseRemovingChosen(int $eventId, string $fieldKey, ?string $value): void
     {
-        // CF4 adds `openChose` for a null value (a charge's field chosen at all); until then `openHolds` alone.
-        if ($this->openHolds($eventId, $fieldKey, (string) $value)) {
+        $chosen = $value === null
+            ? $this->openChose($eventId, $fieldKey)
+            : $this->openHolds($eventId, $fieldKey, $value);
+        if ($chosen) {
             throw new ItemChosen();
         }
+    }
+
+    /**
+     * Whether an open (`registered` or `waitlisted`) registration of the event chose the field: holds a positive
+     * number in it, which is a consent's `1` and a quantity of one or more (an unticked consent is `0`). The read
+     * for a charge, whose "yes" is any positive value where `openHolds()` names one value; two statements however
+     * many registrations there are. A plain read. [UNAPPROVED N307]
+     */
+    public function openChose(int $eventId, string $fieldKey): bool
+    {
+        $rows = $this->values->ofField($eventId, $fieldKey);
+        $chosen = [];
+        foreach ($rows as $row) {
+            if (is_numeric($row->value) && (float) $row->value > 0) {
+                $chosen[$row->registration->code] = true;
+            }
+        }
+        if ($chosen === []) {
+            return false;
+        }
+        foreach ($this->openOf($eventId) as $key) {
+            if (isset($chosen[$key->code])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

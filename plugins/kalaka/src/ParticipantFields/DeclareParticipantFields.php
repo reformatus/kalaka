@@ -161,7 +161,7 @@ final class DeclareParticipantFields implements AdminUseCase
                 $record->settings = ($record->settings ?? []) + ['declared' => $declared];
             }
             // An extension field's options are its declarer's: a form offers a subset of them, never adds one
-            // (`SharedKeyCheck`'s `extension_option`). [UNAPPROVED, #200 N9]
+            // (`SharedKeyCheck`'s `extension_option`).
             if ($record->source !== ParticipantFieldRecord::SOURCE_EXTENSION) {
                 $record->options = self::merged(
                     $record->options,

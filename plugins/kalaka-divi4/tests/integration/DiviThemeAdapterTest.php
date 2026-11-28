@@ -114,7 +114,16 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         self::assertStringContainsString(Module::IPHONE_CONTROLS, $css);
         self::assertStringContainsString('.et_pb_contact_form .kalaka-number__affix', $css);
         self::assertStringContainsString('--kalaka-number-affix-colour', $css);
-        self::assertStringContainsString('padding-left:var(--kalaka-number-prefix-room,0)', $css);
+        // The padding is scoped to the modifier classes: a number without an affix keeps Divi's own padding.
+        self::assertStringContainsString(
+            '.et_pb_contact_form .kalaka-number--prefix input{padding-left:var(--kalaka-number-prefix-room,0)}',
+            $css
+        );
+        self::assertStringContainsString(
+            '.et_pb_contact_form .kalaka-number--suffix input{padding-right:var(--kalaka-number-suffix-room,0)}',
+            $css
+        );
+        self::assertStringNotContainsString('.kalaka-number input{', $css);
         // Scoped to Kaláka's fields inside the form Divi styles, and only to checkboxes and radio buttons;
         // the ranking's +/× toggle, a checkbox Kaláka draws itself, is left out.
         self::assertSame(
@@ -168,6 +177,51 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
                 . '{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}',
             $css
         );
+    }
+
+    public function testAMoneyTableInTheContentIsTheStatusBlockOrTheShortcode(): void
+    {
+        self::assertTrue(Module::holdsMoneyTable('<!-- wp:kalaka/status /-->'));
+        self::assertTrue(Module::holdsMoneyTable('[et_pb_section][et_pb_text][kalaka_status][/et_pb_text]'));
+        self::assertFalse(Module::holdsMoneyTable('<!-- wp:kalaka/transfer /-->[kalaka_transfer]'));
+        self::assertFalse(Module::holdsMoneyTable('<!-- wp:paragraph --><p>kalaka_status</p><!-- /wp:paragraph -->'));
+    }
+
+    /** The adapter's CSS of a page with the given content, under Divi 4 ('' when none is enqueued). */
+    private function divi4Css(string $content): string
+    {
+        $post = self::factory()->post->create(['post_content' => $content]);
+        $this->go_to((string) get_permalink($post));
+        // A fresh style queue: the tests share WordPress's global one.
+        $GLOBALS['wp_styles'] = null;
+        $template = static fn (): string => 'Divi';
+        add_filter('template', $template);
+        try {
+            (new Module(self::divi('4.27.4')))->enqueue();
+        } finally {
+            remove_filter('template', $template);
+        }
+
+        return wp_style_is('kalaka-divi4', 'enqueued')
+            ? implode('', (array) wp_styles()->get_data('kalaka-divi4', 'after'))
+            : '';
+    }
+
+    public function testUnderDivi4AStatusPageGetsTheMoneyTablesRowLineAndNothingOfTheForm(): void
+    {
+        $css = $this->divi4Css('<!-- wp:kalaka/status /-->');
+
+        // Divi's `#eee` line of a `td`, on the row header too; not on the rows core separates itself.
+        self::assertSame(
+            '.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}',
+            $css
+        );
+    }
+
+    public function testAFormPageGetsNoMoneyTableRule(): void
+    {
+        self::assertStringNotContainsString('kalaka-money', $this->divi4Css('[kalaka_form id="8"]'));
+        self::assertStringContainsString('et_pb_contact_form', $this->divi4Css('[kalaka_form id="8"]'));
     }
 
     public function testAPageWithoutAFormGetsNoStylesheet(): void

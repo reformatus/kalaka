@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail\Body;
 
+use Kalaka\Forms\Api\UnknownPlaceholder;
 use Kalaka\Forms\Api\Values;
 use Kalaka\Foundation\Api\Entry\SaveVeto;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\BodyUnusable;
 
 /**
@@ -15,7 +17,8 @@ use Kalaka\Mail\BodyUnusable;
  * (`MailValues::types()`, `Values::check()`). A body with a problem is never published.
  *
  * - REST (the block editor): `rest_pre_insert_kalaka_mail` refuses the save with a 400 before anything is
- *   stored.
+ *   stored; a placeholder typed as `{{key}}` that the context does not declare is refused first, with
+ *   `kalaka_unknown_placeholder` and a 422 (`UnknownPlaceholder`).
  * - Any other path (code, WP-CLI, a revision restore): `wp_insert_post_data` vetoes gracefully, as Forms
  *   does: a published body keeps its stored content, any other stays unpublished; the saving user gets the
  *   refusal as an admin notice on their next admin page. Nothing throws out of a core filter.
@@ -54,12 +57,64 @@ final class BodyCheck
         }
         try {
             $values = new MailValues();
-            (new Values())->check($content, $values->types($eventId), $values->paths($eventId));
+            (new Values())->check($content, $values->types($eventId, $content), $values->paths($eventId));
         } catch (SystemFailure $e) {
             return BodyUnusable::of($e)->problem;
         }
 
         return null;
+    }
+
+    /**
+     * The placeholders typed as `{{key}}` in a body whose key the mail's context does not declare, as the refusal
+     * of its save (owner 2026-11-26, N960): all of them, as typed; null when there is none or the body has no event
+     * yet.
+     */
+    public static function unknown(string $content, ?int $eventId): ?UnknownPlaceholder
+    {
+        if ($eventId === null) {
+            return null;
+        }
+        try {
+            $values = new MailValues();
+            $keys = (new Values())->unknownPlaceholders($content, $values->types($eventId, $content));
+        } catch (SystemFailure) {
+            // Another problem of the body: `problem()` names it.
+            return null;
+        }
+
+        return $keys === [] ? null : new UnknownPlaceholder($keys);
+    }
+
+    /**
+     * The refusal of a live body's save, or null: the value check, then the account-link rule. The editor's
+     * filters and the command line share it; `$assignedTo` is the mail a body is about to be assigned to.
+     */
+    public static function refusal(int $id, string $content, ?int $eventId, ?ActionMail $assignedTo = null): ?string
+    {
+        return self::judge($id, $content, $eventId, $assignedTo)[1];
+    }
+
+    /**
+     * The one judgement behind `refusal()`: the value problem (`<code> <subject>`, for the log) and the
+     * refusal's text; both null when the body passes, only the text when the account-link rule refuses it.
+     *
+     * @return array{?string, ?string}
+     */
+    private static function judge(int $id, string $content, ?int $eventId, ?ActionMail $assignedTo): array
+    {
+        $unknown = self::unknown($content, $eventId);
+        if ($unknown !== null) {
+            return ['unknown_placeholder ' . implode(', ', $unknown->keys), $unknown->publicMessage()];
+        }
+        $problem = self::problem($content, $eventId);
+
+        return [
+            $problem,
+            $problem === null
+                ? (new AccountLinkRule())->problem($id, $content, $eventId, $assignedTo)
+                : self::message($problem),
+        ];
     }
 
     /** The refusal's text for a problem. */
@@ -96,13 +151,13 @@ final class BodyCheck
         $event = is_array($meta) && array_key_exists(MailPosts::META_EVENT_ID, $meta)
             ? self::eventId($meta[MailPosts::META_EVENT_ID])
             : (new MailPosts())->eventOf($id);
-        $problem = self::problem($content, $event);
-        if ($problem !== null) {
-            return new \WP_Error(self::CODE, self::message($problem), ['status' => 400]);
+        $unknown = self::unknown($content, $event);
+        if ($unknown !== null) {
+            return $unknown->toWpError();
         }
-        $account = (new AccountLinkRule())->problem($id, $content, $event);
-        if ($account !== null) {
-            return new \WP_Error(self::CODE, $account, ['status' => 400]);
+        $message = self::refusal($id, $content, $event);
+        if ($message !== null) {
+            return new \WP_Error(self::CODE, $message, ['status' => 400]);
         }
         self::$restEvents[$id] = $event;
 
@@ -136,10 +191,7 @@ final class BodyCheck
             default => (new MailPosts())->eventOf($id),
         };
         $content = wp_unslash($data['post_content']);
-        $problem = self::problem($content, $event);
-        $message = $problem === null
-            ? (new AccountLinkRule())->problem($id, $content, $event)
-            : self::message($problem);
+        [$problem, $message] = self::judge($id, $content, $event, null);
         if ($message === null) {
             return $data;
         }
