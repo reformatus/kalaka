@@ -25,7 +25,7 @@ record, the check-in act, and so on.
 
 | Kind | Caused by | Decided by |
 |---|---|---|
-| **Action** | an act on one registration: registered (admission from the waitlist sends this mail too), waitlisted, payment recorded, confirmed, link regenerated, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so a second confirmation after a refund gets its own mail; every check-in route calls the same check-in use case |
+| **Action** | an act on one registration: registered (admission from the waitlist sends this mail too), waitlisted, payment recorded, confirmed, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so a second confirmation after a refund gets its own mail; every check-in route calls the same check-in use case |
 | **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
 | **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
 | **Manual** | staff send a chosen mail to chosen registrations, now or scheduled | the staff use case; keyed by the send batch |

@@ -91,7 +91,7 @@ final class ActionMailCommand
      * : The event ID.
      *
      * <kind>
-     * : The mail: registered, waitlisted, payment_recorded, confirmed or link_regenerated.
+     * : The mail: registered, waitlisted, payment_recorded or confirmed.
      *
      * @param list<string> $args
      * @param array<string, mixed> $assocArgs
@@ -123,7 +123,7 @@ final class ActionMailCommand
      * : The event ID.
      *
      * <kind>
-     * : The mail: registered, waitlisted, payment_recorded, confirmed or link_regenerated.
+     * : The mail: registered, waitlisted, payment_recorded or confirmed.
      *
      * @param list<string> $args
      * @param array<string, mixed> $assocArgs
@@ -144,7 +144,7 @@ final class ActionMailCommand
      * : The event ID.
      *
      * <kind>
-     * : The mail: registered, waitlisted, payment_recorded, confirmed or link_regenerated.
+     * : The mail: registered, waitlisted, payment_recorded or confirmed.
      *
      * @param list<string> $args
      * @param array<string, mixed> $assocArgs
@@ -167,7 +167,7 @@ final class ActionMailCommand
      * : The event ID.
      *
      * <kind>
-     * : The mail: registered, waitlisted, payment_recorded, confirmed or link_regenerated.
+     * : The mail: registered, waitlisted, payment_recorded or confirmed.
      *
      * --file=<path>
      * : The body's block markup, stored as it is.

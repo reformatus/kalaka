@@ -203,9 +203,9 @@ final class MailRendererTest extends MailBodyTestCase
         $event = $this->create();
         $key = $this->registration($event);
         $body = $this->document($event, $this->paragraph('<span data-kalaka-value="registration.link">link</span>'));
-        $this->switchOn($event, 'link_regenerated', $body);
+        $this->switchOn($event, 'registered', $body);
 
-        $html = (new MailRenderer())->render($event, 'link_regenerated', $key, self::now())->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         self::assertSame(1, preg_match('/<span\s*>([^<]+)<\/span>/', $html, $match));
         $url = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5);

@@ -185,9 +185,13 @@ the waitlist and reference codes
 - Removing a chosen item (a tier, an option, an offer) is refused through one call,
   `Registrations::refuseRemovingChosen()`, which throws `Api\ItemChosen` (`kalaka_item_chosen`); a module's own
   removal guard calls it and does not throw its own refusal.
+- A live registration is a registered one (owner 2026-11-27): code that means live calls `RegistrationStatus::isLive()`
+  (SQL: `RegistrationTables::isLive()`), never compares with `Registered`. Waitlisted, withdrawn and removed are
+  not live ("active registration" stays the registrant's access). Code that means the status itself (a
+  transition's target, `registered_at`, the sorszám's groups) names it.
 - `RegistrationStatus::showsDetails()` (true unless waitlisted) is the one read of what a waitlisted registrant
   sees (the registrant's page shows only that they are waitlisted: owner ruling 2026-11-25). It is not an action
-  gate: additional forms and payments stay on `=== Registered`.
+  gate: additional forms and payments stay on `isLive()`.
 - A staff correction of a field value (`Api\FieldCorrections`, used by Admin's `EditFieldValue`) writes the value
   only through `FieldValueRepository` and moves seats only through the claim sources: the seats the old value
   claimed and the new one does not are freed, the others taken, never through per-field code. The pools to take are

@@ -95,7 +95,7 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   gracefully (a published body keeps its content, another stays unpublished),
   tells the saving user in an admin notice, writes a log line and, on
   WP-CLI, warns and fails the command.
-- The catalogue has five action mails; admission from the waitlist sends
+- The catalogue has four action mails; admission from the waitlist sends
   "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.
