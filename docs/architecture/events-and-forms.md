@@ -420,11 +420,15 @@ is no other participant-side edit.
   be resolved when the document renders fails that act (a mail is failed,
   never sent with the raw placeholder; a page fails to render altogether,
   N1150). A page fills only the placeholders inside Kaláka blocks; a `{{` in
-  ordinary text is left alone (N1180). A form page fills every block of its
-  content but the after-submit section, which fills with its own keys
-  (`registration.code`, `registration.status`); the definition check refuses a
-  key the part it sits in cannot fill, at the save and in every other read of
-  the current version (`DefinitionParser`, N1182). A value's text is never read
+  ordinary text is left alone (N1180). An ordinary post or page is checked
+  only when its save is, or makes it, live (`publish` or `future`), against the
+  keys an after-submit section fills with: the event's values (`event.*`),
+  `registration.code` and `registration.status`, and no other key of the
+  active registration; a draft, pending or private one is saved as it is. A
+  form page fills every block of its content but the after-submit section,
+  which fills with those same keys; the definition check refuses a key the
+  part it sits in cannot fill, at the save and in every other read of the
+  current version (`DefinitionParser`, N1182). A value's text is never read
   for placeholders. The older `<span data-kalaka-value="key">Label</span>` keeps
   rendering as the basis of a future editor, but no editor inserts it.
 - **Storage** is plain block markup in `post_content`. A friendlier editor
