@@ -77,7 +77,6 @@ final class FieldValueTest extends \WP_UnitTestCase
             'email' => 'anna@example.org',
             'phone' => '+36301234567',
             'text' => 'Egy sor',
-            'consent' => '1',
         ];
 
         foreach ($stored as $name => $string) {
@@ -86,6 +85,17 @@ final class FieldValueTest extends \WP_UnitTestCase
             self::assertSame(ValueType::Text, $value->type, $name);
             self::assertSame($string, $value->data, $name);
             self::assertSame($string, $value->text, $name);
+        }
+    }
+
+    /** The consent's data stay the stored digit, its text is the words the grid uses. */
+    public function testAConsentsTextIsIgenOrNemAndItsDataTheStoredString(): void
+    {
+        foreach (['1' => 'Igen', '0' => 'Nem'] as $string => $text) {
+            $value = $this->valueOf('consent', (string) $string);
+            self::assertSame(ValueType::Text, $value->type);
+            self::assertSame((string) $string, $value->data);
+            self::assertSame($text, $value->text);
         }
     }
 

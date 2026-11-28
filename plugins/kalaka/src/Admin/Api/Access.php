@@ -240,23 +240,43 @@ final class Access
      */
     public function mayWrite(Actor $actor, RegistrationKey $key, string $column, ?Context $context = null): bool
     {
+        return $this->writer($actor, $key, $context)($column);
+    }
+
+    /**
+     * `mayWrite()` for many columns of one registration: the held views that contain it are read once, and the
+     * returned test answers for each column (`field:<key>`) by the same rule. For a screen that shows which
+     * fields are editable; the act re-checks under the lock.
+     *
+     * @return \Closure(string): bool
+     * @throws SystemFailure when a context is given and the run does not hold the registration's row lock
+     */
+    public function writer(Actor $actor, RegistrationKey $key, ?Context $context = null): \Closure
+    {
         if ($context !== null && !$context->holdsRegistration($key)) {
             $error = new SystemFailure(null, new \LogicException('The fine check needs the registration locked.'));
             throw $error;
         }
         if ($this->isFull($actor)) {
-            return true;
+            return static fn (string $column): bool => true;
         }
 
+        $shapes = [];
         foreach ($this->heldViews($actor, $key->eventId) as $view) {
-            $shape = $view->shape();
-            $writes = $shape === null ? str_starts_with($column, 'field:') : $shape->writes($column);
-            if ($writes && $this->views->contains($view, [$key])) {
-                return true;
+            if ($this->views->contains($view, [$key])) {
+                $shapes[] = $view->shape();
             }
         }
 
-        return false;
+        return static function (string $column) use ($shapes): bool {
+            foreach ($shapes as $shape) {
+                if ($shape === null ? str_starts_with($column, 'field:') : $shape->writes($column)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
     }
 
     private static function userIdOf(Actor $actor): ?int

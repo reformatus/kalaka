@@ -277,7 +277,9 @@ the waitlist and reference codes
   planned from a plain read and locked (`lockPools()`) before the registration row is, and the plan is checked
   against the values re-read under the lock (else `VersionConflict`). Seats move only for a `registered`
   registration, and the take is `Seats::retake()` (over the limit when the pool is full, reported as `over`; the
-  preview reads `wouldOverfill()`). The class returns no stored value (it answers booleans, option keys and field
+  preview reads `wouldOverfill()`). `fullValues()` is the staff "full" flag before a save: a plain read, no lock and
+  no audit, of which of a field's values would put this registration over a pool's limit (`Seats::wouldOverfill()`,
+  its own seat not counted, none for a value it already holds or for a registration that is not `registered`). The class returns no stored value (it answers booleans, option keys and field
   keys, and compares the registration's state against a fingerprint inside, and only in `check()`, which takes
   the run's `Context` and refuses a run that does not hold the registration), so Admin, which may not use the
   "Registration data" layer, reaches registration data only through the view query still.

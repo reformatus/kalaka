@@ -9,6 +9,7 @@ use Kalaka\Admin\Cli\AdminSeeder;
 use Kalaka\Admin\Cli\FullAccessCommand;
 use Kalaka\Admin\Cli\RegistrationCommand;
 use Kalaka\Admin\Event\TimesPage;
+use Kalaka\Admin\FieldEdit\EditFieldValue;
 use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\LastHolderGuard;
 use Kalaka\Admin\FullAccess\OwnCapability;
@@ -128,6 +129,13 @@ SQL;
             'Nézet mentése',
             'Egy esemény nézetének létrehozása vagy módosítása.',
             SaveView::prepared(...)
+        );
+        // the description without the reason (owner 2026-11-26).
+        Abilities::register(
+            new EditFieldValue(),
+            'Jelentkezési adat módosítása',
+            'Egy jelentkezés egyik adatának módosítása.',
+            EditFieldValue::prepared(...)
         );
         Abilities::register(new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.');
         Abilities::register(
