@@ -42,7 +42,14 @@ jest.mock( '@wordpress/dataviews/wp', () => {
 } );
 // The bulk action's dialog is the mail module's (its own test); here it is only offered.
 jest.mock( '../../src/Admin/app/mail/bulk', () => ( { manualMailAction: () => ( { id: 'mail' } ) } ) );
-jest.mock( '../../src/Admin/app/grid/Tabs', () => ( { __esModule: true, default: () => null, tabUrl: () => '' } ) );
+jest.mock( '../../src/Admin/app/grid/Tabs', () => ( {
+	__esModule: true,
+	default: ( { onSelect } ) => {
+		globalThis.selectTab = onSelect;
+		return null;
+	},
+	tabUrl: () => '',
+} ) );
 // The sum row shows the column menu in place; the menu is one button that ticks the member „x”.
 jest.mock( '../../src/Admin/app/grid/SumRow', () => ( {
 	__esModule: true,
@@ -105,6 +112,45 @@ test( 'a tab that carries the manual mail has the bulk action, and the selection
 	expect( globalThis.lastDataViews.selection ).toEqual( [] );
 	await act( async () => globalThis.lastDataViews.onChangeSelection( [ 'K1' ] ) );
 	expect( globalThis.lastDataViews.selection ).toEqual( [ 'K1' ] );
+} );
+
+describe( 'the ticks are cleared when what the rows are changes', () => {
+	const ticked = async () => {
+		api.fetchPage.mockResolvedValue( { rows: [ { key: 'K1', values: { state: 'a' } }, { key: 'K2', values: { state: 'b' } } ], total: 200 } );
+		await act( async () => root.render( createElement( Page, { config } ) ) );
+		await flush();
+		await act( async () => globalThis.lastDataViews.onChangeSelection( [ 'K1' ] ) );
+		expect( globalThis.lastDataViews.selection ).toEqual( [ 'K1' ] );
+	};
+	const change = async ( patch ) => {
+		await act( async () => globalThis.lastDataViews.onChangeView( { ...globalThis.lastDataViews.view, ...patch } ) );
+		await flush();
+	};
+
+	test( 'on a page change', async () => {
+		await ticked();
+		await change( { page: 2 } );
+		expect( globalThis.lastDataViews.selection ).toEqual( [] );
+	} );
+
+	test( 'on a filter change', async () => {
+		await ticked();
+		await change( { filters: [ { field: 'state', operator: 'is', value: 'a' } ] } );
+		expect( globalThis.lastDataViews.selection ).toEqual( [] );
+	} );
+
+	test( 'on a search change', async () => {
+		await ticked();
+		await change( { search: 'kov' } );
+		expect( globalThis.lastDataViews.selection ).toEqual( [] );
+	} );
+
+	test( 'on a tab change', async () => {
+		await ticked();
+		await act( async () => globalThis.selectTab( 'b' ) );
+		await flush();
+		expect( globalThis.lastDataViews.selection ).toEqual( [] );
+	} );
 } );
 
 test( 'a tab that does not carry it has no action at all', async () => {

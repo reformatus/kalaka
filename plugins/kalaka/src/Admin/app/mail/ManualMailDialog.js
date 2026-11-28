@@ -5,9 +5,10 @@
  * On opening it asks the server who the send would reach (`POST …/mail/manual/preview`, checked against the user's
  * grant like the send): the codes that would get the mail, the ones that would be skipped with the reason, the codes
  * that do not exist (full access only), and the event's published bodies, which are the choice. Nothing is chosen
- * for the user. The send is the ability `kalaka/send-manual-mail` with a request key: the same body and
- * codes always carry the same key, so a retry after a lost answer or a double click is the same request and queues
- * nothing twice (`createKeys`); while a send runs a second submit is ignored. The answer is shown in the dialog
+ * for the user. The send is the ability `kalaka/send-manual-mail` with a request key that names one send attempt: a
+ * retry of an attempt without an answer (a lost answer, a double click) carries the same key and queues nothing
+ * twice; a success or a refusal spends it and the next send gets a fresh one (`createKeys`); while a send runs a
+ * second submit is ignored. The answer is shown in the dialog
  * (queued, skipped, a repeat, `paused`, `held`) and the dialog then only closes. A refusal shows the server's own
  * text and keeps the dialog. More codes than one send may hold come back as the server's 400, shown as its own
  * sentence. [UNAPPROVED N291]
@@ -15,7 +16,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
 import * as api from './api';
-import { isTooMany, pageKeys, stateReads } from './manual';
+import { isRefusal, isTooMany, pageKeys, stateReads } from './manual';
 import { selectionSignature } from '../grid/selection';
 import { bodyLabel, problemText } from './format';
 import { fmt } from '../grid/format';
@@ -30,8 +31,8 @@ import { COMMON, MANUAL, RESULT } from './texts';
  *                                   (`grid/selection.js`): the server resolves the latter itself
  * @param {Function} props.onClose     closes the dialog
  * @param {Function} props.onSent      called with the answer once a send is made
- * @param {Function} [props.keys]    the page's request keys (`createKeys()`), so reopening the dialog with the same
- *                                   rows and body is the same request
+ * @param {Object}   [props.keys]    the page's request keys (`createKeys()`), so a retry of an attempt without an
+ *                                   answer is the same request even from a reopened dialog
  */
 export function ManualMailForm( { event, previewPath, selection, onClose, onSent, keys } ) {
 	const [ plan, setPlan ] = useState( null );
@@ -105,15 +106,22 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 		setNoBody( false );
 		sending.current = true;
 		setBusy( true );
+		// The attempt's key: the pending one while the last attempt has no answer, else a fresh one.
+		const id = parseInt( bodyId, 10 );
+		const key = keyFor.current.keyFor( id, selection );
 		try {
-			const id = parseInt( bodyId, 10 );
-			const answer = await api.sendManual( event, id, selection, keyFor.current( id, selection ) );
+			const answer = await api.sendManual( event, id, selection, key );
+			keyFor.current.spend( key );
 			setResult( answer );
 			if ( onSent ) {
 				onSent( answer );
 			}
 		} catch ( error ) {
-			// The same body and codes keep their key, so pressing Küldés again is a retry, not a second send.
+			// A refusal ends the attempt (the server stored nothing), so the next send is a new one. A lost answer or a
+			// server error keeps the key, so pressing Küldés again is a retry, not a second send.
+			if ( isRefusal( error ) ) {
+				keyFor.current.spend( key );
+			}
 			setFailed( problemText( error, COMMON.actFail ) );
 		}
 		sending.current = false;

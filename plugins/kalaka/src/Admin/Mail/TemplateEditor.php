@@ -67,10 +67,12 @@ final class TemplateEditor
         $id = (int) get_the_ID();
         $meta = $id > 0 ? get_post_meta($id, self::META_EVENT_ID, true) : '';
         $event = is_scalar($meta) && preg_match('/\A[1-9][0-9]*\z/', (string) $meta) === 1 ? (int) $meta : null;
+        // The label follows the link: an archived or missing event falls back to the site's page.
+        $back = MailPages::url($event);
         $data = wp_json_encode([
             'words' => Texts::EDITOR_WORDS,
-            'back' => MailPages::url($event),
-            'label' => $event === null ? Texts::EDITOR_BACK_SITE : Texts::EDITOR_BACK,
+            'back' => $back,
+            'label' => $back === MailPages::url(null) ? Texts::EDITOR_BACK_SITE : Texts::EDITOR_BACK,
             'frame' => Texts::USES_FRAME,
         ]);
         $script = <<<'JS'

@@ -1,6 +1,6 @@
 /**
  * The manual mail form (piece 4): what the preview shows, that nothing is chosen for the user, that a double click and
- * a retry are the same request (one request key), that a changed body is another, what each answer
+ * a retry of an attempt without an answer is the same request (one request key), that a success, a refusal or a changed body is another, what each answer
  * says (queued, skipped, repeat, paused, held), and that a refusal keeps the dialog with the server's own text.
  *
  * The real form, with small stand-ins for wp-components; `api.js` stays real, so what is asserted is the REST call.
@@ -98,6 +98,8 @@ async function render( props = {} ) {
 				selection: { codes: [ 'A1', 'A2', 'A3', 'A4' ] },
 				onClose: closed,
 				onSent: sent,
+				// A page's keys of its own for each test; a test that reopens the dialog passes the same ones.
+				keys: createKeys(),
 				...props,
 			} )
 		);
@@ -260,6 +262,69 @@ describe( 'the send', () => {
 		expect( keys[ 1 ] ).toBe( keys[ 0 ] );
 	} );
 
+	test( 'a retry after a server error keeps the key too: the outcome is unknown', async () => {
+		let attempt = 0;
+		route( {
+			send: () =>
+				++attempt === 1
+					? Promise.reject( { code: 'internal_server_error', message: 'x', data: { status: 500 } } )
+					: Promise.resolve( SENT ),
+		} );
+		await render();
+		await choose( '20' );
+		await submit();
+		await submit();
+		const keys = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
+		expect( keys[ 1 ] ).toBe( keys[ 0 ] );
+	} );
+
+	test( 'after a refusal the next send carries a new key', async () => {
+		let attempt = 0;
+		const text = 'Előbb tedd közzé a levélsablont.';
+		route( {
+			send: () =>
+				++attempt === 1
+					? Promise.reject( { code: 'kalaka_mail_body_unpublished', message: text, data: { status: 422 } } )
+					: Promise.resolve( SENT ),
+		} );
+		await render();
+		await choose( '20' );
+		await submit();
+		expect( notices( 'error' ) ).toEqual( [ text ] );
+		await submit();
+		const keys = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
+		expect( keys ).toHaveLength( 2 );
+		expect( keys[ 1 ] ).not.toBe( keys[ 0 ] );
+	} );
+
+	test( 'a network retry after the matching set changed is refused and shown as an ordinary refusal; the next send is new again', async () => {
+		let attempt = 0;
+		const text = 'A kérés adatai nem egyeznek.';
+		route( {
+			send: () => {
+				attempt++;
+				if ( attempt === 1 ) {
+					return Promise.reject( new TypeError( 'Failed to fetch' ) );
+				}
+				if ( attempt === 2 ) {
+					return Promise.reject( { code: 'kalaka_invalid_input', message: text, data: { status: 400 } } );
+				}
+				return Promise.resolve( SENT );
+			},
+		} );
+		await render( { selection: { view: 3, grant: 0 } } );
+		await choose( '20' );
+		await submit();
+		await submit();
+		expect( notices( 'error' ) ).toEqual( [ text ] );
+		expect( closed ).not.toHaveBeenCalled();
+		await submit();
+		const keys = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
+		expect( keys ).toHaveLength( 3 );
+		expect( keys[ 1 ] ).toBe( keys[ 0 ] );
+		expect( keys[ 2 ] ).not.toBe( keys[ 1 ] );
+	} );
+
 	test( 'a changed body is another request: another key', async () => {
 		route( { send: () => Promise.reject( new TypeError( 'Failed to fetch' ) ) } );
 		await render();
@@ -338,34 +403,50 @@ describe( 'before the send', () => {
 	} );
 } );
 
-describe( 'a double send across reopenings', () => {
-	test( 'the same rows and body keep one request key when the dialog is closed and opened again', async () => {
+describe( 'sends across reopenings', () => {
+	const reopen = async ( props ) => {
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( props );
+	};
+	const sentKeys = () => calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
+
+	test( 'a retry of an attempt without an answer keeps its key when the dialog is closed and opened again', async () => {
+		let attempt = 0;
+		route( { send: () => ( ++attempt === 1 ? Promise.reject( new TypeError( 'Failed to fetch' ) ) : Promise.resolve( SENT ) ) } );
 		const keys = createKeys();
 		await render( { keys } );
 		await choose( '20' );
 		await submit();
-		await act( async () => root.unmount() );
-		host.remove();
+		await reopen( { keys } );
+		await choose( '20' );
+		await submit();
+		expect( sentKeys() ).toHaveLength( 2 );
+		expect( sentKeys()[ 1 ] ).toBe( sentKeys()[ 0 ] );
+	} );
+
+	test( 'the same body to the same rows after a success is a new send: a new key', async () => {
+		const keys = createKeys();
 		await render( { keys } );
 		await choose( '20' );
 		await submit();
-		const sent = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
-		expect( sent ).toHaveLength( 2 );
-		expect( sent[ 1 ] ).toBe( sent[ 0 ] );
+		await reopen( { keys } );
+		await choose( '20' );
+		await submit();
+		expect( sentKeys() ).toHaveLength( 2 );
+		expect( sentKeys()[ 1 ] ).not.toBe( sentKeys()[ 0 ] );
 	} );
 
-	test( 'another selection is another request', async () => {
+	test( 'another selection is another request, even after an attempt without an answer', async () => {
+		route( { send: () => Promise.reject( new TypeError( 'Failed to fetch' ) ) } );
 		const keys = createKeys();
 		await render( { keys, selection: { codes: [ 'A1', 'A2' ] } } );
 		await choose( '20' );
 		await submit();
-		await act( async () => root.unmount() );
-		host.remove();
-		await render( { keys, selection: { codes: [ 'A1', 'A3' ] } } );
+		await reopen( { keys, selection: { codes: [ 'A1', 'A3' ] } } );
 		await choose( '20' );
 		await submit();
-		const sent = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
-		expect( new Set( sent ).size ).toBe( 2 );
+		expect( new Set( sentKeys() ).size ).toBe( 2 );
 	} );
 } );
 
@@ -416,7 +497,7 @@ describe( 'with nothing ticked: every row the filters and search leave', () => {
 		expect( host.textContent ).not.toContain( '612' );
 	} );
 
-	test( 'the send carries the same selection, with one request key per selection', async () => {
+	test( 'the send carries the same selection; each deliberate send of it has a key of its own', async () => {
 		const keys = createKeys();
 		route( { plan: { ...PLAN, count: 3 } } );
 		await render( { keys, selection: NARROWED } );
@@ -427,16 +508,11 @@ describe( 'with nothing ticked: every row the filters and search leave', () => {
 		await render( { keys, selection: { ...NARROWED } } );
 		await choose( '20' );
 		await submit();
-		await act( async () => root.unmount() );
-		host.remove();
-		await render( { keys, selection: { ...NARROWED, search: 'nagy' } } );
-		await choose( '20' );
-		await submit();
 		const sends = calls( 'send-manual-mail' );
 		expect( sends[ 0 ].data.input.selection ).toEqual( NARROWED );
 		expect( sends[ 0 ].data.input.codes ).toBeUndefined();
-		expect( sends[ 1 ].data.input.request_key ).toBe( sends[ 0 ].data.input.request_key );
-		expect( sends[ 2 ].data.input.request_key ).not.toBe( sends[ 0 ].data.input.request_key );
+		// The same body to the same view, the matching set possibly changed in between: not a repeat of the first.
+		expect( sends[ 1 ].data.input.request_key ).not.toBe( sends[ 0 ].data.input.request_key );
 	} );
 } );
 
