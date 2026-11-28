@@ -175,8 +175,9 @@ Besides the money plugins:
   columns; each print is audited as a personal-data export.
 - **The Divi 4 theme adapter** (both organizations): Divi's contact-form
   classes on Kaláka's form markup, `p` wrappers where Divi's form rules need
-  them, Divi's form red as the error colour, and Divi's form styles loaded on
-  pages that hold a form. It keeps visible labels and the browser's own radio
+  them, Divi's form red as the error colour, and Divi's form styles loaded,
+  inline as critical CSS, on pages that hold a form or the registrant's
+  status block. It keeps visible labels and the browser's own radio
   buttons and checkboxes ([Engineering](engineering.md#wordpress-surfaces)).
   Its plugin is `kalaka-divi4`. Divi 5 and other themes come
   later, each as its own adapter.
@@ -391,6 +392,8 @@ flowchart LR
     control, choice group, option, submit button, error message, …);
   - the wrapper element of a text-like field, `div` or `p` (a choice and a
     consent checkbox always sit in a `div`);
+  - the content frame of a page core renders whole (the card return page),
+    one case of core's list, and the body classes that page adds or drops;
   - the error colour.
 
   Core applies these to the markup it renders, for the block and the
@@ -421,7 +424,7 @@ flowchart LR
   [Money](money.md#materializer)). **UI points are slots:** a portal or admin section renders into a
   region it owns; no point lets an extension change markup that core
   produced. The theme adapter is no exception: it returns classes, a
-  wrapper choice and a colour from closed lists, and core applies them. (Moodle's renderer overrides and WordPress's HTML filters are the
+  wrapper choice, a page frame and a colour from closed lists, and core applies them. (Moodle's renderer overrides and WordPress's HTML filters are the
   most fragile parts of those ecosystems.)
 - **After the alpha phase, a released point is permanent.** It is never
   changed incompatibly or removed. Changes are additive only: each point

@@ -9,6 +9,7 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Api\Phase;
 use Kalaka\Foundation\Api\Decision\Decisions;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
@@ -16,6 +17,11 @@ use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PayerSummary;
+use Kalaka\Payments\Api\CardAmountLimits;
+use Kalaka\Payments\Api\PaymentProviderInput;
+use Kalaka\Payments\Api\PaymentProviders;
+use Kalaka\Payments\Api\PaymentsInFlight;
+use Kalaka\Portal\CardRefusalState;
 use Kalaka\Portal\LineLabels;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\Confirmations;
@@ -56,6 +62,8 @@ final class StatusRead
         private readonly Ledger $ledger = new Ledger(),
         private readonly LineLabels $labels = new LineLabels(),
         ?MoneyRead $money = null,
+        private readonly PaymentProviders $providers = new PaymentProviders(),
+        private readonly PaymentsInFlight $inFlight = new PaymentsInFlight(),
         private readonly PayerKinds $payerKinds = new PayerKinds(),
     ) {
         $this->money = $money ?? new MoneyRead(labels: $labels);
@@ -66,11 +74,17 @@ final class StatusRead
     {
         $key = ActiveRegistration::current();
 
-        return $key === null ? null : $this->of($key);
+        // The one-shot refusal of a card payment form post is shown by the page that follows it, never by a mail.
+        return $key === null ? null : $this->read($key, CardRefusalState::code());
     }
 
     /** The registration's view, or null when it or its event does not exist. */
     public function of(RegistrationKey $key): ?RegistrationStatusView
+    {
+        return $this->read($key, null);
+    }
+
+    private function read(RegistrationKey $key, ?string $cardRefusal): ?RegistrationStatusView
     {
         $registration = $this->registrations->find($key);
         $event = $registration === null ? null : $this->events->find($key->eventId);
@@ -82,6 +96,9 @@ final class StatusRead
         $confirmation = null;
         $payment = null;
         $transfer = null;
+        $can = new RegistrationCan();
+        $card = null;
+        $amounts = null;
         if ($registration->status->isLive()) {
             $now = Runner::current()->clock()->now();
             $decisions = $this->decisions->currentOf($key);
@@ -96,6 +113,7 @@ final class StatusRead
             // One balance read per status read: the rule's input is the balance, never the display summary.
             $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
             $transfer = $this->transfer($key, $event, $availability, $payment, $balance);
+            [$can, $card, $amounts] = $this->card($key, $event, $availability, $payment, $balance);
         }
 
         return new RegistrationStatusView(
@@ -109,6 +127,10 @@ final class StatusRead
             $transfer,
             $this->money->of($key, $event->currency),
             $registration->status->showsDetails() ? $this->otherPayerMoney($key, $event->currency) : [],
+            $can,
+            $card,
+            $cardRefusal,
+            $amounts,
         );
     }
 
@@ -157,6 +179,48 @@ final class StatusRead
         $availability = self::availability($event);
 
         return PayableNow::amount($availability, $facts !== null && $facts->awaitsAnswer, $balance);
+    }
+
+    /**
+     * Card payment: whether it can be started (the one payable rule and a provider that accepts the currency) and
+     * the latest request. A provider is an outside point: one that throws is reported and read as not there, never
+     * breaking the page.
+     *
+     * @return array{RegistrationCan, ?CardPaymentView, ?CardAmountsView}
+     */
+    private function card(
+        RegistrationKey $key,
+        Event $event,
+        Availability $availability,
+        PaymentView $payment,
+        Money $balance,
+    ): array {
+        $provider = $this->providers->active();
+        if ($provider === null) {
+            return [new RegistrationCan(), null, null];
+        }
+        try {
+            $full = PayableNow::amount($availability, $payment->awaitsAnswer, $balance);
+            $payable = $full !== null;
+            $lookup = PaymentProviderInput::forLookup($key, $event->currency);
+            $latest = $provider->latestOf($lookup);
+            // Not while a request is in flight (the start's own rule): a failed or pending one is never paid, so
+            // the next start replaces it.
+            $idle = !$this->inFlight->is($provider, $key, $latest);
+            $can = new RegistrationCan($payable && $idle && $provider->accepts($lookup));
+            $amounts = null;
+            if ($can->payCard && $full !== null) {
+                // One rule for the page and the endpoint; `advance` stays null until the deposit extension fills it.
+                $limits = CardAmountLimits::of($full);
+                $amounts = new CardAmountsView($full, null, $limits->min, $limits->max);
+            }
+
+            return [$can, $latest === null ? null : new CardPaymentView($latest->state, $latest->since), $amounts];
+        } catch (\Throwable $e) {
+            Boundary::report('Card payment state of ' . $provider->id(), $e);
+
+            return [new RegistrationCan(), null, null];
+        }
     }
 
     private static function availability(Event $event): Availability

@@ -48,6 +48,40 @@ page, and the account area
   details are set. The first four are one rule, `Api\PayableNow`, which starting a
   card payment (Payments) reads too, through `StatusRead::payableNow()`: from the
   participant's balance in `Ledger::balancesOf()`, never from the display summary.
+- What the registrant can do is decided on the server and carried by the status read: `can.payCard` is `PayableNow`
+  and a payment provider that accepts the event's currency, and no request in flight or paid and not yet
+  recorded; `cardPayment` is the provider's latest request
+  (`latestOf()`: state and since). A provider is an outside point: one that throws is reported and read as absent,
+  so the page never breaks on it. The status block links to the card payment route only while `can.payCard`
+  (a bare form, no look; the button is the owner's to approve).
+- `POST kalaka-portal/v1/card-payment` (`Rest\CardPaymentRoute`) starts a card payment for the active registration
+  through `Payments\Api\CardPayments::start()` and nothing else. It needs a WordPress nonce, `kalaka_card_payment`
+  (the server-rendered form's hidden `_wpnonce`, or the `X-WP-Nonce` header or `_wpnonce` field of a script), checked
+  before anything else: a missing or stale one is `CardNonceInvalid` (`kalaka_card_nonce_invalid`, the generic text)
+  through the same refusal cookie, so a cached page or a forged cross-site post starts nothing. JSON gets `{url}`, a
+  plain form post a 303 to it; a refused plain form post gets a 303 back to the same-site
+  return address (else the referrer, else home), clean of any query, with the refusal's code in the flash cookie
+  `kalaka_card_refusal` (`CardRefusalCookie`: the code only, a known one or the generic; 120 seconds, `HttpOnly`,
+  `SameSite=Lax`, `Secure` on https). On `template_redirect`, after canonical redirection, Portal reads it once
+  and expires it; every status read of that request shows it as `cardRefusal`; a reload shows nothing. A JSON refusal is the error's
+  code and generic text (anything not a Kaláka error is `kalaka_system_failure`), never a raw message.
+  The bare button's class is `Forms\Api\ThemeStyle::buttonClass()`.
+  It is open to the holder of the active registration (the signed cookie) and answers `no-store`.
+  Its input is `{return_url?, amount?, popup?}`: `amount` goes to `start()` as it is (absent is the whole payable amount;
+  its refusals are the use case's), `popup=1` says the page's script opened the popup window. The order's return URL is
+  always `GET kalaka-portal/v1/card-payment/return?to=<status page>` (`popup=1` added with the flag), the status page being
+  the same-site return address, `rawurlencode`d so its own query string stays one `to`; a refused post from a popup
+  goes to that address with the flag, the flash cookie set. The
+  return endpoint is open, `no-store` and behind the error boundary: without the flag a 303 to `to` (re-validated
+  same-site, else home), with it the close page (`Rest/CardReturnPage`, HTML sent by `rest_pre_serve_request`: inside
+  a classic theme, in the content frame the theme adapter chooses from core's closed list `Forms\Api\ContentFrame`
+  (`neutral`, a plain `div`, by default; `page`, the classic page frame) and rendered by core, with the adapter's
+  `page_body` classes on the page's `body` and its dropped body classes off; a block theme has its own frame; or bare when the filter
+  `kalaka_card_return_bare` is true; every answer is noindex), which posts `{type: 'kalaka-card-return'}` to
+  its same-origin opener and tries `window.close()`, and shows a line, a close button and a link to the status page.
+- `RegistrationStatusView::cardAmounts` is non-null only while `can.payCard`: `full` is the payable now, `max` the same,
+  `min` is `Payments\Api\CardAmountLimits::of($full)->min` (one rule for the page and the endpoint), and `advance` stays
+  null until the deposit extension fills it with money.md's deposit payment request.
 - Payment due and overdue are computed on every read, never stored. Payment
   due is Events' date type (`Events\Api\Event::paymentDue()`), read through the
   registration's fact source (`RegistrationFacts::paymentDue()`), which holds

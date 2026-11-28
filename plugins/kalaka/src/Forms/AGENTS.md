@@ -115,7 +115,8 @@ values and conditions, prefill and form links
 - Forms are edited in the block editor by full access only: every capability
   and every REST read of `kalaka_form` needs `kalaka_full_access`.
 - A theme adapter only returns data (classes per element role, a `div` or `p`
-  wrapper, an error colour); core renders the markup and applies it. A failing
+  wrapper, an error colour, and for a page core renders itself, the card return page, a case of the closed
+  `ContentFrame` list, `page_body` classes and body classes to drop); core renders the markup and applies it. A failing
   adapter is skipped and the form renders without it.
 - A text-like field's label sits on its own line above its control, on
   every theme, an extension's field included: one structural rule in

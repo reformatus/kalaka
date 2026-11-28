@@ -8,10 +8,12 @@ use Kalaka\Forms\Api\DateText;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Portal\Api\ActiveRegistration;
 use Kalaka\Foundation\Api\Money\MoneyText;
+use Kalaka\Forms\Api\ThemeStyle;
 use Kalaka\Portal\Api\Availability;
 use Kalaka\Portal\Api\MovementRow;
 use Kalaka\Portal\Api\ParticipantMoney;
 use Kalaka\Portal\Api\RegistrationStatusView;
+use Kalaka\Portal\Rest\CardPaymentRoute;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
@@ -80,7 +82,26 @@ final class StatusMarkup
             $state = '<p><strong>Fizetésre vár.</strong></p>';
         }
 
-        return $html . $state . self::moneySection($view) . '</section>';
+        return $html . $state . self::moneySection($view) . self::payByCard($view) . '</section>';
+    }
+
+    /**
+     * A bare link to pay by card, only while `can.payCard`: a form that posts to the card payment route, with
+     * no look of its own. [UNAPPROVED T81] It exists so the flow can be tried; the button is the UX prototype's.
+     */
+    private static function payByCard(RegistrationStatusView $view): string
+    {
+        if (!$view->can->payCard) {
+            return '';
+        }
+        $back = is_singular() ? get_permalink() : false;
+
+        return '<form class="kalaka-pay-card" method="post" action="' . esc_url(CardPaymentRoute::url()) . '">'
+            . '<input type="hidden" name="_wpnonce" value="'
+            . esc_attr(wp_create_nonce(CardPaymentRoute::NONCE_ACTION)) . '">'
+            . ($back === false ? '' : '<input type="hidden" name="return_url" value="' . esc_attr($back) . '">')
+            . '<button type="submit" class="' . esc_attr(ThemeStyle::buttonClass()) . '">'
+            . 'Fizetés bankkártyával</button></form>';
     }
 
     /**

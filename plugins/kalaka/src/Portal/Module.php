@@ -58,6 +58,10 @@ SQL;
         add_action('init', [$this, 'resolveActiveRegistration'], 0);
         add_action('wp_logout', [$this, 'logout']);
         add_action('init', [$this, 'register']);
+        add_action('rest_api_init', [new Rest\CardPaymentRoute(), 'register']);
+        // After `redirect_canonical` (10): a request it redirects never reaches this, so the cookie is read and
+        // expired only on the request that renders the page.
+        add_action('template_redirect', [$this, 'readCardRefusal'], 11);
         add_action('template_redirect', [$this, 'preventCaching']);
         add_shortcode(ParticipantBlocks::STATUS_SHORTCODE, [ParticipantBlocks::class, 'status']);
         add_shortcode(ParticipantBlocks::TRANSFER_SHORTCODE, [ParticipantBlocks::class, 'transfer']);
@@ -115,6 +119,15 @@ SQL;
                 register_block_type($name, ['render_callback' => static fn (): string => $render()]);
             }
         }
+    }
+
+    /** @internal the `template_redirect` callback (priority 11, after canonical redirection, before any output): the card refusal's flash cookie */
+    public function readCardRefusal(): void
+    {
+        Boundary::background('card payment refusal', static function (): void {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only a known refusal code is ever kept
+            CardRefusalCookie::read(wp_unslash($_COOKIE), new HttpResponse());
+        });
     }
 
     /**
