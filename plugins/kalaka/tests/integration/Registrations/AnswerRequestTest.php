@@ -46,11 +46,11 @@ final class AnswerRequestTest extends ManualEntryTestCase
 {
     private const KEY = '00A0';
 
-    private TestRequestSource $source;
+    private ?TestRequestSource $source = null;
 
-    private Requests $requests;
+    private ?Requests $requests = null;
 
-    private RecordingSeats $seats;
+    private ?AnswerPool $pool = null;
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook
     public function set_up(): void
@@ -84,9 +84,6 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
     protected function runnerAt(string $local): Runner
     {
-        $this->source ??= new TestRequestSource(fullPrice: 30000);
-        $this->requests ??= new Requests([$this->source]);
-        $this->seats ??= new RecordingSeats();
         $money = new Materializer(new CoreFeeComponents([
             new AnswerComponent('support', FeeStage::Support, 'support_answer', new Registrations(), '10000'),
             new AnswerComponent('aid', FeeStage::Aid, 'aid_award', new Registrations()),
@@ -102,9 +99,25 @@ final class AnswerRequestTest extends ManualEntryTestCase
         return new RegistrationKey($this->event, $code);
     }
 
+    /** The offer's pool; the run's event is only known after the parent's set_up(), so it is built here. */
+    private function pool(): AnswerPool
+    {
+        return $this->pool ??= new AnswerPool($this->event);
+    }
+
+    private function source(): TestRequestSource
+    {
+        return $this->source ??= new TestRequestSource(fullPrice: 30000, pool: $this->pool());
+    }
+
+    private function requests(): Requests
+    {
+        return $this->requests ??= new Requests([$this->source()]);
+    }
+
     private function useCase(): AnswerRequest
     {
-        return new AnswerRequest($this->requests, seats: $this->seats);
+        return new AnswerRequest($this->requests());
     }
 
     /**
@@ -202,7 +215,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
     private function awaits(): bool
     {
-        return $this->requests->awaits($this->key(), RegistrationStatus::Registered);
+        return $this->requests()->awaits($this->key(), RegistrationStatus::Registered);
     }
 
     public function testCase1AnAidRequestAnsweredYesLowersWhatIsDueAndIsAFactWithItsRecord(): void
@@ -270,7 +283,8 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertSame([self::huf('20000'), self::huf('20000'), self::huf('0')], $this->money());
         self::assertSame('confirmed', $this->confirmationState());
         self::assertSame((string) $partner, $this->answerRows()[0]['answered_by']);
-        self::assertNotContains('release:' . TestRequestSource::POOL, $this->seats->calls);
+        // A first "yes" takes no new seat: the submit's claim already took it; nothing is released either.
+        self::assertSame([], $this->seatRows());
     }
 
     /** The pass runs money, confirmation, mail: an answer that makes the payments enough confirms and queues the mail. */
@@ -324,19 +338,23 @@ final class AnswerRequestTest extends ManualEntryTestCase
     {
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-03 10:00');
+        $this->giveSeat();
         $first = $this->answer(TestRequestSource::OFFER, 'no');
 
         self::assertSame('refused', $this->value('support_answer'));
         self::assertSame([self::huf('30000'), self::huf('0'), self::huf('30000')], $this->money());
-        self::assertContains('release:' . TestRequestSource::POOL, $this->seats->calls);
-        self::assertNotContains('take:' . TestRequestSource::POOL, $this->seats->calls);
+        self::assertSame([], $this->seatRows(), 'the refusal frees the seat');
 
         $this->runner = $this->runnerAt('2026-12-06 10:00');
         $second = $this->answer(TestRequestSource::OFFER, 'yes');
 
         self::assertNotSame($first['answer'], $second['answer'], 'a changed answer has its own record');
         self::assertFalse($second['over_limit']);
-        self::assertContains('take:' . TestRequestSource::POOL, $this->seats->calls);
+        self::assertSame(
+            [['pool' => TestRequestSource::POOL, 'act' => 'answer']],
+            $this->seatRows(),
+            'a "yes" after a refusal takes the seat again, as the answer act'
+        );
         self::assertSame('approved', $this->value('support_answer'));
         self::assertSame([self::huf('20000'), self::huf('0'), self::huf('20000')], $this->money());
         $rows = $this->answerRows();
@@ -350,31 +368,37 @@ final class AnswerRequestTest extends ManualEntryTestCase
     public function testB1AYesWhileThePoolIsFullStandsAndSaysTheyWentOverTheLimit(): void
     {
         $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->giveSeat();
         $this->answer(TestRequestSource::OFFER, 'no');
-        $this->seats->full = true;
+        $this->pool()->limit = 0;
 
         $result = $this->answer(TestRequestSource::OFFER, 'yes');
 
         self::assertTrue($result['changed']);
         self::assertTrue($result['over_limit']);
         self::assertSame('approved', $this->value('support_answer'));
+        self::assertSame(
+            [['pool' => TestRequestSource::POOL, 'act' => 'answer']],
+            $this->seatRows(),
+            'the seat goes over the limit, the answer stands'
+        );
     }
 
     public function testCase6ANoAfterConfirmationRemovesTheSupportFreesTheSeatAndTheConfirmationStays(): void
     {
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-04 10:00');
+        $this->giveSeat();
         $this->pay('20000', '2026-12-03', 'k1');
         $this->answer(TestRequestSource::OFFER, 'yes');
         self::assertSame('confirmed', $this->confirmationState());
-        $this->seats->calls = [];
 
         $this->runner = $this->runnerAt('2026-12-10 10:00');
         $this->answer(TestRequestSource::OFFER, 'no');
 
         self::assertSame([self::huf('30000'), self::huf('20000'), self::huf('10000')], $this->money());
         self::assertSame('confirmed', $this->confirmationState());
-        self::assertSame(['lock:church', 'release:church'], $this->seats->calls);
+        self::assertSame([], $this->seatRows(), 'the "no" frees the seat it held');
         self::assertCount(2, $this->answerRows());
     }
 
@@ -395,13 +419,13 @@ final class AnswerRequestTest extends ManualEntryTestCase
     public function testAbsenceOfAnAnswerIsNotAnAnswerOfZero(): void
     {
         $this->addValue($this->event, self::KEY, 'aid_asked', '12000');
-        $state = $this->requests->states($this->key())[0];
+        $state = $this->requests()->states($this->key())[0];
         self::assertTrue($state->awaits());
         self::assertNull($this->value('aid_award'));
 
         $this->answer(TestRequestSource::AID, 'no');
 
-        self::assertFalse($this->requests->states($this->key())[0]->awaits());
+        self::assertFalse($this->requests()->states($this->key())[0]->awaits());
         self::assertSame(self::huf('0'), $this->value('aid_award'));
     }
 
@@ -468,8 +492,8 @@ final class AnswerRequestTest extends ManualEntryTestCase
         $this->addRegistration($this->event, '00B0', 'withdrawn');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        self::assertFalse($this->requests->awaits($this->key('00B0'), RegistrationStatus::Withdrawn));
-        self::assertTrue($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+        self::assertFalse($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Withdrawn));
+        self::assertTrue($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
     }
 
     public function testAPartnerAnswersOnlyInsideTheirViewAndOnlyWithTheAction(): void
@@ -511,7 +535,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
         } catch (RuleViolation) {
             self::assertSame([], $this->answerRows());
             self::assertNull((new Registrations())->values($this->key('00B0'))['support_answer'] ?? null);
-            self::assertSame(['lock:church'], $this->seats->calls, 'only the lock; no take, no release');
+            self::assertSame([], $this->seatRows(), 'only the lock; no take, no release');
         }
     }
 
@@ -530,7 +554,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
         $this->addRegistration($this->event, '00B0', 'waitlisted');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        self::assertTrue($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+        self::assertTrue($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
     }
 
     private function admit(string $code): void
@@ -549,7 +573,40 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
         $this->answer(TestRequestSource::AID, 'yes', ['amount' => '12000']);
 
-        self::assertSame([], $this->seats->calls);
+        self::assertSame([], $this->seatRows(), 'an aid request has no pool: no seat call');
+    }
+
+    /**
+     * The seat rows the registration holds: `pool` and `act` each. A seat retaken by an answer stores
+     * `SeatAct::Answer`, so the act tells it from the submit's own `placement`.
+     *
+     * @return list<array{pool: string, act: string}>
+     */
+    private function seatRows(): array
+    {
+        global $wpdb;
+
+        return $wpdb->get_results($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test inspection; prefix and constants only
+            "SELECT pool, act FROM {$wpdb->prefix}kalaka_seats WHERE event_id = %d AND code = %s ORDER BY pool",
+            $this->event,
+            self::KEY
+        ), ARRAY_A);
+    }
+
+    /** The seat the submit's placement took, before an act that frees or retakes it. */
+    private function giveSeat(): void
+    {
+        global $wpdb;
+
+        $wpdb->insert($wpdb->prefix . 'kalaka_seats', [
+            'event_id' => $this->event,
+            'code' => self::KEY,
+            'pool' => TestRequestSource::POOL,
+            'version' => 0,
+            'taken_at' => '2026-12-01 10:00:00.000000',
+            'act' => 'placement',
+        ]);
     }
 
     /** Owner 2026-11-26: a reason is never required, a "yes" to an offer included. */

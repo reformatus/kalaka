@@ -121,7 +121,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         global $wpdb;
 
         $tables = (new Module())->schema()->tables;
-        self::assertCount(4, $tables);
+        self::assertCount(5, $tables);
         foreach ($tables as $statement) {
             $statement = str_replace('{prefix}', $wpdb->prefix, $statement);
             self::assertSame(1, preg_match('/CREATE TABLE\s+(\S+)/', $statement, $match));

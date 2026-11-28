@@ -21,7 +21,7 @@ use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
-use Kalaka\Tests\Integration\Registrations\RecordingSeats;
+use Kalaka\Tests\Integration\Registrations\AnswerPool;
 use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /** S22 and S38: the detail read of one registration, through views and grants. */
@@ -1017,9 +1017,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->addRegistration('00A0');
         $this->addValue('00A0', 'support', 'church');
         $this->addValue('00A0', 'aid_asked', '12000');
-        $read = fn (int $user, ?RecordingSeats $seats = null): array => (new RegistrationDetail(
-            requests: new Requests([new TestRequestSource()]),
-            seats: $seats ?? new RecordingSeats(),
+        $read = fn (int $user, ?AnswerPool $pool = null): array => (new RegistrationDetail(
+            requests: new Requests([new TestRequestSource(pool: $pool ?? new AnswerPool($this->event))]),
         ))->of(new UserActor($user), $this->event, '00A0');
 
         $partner = $this->plainUser();
@@ -1081,9 +1080,9 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 $request === 'aid' ? '9000' : 'refused'
             );
         }
-        $seats = new RecordingSeats();
-        $seats->full = true;
-        $items = $read($partner, $seats)['requests']['items'];
+        // A refused offer in a pool with no free place: the warning before a "yes".
+        $full = new AnswerPool($this->event, 0);
+        $items = $read($partner, $full)['requests']['items'];
         self::assertSame(['refused', 'approved'], array_column($items, 'state'));
         // The award is a money figure: the partner reads the states and the seat warning, never the amount.
         self::assertSame([null, null], array_column($items, 'amount'));
@@ -1095,7 +1094,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->grant($money, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER, 'kalaka_view_money']);
         self::assertSame(
             [null, '9000.00000000'],
-            array_column($read($money, $seats)['requests']['items'], 'amount')
+            array_column($read($money, $full)['requests']['items'], 'amount')
         );
     }
 
@@ -1104,9 +1103,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->addRegistration('00A0');
         $this->addValue('00A0', 'support', 'church');
         $this->addValue('00A0', 'aid_asked', '12000');
-        $read = static fn (int $price): RegistrationDetail => new RegistrationDetail(
-            requests: new Requests([new TestRequestSource(fullPrice: $price)]),
-            seats: new RecordingSeats(),
+        $read = fn (int $price): RegistrationDetail => new RegistrationDetail(
+            requests: new Requests([
+                new TestRequestSource(fullPrice: $price, pool: new AnswerPool($this->event)),
+            ]),
         );
 
         $items = fn (int $price): array => $read($price)

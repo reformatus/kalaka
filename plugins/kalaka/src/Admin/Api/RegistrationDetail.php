@@ -25,12 +25,11 @@ use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
-use Kalaka\Registrations\Api\NoOfferSeats;
-use Kalaka\Registrations\Api\OfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestState;
 use Kalaka\Registrations\Api\Requests;
+use Kalaka\Registrations\Api\Seats;
 
 /**
  * The admin detail read of one registration (the data of `GET kalaka-admin/v1/events/{event}/registrations/{code}`).
@@ -55,7 +54,7 @@ final class RegistrationDetail
         private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
         private readonly Confirmations $confirmations = new Confirmations(),
         private readonly Requests $requests = new Requests(),
-        private readonly OfferSeats $seats = new NoOfferSeats(),
+        private readonly Seats $seats = new Seats(),
     ) {
     }
 
@@ -245,7 +244,7 @@ final class RegistrationDetail
         $items = [];
         foreach ($this->requests->states($key) as $state) {
             $answer = $state->answer;
-            $pool = $state->request->kind === RequestKind::Offer ? $state->source->seatPool($state->request) : null;
+            $pool = $state->source->seatPool($state->request);
             $item = [
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
@@ -254,7 +253,7 @@ final class RegistrationDetail
                 'amount' => $viewMoney ? $answer?->amount?->amount() : null,
                 'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
                 'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
-                    && $pool !== null && $this->seats->isFull($key, $pool),
+                    && $pool !== null && $this->seats->wouldOverfill($pool, $key),
             ];
             if ($state->request->kind === RequestKind::Aid && $viewMoney) {
                 $item['aid'] = $this->aidTerms($key, $state);
