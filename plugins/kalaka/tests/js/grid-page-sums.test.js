@@ -37,8 +37,11 @@ jest.mock( '@wordpress/dataviews/wp', () => {
 	DataViews.FiltersToggled = () => null;
 	DataViews.Layout = () => null;
 	DataViews.Pagination = () => null;
+	DataViews.BulkActionToolbar = () => null;
 	return { DataViews };
 } );
+// The bulk action's dialog is the mail module's (its own test); here it is only offered.
+jest.mock( '../../src/Admin/app/mail/bulk', () => ( { manualMailAction: () => ( { id: 'mail' } ) } ) );
 jest.mock( '../../src/Admin/app/grid/Tabs', () => ( { __esModule: true, default: () => null, tabUrl: () => '' } ) );
 // The sum row shows the column menu in place; the menu is one button that ticks the member „x”.
 jest.mock( '../../src/Admin/app/grid/SumRow', () => ( {

@@ -40,6 +40,7 @@ final class Decisions
                 $rule->label(),
                 $rule->states(),
                 $rule->defaultState(),
+                $rule->marks(),
             ),
             ($this->rules ?? DecisionRules::current())->all()
         );
@@ -118,7 +119,7 @@ final class Decisions
 
     /**
      * Every decision kind recorded in an event, and every kind with a base state (it holds where nothing is
-     * recorded), in byte order. [UNAPPROVED N7]
+     * recorded), in byte order.
      *
      * @return list<string>
      */
@@ -131,7 +132,7 @@ final class Decisions
     }
 
     /**
-     * The distinct states recorded for a kind in an event, and its base state, in byte order. [UNAPPROVED N7]
+     * The distinct states recorded for a kind in an event, and its base state, in byte order.
      *
      * @return list<string>
      */

@@ -12,6 +12,12 @@ export function fmt( text, ...args ) {
 	);
 }
 
+/**
+ * A registration as the screens name it: its code, and its name beside it when the read gives one. A null or empty
+ * name (the viewer's view has no access to the name) leaves the code alone.
+ */
+export const codeName = ( code, name ) => ( name ? `${ code } · ${ name }` : String( code ) );
+
 /** A decimal string or number in Hungarian form: a decimal comma, no grouping. */
 export function number( value ) {
 	return String( value ).replace( '.', ',' );
@@ -48,7 +54,8 @@ function choice( column, value ) {
 export function cellText( column, row ) {
 	const value = row.values[ column.column ];
 	if ( value === null || value === undefined || value === '' ) {
-		return '';
+		// A column with an N/A text (the awaits column) shows it for no value: N/A is not „Nem”.
+		return column.na ?? '';
 	}
 	switch ( column.type ) {
 		case 'status':

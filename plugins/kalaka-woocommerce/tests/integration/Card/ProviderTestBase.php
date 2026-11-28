@@ -485,7 +485,6 @@ abstract class ProviderTestBase extends WooTestCase
             'version' => 1,
             'enabled' => 1,
             'body_id' => null,
-            'layout' => 1,
         ]);
         $this->payUrlFor($this->requestFor([$anna, $bela]), 'https://example.org/');
         $order = $this->onlyOrder();
@@ -1160,7 +1159,6 @@ abstract class ProviderTestBase extends WooTestCase
             'version' => 1,
             'enabled' => 1,
             'body_id' => null,
-            'layout' => 1,
         ]);
         $this->surcharge('3', '40');
         $this->payUrlFor($this->requestFor([$anna], ['00A0' => '10000']), 'https://example.org/');

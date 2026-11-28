@@ -21,6 +21,12 @@ abstract class MailBodyTestCase extends MailTestCase
 
     private Runner $production;
 
+    /** The one moment the mail-body tests render at: `time.now` reads its day. */
+    protected static function now(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('2026-11-30 08:00:00', new \DateTimeZone('UTC'));
+    }
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
@@ -189,11 +195,15 @@ abstract class MailBodyTestCase extends MailTestCase
      *
      * @return array<string, mixed> the settings it returns
      */
-    protected function switchOn(int $event, string $mail, int $body, bool $layout = true): array
+    protected function switchOn(int $event, string $mail, int $body): array
     {
-        return $this->updateMail(
-            ['event_id' => $event, 'mail' => $mail, 'body_id' => $body, 'enabled' => true, 'layout' => $layout]
-        );
+        return $this->updateMail(['event_id' => $event, 'mail' => $mail, 'body_id' => $body, 'enabled' => true]);
+    }
+
+    /** Sets whether the levélkeret wraps the template (`kalaka_uses_frame`, as the editor's REST save does). */
+    protected function usesFrame(int $body, bool $uses): void
+    {
+        update_post_meta($body, 'kalaka_uses_frame', $uses);
     }
 
     /**

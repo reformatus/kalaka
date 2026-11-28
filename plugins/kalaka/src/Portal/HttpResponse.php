@@ -5,23 +5,15 @@ declare(strict_types=1);
 namespace Kalaka\Portal;
 
 use Kalaka\Forms\Api\FormCaching;
+use Kalaka\Registrations\Api\RegistrantCookie;
 
 /** The response of a real request. */
 final class HttpResponse implements Response
 {
-    /** `HttpOnly; SameSite=Lax; Path=/`, `Secure` on https, no `Domain` (SB-5). */
+    /** The registrant cookie policy, shared with the guest draft's claim (`RegistrantCookie`, SB-5). */
     public function setCookie(string $name, string $value, int $expires): void
     {
-        if (headers_sent()) {
-            return;
-        }
-        setcookie($name, $value, [
-            'expires' => $expires < 0 ? 1 : $expires,
-            'path' => '/',
-            'secure' => is_ssl(),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
+        RegistrantCookie::set($name, $value, $expires);
     }
 
     /** The one no-cache of Kaláka's pages: `DONOTCACHEPAGE`, and the headers while none are sent. */
@@ -30,9 +22,9 @@ final class HttpResponse implements Response
         FormCaching::preventCaching();
     }
 
-    public function redirect(string $url): void
+    public function redirect(string $url, int $status = 302): void
     {
-        wp_safe_redirect($url, 302);
+        wp_safe_redirect($url, $status);
         exit;
     }
 }

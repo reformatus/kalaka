@@ -27,6 +27,7 @@ final class RequestTest extends TestCase
             'upper case' => ['Aid', false],
             'a space' => ['offer: x', false],
             'a second colon' => ['offer:a:b', false],
+            'a trailing newline' => ["aid\n", false],
             'too long' => ['offer:' . str_repeat('a', 59), false],
         ];
     }
@@ -41,6 +42,8 @@ final class RequestTest extends TestCase
         $request = new Request($id, RequestKind::Offer, 'Teszt');
 
         self::assertSame($id, $request->id);
+        self::assertSame([], $request->askFields);
+        self::assertNull($request->answerField);
     }
 
     public function testEachAnsweringActHasItsOwnSubjectKeyedByItsId(): void

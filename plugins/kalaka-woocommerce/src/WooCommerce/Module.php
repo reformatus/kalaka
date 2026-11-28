@@ -18,6 +18,7 @@ final class Module extends AbstractModule
         private readonly ReconcileStep $reconcile = new ReconcileStep(),
         private readonly ReturnAddress $returnAddress = new ReturnAddress(),
         private readonly HiddenProduct $product = new HiddenProduct(),
+        private readonly LoginRedirects $login = new LoginRedirects(),
     ) {
     }
 
@@ -63,6 +64,10 @@ final class Module extends AbstractModule
         if (defined('WP_CLI') && WP_CLI) {
             CardSurchargeCommand::register();
         }
+
+        // One login and one password screen: WordPress's own. After WooCommerce's handlers (priority 10).
+        $this->login->removeLostPasswordOverride();
+        add_action('template_redirect', [$this->login, 'redirect'], 20);
     }
 
     /**

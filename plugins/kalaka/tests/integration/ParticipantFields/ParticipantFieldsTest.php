@@ -10,7 +10,9 @@ use Kalaka\Forms\FormEvent;
 use Kalaka\Forms\Module;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\ParticipantFields\DeclareParticipantFields;
 use Kalaka\ParticipantFields\RenameParticipantField;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
@@ -134,6 +136,26 @@ final class ParticipantFieldsTest extends FormsTestCase
     private function notice(): mixed
     {
         return get_transient(DefinitionCheck::NOTICE . get_current_user_id());
+    }
+
+    public function testATypesSettingsAreKeptWithoutInterpretingTheirKeys(): void
+    {
+        $fields = [[
+            'key' => 'extra',
+            'type' => 'kalaka/text-field',
+            'title' => 'Extra',
+            'options' => null,
+            'latest' => true,
+            'settings' => ['unknown' => 'value', 'another' => 2],
+        ]];
+        (new ParticipantFields($this->runner))->declare(self::EVENT, $fields, new CliActor(null));
+
+        $stored = array_values(array_filter(
+            (new ParticipantFields())->of(self::EVENT),
+            static fn (ParticipantField $field): bool => $field->key === 'extra'
+        ));
+        self::assertCount(1, $stored);
+        self::assertSame(['unknown' => 'value', 'another' => 2], $stored[0]->settings);
     }
 
     public function testADerivedKeyIsUniqueAcrossTheFormsOfTheEvent(): void
@@ -581,6 +603,7 @@ final class ParticipantFieldsTest extends FormsTestCase
                 'form_writable' => true,
                 'retired' => false,
                 'forms' => [['form_id' => $id, 'title' => 'Regisztráció']],
+                'settings' => [],
             ]],
             $response->get_data()
         );

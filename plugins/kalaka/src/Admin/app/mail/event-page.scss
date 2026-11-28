@@ -1,0 +1,287 @@
+/*
+ * The event's „Levelek” page (`Admin\Mail\EventPage`, PHP-rendered): WordPress's own look, the same tokens the grid's
+ * DataViews table is drawn with (`@wordpress/base-styles`), with no class names of DataViews' own. White panels with
+ * the core border, row lines only, small uppercase headers; the switch and the X are the components' own markup.
+ * [UNAPPROVED N1294]
+ */
+@use "@wordpress/base-styles/colors" as *;
+@use "@wordpress/base-styles/variables" as *;
+@use "@wordpress/base-styles/breakpoints" as *;
+
+.kalaka-mail-panel {
+	box-sizing: border-box;
+	margin: $grid-unit-20 0 $grid-unit-30;
+	padding: 0 $grid-unit-30 $grid-unit-10;
+	background: $white;
+	border: 1px solid $gray-300;
+
+	&.kalaka-mail-panel--table {
+		padding: 0;
+	}
+}
+
+/* The overview's figures stand side by side in one row and wrap on a narrow screen. [UNAPPROVED N1297] */
+.kalaka-mail-figures {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: $grid-unit-10 $grid-unit-40;
+	margin: 0 0 $grid-unit-20;
+	padding: 0;
+	list-style: none;
+
+	li {
+		margin: 0;
+	}
+
+	.button {
+		margin-left: $grid-unit-10;
+		vertical-align: middle;
+	}
+}
+
+/* A section heading with its button beside it („Hozzá nem rendelt sablonok” and „Új sablon”). */
+.kalaka-mail-heading {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: $grid-unit-10 $grid-unit-20;
+	margin: 1em 0 0;
+
+	h2 {
+		margin: 0;
+	}
+}
+
+.kalaka-mail-table {
+	width: 100%;
+	border-collapse: collapse;
+	background: $white;
+	color: $gray-700;
+	font-size: $font-size-medium;
+	line-height: $font-line-height-small;
+
+	th,
+	td {
+		box-sizing: border-box;
+		padding: $grid-unit-10 $grid-unit-15;
+		text-align: left;
+		vertical-align: middle;
+		overflow-wrap: anywhere;
+	}
+
+	th:first-child,
+	td:first-child {
+		padding-left: $grid-unit-30;
+	}
+
+	th:last-child,
+	td:last-child {
+		padding-right: $grid-unit-30;
+	}
+
+	thead th {
+		overflow-wrap: normal;
+		padding-top: $grid-unit-10;
+		padding-bottom: $grid-unit-10;
+		color: $gray-900;
+		font-size: $font-size-x-small;
+		font-weight: 600;
+		text-transform: uppercase;
+	}
+
+	tbody tr {
+		border-top: 1px solid $gray-100;
+	}
+
+	tbody th {
+		color: $gray-900;
+		font-weight: 400;
+	}
+
+	.kalaka-mail-acts {
+		text-align: right;
+	}
+
+	.kalaka-mail-code {
+		font-family: $font-family-mono;
+	}
+}
+
+.kalaka-mail-buttons {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: $grid-unit-10;
+	vertical-align: middle;
+}
+
+/* The X: the components' icon button, in the text colour, beside „Szerkesztés”. [UNAPPROVED N1302] */
+.kalaka-mail-remove.components-button {
+	color: $gray-900;
+}
+
+/* A refused act's text: a line of its own under the row or the control, the table's full width. [UNAPPROVED N1307] */
+.kalaka-mail-table .kalaka-mail-error td {
+	text-align: left;
+}
+
+.kalaka-mail-event .notice.inline,
+.kalaka-mail-table .notice.inline {
+	margin: $grid-unit-10 0;
+}
+
+/* The windows' contents (the failures and the group mails). */
+.kalaka-mail-window {
+	.kalaka-mail-table {
+		margin-bottom: $grid-unit-20;
+		border: 1px solid $gray-300;
+	}
+
+	.kalaka-mail-stored {
+		white-space: pre-wrap;
+	}
+}
+
+.kalaka-modal-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: $grid-unit-10;
+	margin-top: $grid-unit-20;
+}
+
+/* The levélkeret screen: the field on half the width, the other half is the roadmap's preview. [UNAPPROVED N1308] */
+.kalaka-mail-layout {
+	max-width: 50%;
+}
+
+/*
+ * Desktop: the tables use the full width with fixed columns, so the points' template columns and the unassigned
+ * templates' columns line up („Állapot”, „Levélkeret használata”, „Módosítva” at the same place). [UNAPPROVED N1300]
+ */
+@media (min-width: #{$break-medium + 1}) {
+	.kalaka-mail-points,
+	.kalaka-mail-unassigned {
+		table-layout: fixed;
+	}
+
+	.kalaka-mail-points,
+	.kalaka-mail-unassigned {
+		th.kalaka-mail-acts {
+			width: 268px;
+		}
+	}
+
+	.kalaka-mail-points {
+		th:nth-child(1) {
+			width: 17%;
+		}
+
+		th:nth-child(2) {
+			width: 18%;
+		}
+
+		th:nth-child(3) {
+			width: 8%;
+		}
+
+		th:nth-child(4) {
+			width: 10%;
+		}
+
+		th:nth-child(5) {
+			width: 13%;
+		}
+
+		th:nth-child(6) {
+			width: 9%;
+		}
+	}
+
+	.kalaka-mail-unassigned {
+		th:nth-child(1) {
+			width: 35%;
+		}
+
+		th:nth-child(2) {
+			width: 8%;
+		}
+
+		th:nth-child(3) {
+			width: 10%;
+		}
+
+		th:nth-child(4) {
+			width: 13%;
+		}
+
+		/* The points' „Bekapcsolva” and acts together. */
+		th.kalaka-mail-acts {
+			width: calc(9% + 268px);
+		}
+	}
+}
+
+/*
+ * A phone (core's 782 px line): every row stacks, cell under cell, each with its column's name in front, the acts
+ * last; nothing is cut off and nothing scrolls sideways. [UNAPPROVED N1295]
+ */
+@media (max-width: #{$break-medium}) {
+	.kalaka-mail-table {
+		thead {
+			display: none;
+		}
+
+		tbody tr {
+			display: block;
+			padding: $grid-unit-10 $grid-unit-20;
+		}
+
+		tbody th,
+		tbody td,
+		tbody th:first-child,
+		tbody td:first-child,
+		tbody th:last-child,
+		tbody td:last-child {
+			display: block;
+			padding: $grid-unit-05 0;
+		}
+
+		tbody th {
+			font-weight: 600;
+		}
+
+		tbody td[data-colname] {
+			display: grid;
+			grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+			gap: $grid-unit-10;
+			align-items: center;
+
+			&::before {
+				content: attr(data-colname);
+				color: $gray-900;
+				font-size: $font-size-x-small;
+				font-weight: 600;
+				text-transform: uppercase;
+			}
+		}
+
+		// The switch keeps its own tap area in a stacked cell, not the whole cell's width (UX review 2).
+		td[data-colname] > .components-form-toggle {
+			justify-self: start;
+		}
+
+		.kalaka-mail-acts {
+			text-align: left;
+		}
+
+		.kalaka-mail-buttons {
+			justify-content: flex-start;
+		}
+	}
+
+	.kalaka-mail-layout {
+		max-width: none;
+	}
+}

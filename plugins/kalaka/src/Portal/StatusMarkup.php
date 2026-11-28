@@ -6,6 +6,7 @@ namespace Kalaka\Portal;
 
 use Kalaka\Forms\Api\DateText;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Portal\Api\ActiveRegistration;
 use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Portal\Api\Availability;
 use Kalaka\Portal\Api\MovementRow;
@@ -27,10 +28,8 @@ final class StatusMarkup
     /** SB-11: the active registration's event is not open (unpublished, a draft or archived). */
     public const EVENT_CLOSED = 'A jelentkezésed állapota jelenleg nem érhető el.';
 
-    public const BAD_LINK = 'Ez a link nem érvényes. Nyisd meg a legutóbb kapott e-mailben lévő linket.';
+    public const BAD_LINK = ActiveRegistration::BAD_LINK_TEXT;
 
-    /** Counts the popovers of the request, so two money tables on one page never share an ID. */
-    private static int $popovers = 0;
 
     /** The status block "Jelentkezésem állapota". */
     public static function status(?RegistrationStatusView $view, bool $badLink): string
@@ -47,7 +46,7 @@ final class StatusMarkup
             return $html . '<p>' . esc_html(self::EVENT_CLOSED) . '</p></section>';
         }
 
-        $html .= '<p>Azonosító: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
+        $html .= '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
             . '</span></p>';
 
         switch ($view->status) {
@@ -71,13 +70,7 @@ final class StatusMarkup
             return $html . '</section>';
         }
         $confirmed = $view->confirmation !== null && $view->confirmation->confirmed;
-        if ($payment->awaitsAnswer) {
-            $state = self::box(
-                '<p><strong>Elbírálás alatt.</strong> Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges'
-                . ' összeget.</p>',
-                'pale-pink'
-            );
-        } elseif ($payment->overdue) {
+        if ($payment->overdue) {
             $state = self::box('<p><strong>Lejárt a fizetési határidő.</strong></p>', 'pale-pink');
         } elseif ($confirmed) {
             // SQ-8: the text on handling an overpayment is the stakeholders'; until then the table's
@@ -131,6 +124,18 @@ final class StatusMarkup
             . self::transferRow('Összeg', MoneyText::of($transfer->amount))
             . self::transferRow('Közlemény', $transfer->reference)
             . '</tbody></table></section>';
+    }
+
+    /**
+     * The leave block: one bare form with one button, no look of its own beyond core's button class. The
+     * label is a stand-in.
+     */
+    public static function leave(string $action, string $returnUrl): string
+    {
+        return '<form class="kalaka-leave" method="post" action="' . esc_url($action) . '">'
+            . '<input type="hidden" name="return_url" value="' . esc_attr($returnUrl) . '">'
+            . '<button type="submit" class="wp-element-button">' . esc_html(ParticipantBlocks::LEAVE_LABEL)
+            . '</button></form>';
     }
 
     /**
@@ -202,19 +207,20 @@ final class StatusMarkup
 
     /**
      * One money movement: the type word (row header), the method cell (italic; the method, then its note after
-     * ` · `; a correction's text alone), the sign, the amount, the day (always italic) and the info button with its
-     * native popover. A shortened note is itself a button that opens the same popover. The info button shows on
-     * every row up to 1160 px, and above that only on a row with a shortened note (`kalaka-more`).
+     * ` · `; a correction's text alone), the sign, the amount, the day (always italic) and the info mark. The
+     * details (`Type · Method · day` and the whole note) are the browser's own tooltip, the `title` of the info mark
+     * and of a shortened note, and the info mark's accessible name. The info mark shows on every row up to 1160 px,
+     * and above that only on a row with a shortened note (`kalaka-more`). [UNAPPROVED N1262]
      */
     private static function movementRow(MovementRow $movement, bool $first): string
     {
         $note = $movement->note;
         $short = $note === null ? null : MoneyWords::shortened($note);
         $cut = $note !== null && $short !== $note;
-        $id = 'kalaka-info-' . ++self::$popovers;
+        $details = MoneyWords::headline($movement) . ($note === null ? '' : "\n" . MoneyWords::quoted($note));
         $noteCell = $short === null ? '' : ($cut
-            ? '<button type="button" class="kalaka-note" popovertarget="' . $id . '">'
-                . esc_html(MoneyWords::quoted($short)) . '</button>'
+            ? '<span class="kalaka-note" title="' . esc_attr($details) . '">'
+                . esc_html(MoneyWords::quoted($short)) . '</span>'
             : esc_html(MoneyWords::quoted($short)));
         $method = $movement->methodLabel;
         $cell = $method === null
@@ -222,17 +228,14 @@ final class StatusMarkup
             : esc_html($method) . ($noteCell === '' ? '' : ' · ' . $noteCell);
         $day = MoneyWords::day($movement->valueDay);
         $classes = 'kalaka-move' . ($first ? ' kalaka-rule' : '') . ($cut ? ' kalaka-more' : '');
-        $popover = '<p>' . esc_html(MoneyWords::headline($movement)) . '</p>'
-            . ($note === null ? '' : '<p>' . esc_html(MoneyWords::quoted($note)) . '</p>');
 
         return '<tr class="' . $classes . '"><th scope="row">' . esc_html(MoneyWords::typeOf($movement->type))
             . '</th><td class="kalaka-method">' . self::emphasised('em', $cell) . '</td><td class="kalaka-sign">'
             . esc_html(MoneyWords::sign($movement->amount)) . '</td><td class="kalaka-amount">'
             . esc_html(MoneyText::of(MoneyWords::absolute($movement->amount))) . '</td><td class="kalaka-date">'
             . self::emphasised('em', esc_html($day)) . '</td><td class="kalaka-info">'
-            . '<button type="button" class="kalaka-info-button" popovertarget="' . $id . '" aria-label="Részletek">'
-            . '<span aria-hidden="true">ⓘ</span></button>'
-            . '<div id="' . $id . '" class="kalaka-info-pop" popover>' . $popover . '</div></td></tr>';
+            . '<span class="kalaka-info-button" role="img" title="' . esc_attr($details) . '" aria-label="'
+            . esc_attr($details) . '">ⓘ</span></td></tr>';
     }
 
     private static function transferRow(string $label, string $value): string

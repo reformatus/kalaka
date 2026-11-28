@@ -16,6 +16,7 @@ use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\Api\Payer;
+use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\ConfirmationThreshold;
 use Kalaka\Pricing\Api\FeeComponent;
@@ -71,7 +72,12 @@ abstract class ConfirmationTestCase extends PricingTestCase
             true,
             new Evaluation($this->rules, money: $money)
         );
-        $this->settings = new MoneySettings($this->runner, $components);
+        $this->settings = new MoneySettings(
+            $this->runner,
+            $components,
+            confirmation: new ConfirmationRule($money->composition(), $this->threshold),
+            confirmations: new Confirmations(new Decisions(rules: $this->rules))
+        );
     }
 
     /** A manual payment with its value date (a day). */
@@ -227,7 +233,7 @@ abstract class ConfirmationTestCase extends PricingTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
     }
 

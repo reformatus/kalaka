@@ -68,7 +68,9 @@ reached; the grant defines who holds the view.**
     ([Facts and decisions](#facts-decisions-and-computed-values)), so they
     stay per-event indexed queries under the `EXPLAIN` test. A viewer's own
     filters, search and sorting, which are never stored (ad hoc narrowing),
-    may also use the computed sorszám
+    may also use the computed sorszám and a computed yes, no or N/A column whose
+    sources state it declaratively and core compiles to SQL ("awaits an
+    answer")
     ([Facts, decisions and computed values](#facts-decisions-and-computed-values)).
     A map lookup is expanded in SQL ("lunch option in the mapped options"); a
     congregation level matches the answer's stored path snapshot. PHP computes
@@ -91,15 +93,17 @@ reached; the grant defines who holds the view.**
     by their role. The user who activates the plugin gets it while nobody
     holds it; after that a holder gives or takes it on the user's profile screen, or WP-CLI does
     (`wp kalaka full-access grant|revoke`), both through audited use cases.
-    The last holder cannot lose it. On multisite, super admins pass every
-    check.
+    The last holder cannot lose it through Kaláka's use cases, the WordPress
+    users screen, REST or WP-CLI; plain code can still delete the user, which
+    is logged, and re-activation restores a holder. On multisite, super admins
+    pass every check.
 - **Actions that are not a column** (withdraw, remove, admit, confirm without
-  payment, record money, view money, answer a request, regenerate link,
-  notes, audit history) are carried by the grant, not by WordPress roles. An
-  action is usable only on registrations inside the filter of the same
-  grant's view. Modules declare the actions they
-  offer ([Modules](modules-and-extensions.md#the-module-interface)). A grant
-  lists its actions one by one; there are no default bundles yet.
+  payment, record money, view money, answer a request, send a manual mail,
+  regenerate link, notes, audit history) are carried by the grant, not by
+  WordPress roles. An action is usable only on registrations inside the
+  filter of the same grant's view. Modules declare the actions they offer
+  ([Modules](modules-and-extensions.md#the-module-interface)). A grant lists
+  its actions one by one; there are no default bundles yet.
 - **A grant holds a use case only by name:** the use case names an action
   the grant carries, or it is a field change with at least one target; in
   both cases every target is inside the grant's view. An event use case with
@@ -144,6 +148,17 @@ flowchart LR
   deadlock, a lock-wait timeout, a version conflict hit by a system run, a
   reconnect detected inside a run) are retried, about three times, each
   attempt from scratch.
+- **An act's retry key.** A staff act outside the ledger takes an optional or
+  required `idempotency_key`, so a repeat of the same call (a double click, a
+  retry after a lost response) changes nothing. Inside the transaction, with
+  the registration locked, the use case asks `Api\ActKeys` first: a key held
+  with the same input returns the stored result and the act does nothing more;
+  a key held with other input is an `IdempotencyConflict` (409,
+  `kalaka_idempotency_conflict`, the generic refusal text); a key not held lets
+  the act run, and it stores its result under the key. The key is one
+  registration's (`kalaka_act_keys`, unique on event, registration and key),
+  and the input hash leaves out the key and `preview`: a preview never stores.
+  The ledger's manual entries keep their own key columns.
 - **Nested use cases** join the outer transaction and write their own audit
   entry, linked to the parent. Effects are released after the outermost
   commit.
@@ -488,7 +503,9 @@ of deferred work gets exactly the guarantee it needs:
   Sheets system. It evaluates only work that has fallen due over time (late
   fees, scheduled mails, reminders) and retries registrations flagged
   "evaluation failed" (once an hour, and on every run an admin or WP-CLI
-  starts), then runs the sender. The sender runs even when the sweep or the
+  starts), deletes the drafts that are done
+  ([Registrations](registrations-and-identity.md#submissions-and-values)),
+  then runs the sender. The sender runs even when the sweep or the
   retries fail; the last-run time is written only after they complete. An
   admin or WP-CLI can also start it at any time; this is safe because every effect is claim-guarded.
 - **Keeping the 5-minute run cheap:** it sweeps only published, non-archived
@@ -573,6 +590,18 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **A participant field of source "system" is not a fact.** It only
     declares a decision under a key, read-only; the decision record stays
     the source of truth, and no field value is ever written for it.
+  - **A setting that money or a rule needs from a field** (a number field's
+    decimals) is stored on the event's participant field, never
+    read from the form post.
+  - **Seats follow one rule:** the event's places, a set option's places, and
+    a limited tier's or offer's places. A seat is a fact. The form only
+    controls visibility; the backend takes the seat under a lock, inside the
+    registration's own act. Leaving frees it, and only another act can take
+    it again; a seat never moves by itself. A full pool turns away only the
+    registrant's own submit (a full event waitlists it). A staff act
+    (placing, admission, restore, answering a request, an admin's submit)
+    takes the seat even over the limit, with a "full" warning, and leaves the
+    event's "full" latch as it is.
 - **Decisions** are written by the system alone. A fact that changes does not
   recompute a decision; only a transition its rule names changes it (a
   withdrawal or removal, and staff's unconfirm, are facts that name one for
@@ -592,13 +621,16 @@ sort on the first two ([Views and grants](#views-and-grants)).
     (confirmation after staff's unconfirm: `unconfirmed`, then `confirmed`);
     core writes each one that changes the state.
   - **A kind is declared with a Hungarian label and its states, each with a
-    Hungarian label;** the grid shows them for every kind.
+    Hungarian label, and an icon and tone for each state;** the grid and the
+    registration's detail show them for every kind.
   - Extensions contribute transition rules through a decision point, and core
     writes the records
     ([Modules](modules-and-extensions.md#the-extension-surface)).
 - **Computed values are never stored:** balance, tallies, the tree's
   ancestors, a meal turn from the option map, the sorszám, whether a
-  registration awaits an answer. The one exception:
+  registration awaits an answer (yes or no while it is registered, N/A
+  otherwise; a grid column with filter, sort and count, compiled in SQL from
+  its sources' declarative rules). The one exception:
   a congregation answer keeps the path snapshot taken when it was answered.
 - **Reading order:** confirmation is checked once at the end of every pass,
   after money; whatever act caused the pass, the check is the same. It reads
@@ -623,6 +655,9 @@ There is no tariff snapshot, so saving money settings reaches every open
 registration through a preview and an apply, one transaction each
 ([Money](money.md#money-settings-apply)).
 
+Queuing a manual mail is one act, not a bulk change: one transaction for the
+batch, with the skipped registrations in its result.
+
 ## Cross-cutting rules
 
 | Concern | Rule |
@@ -634,4 +669,4 @@ registration through a preview and an apply, one transaction each
 | **Secret links** | Treated as secrets: our own code never writes one into a log line or an exception message, masked in exports ([Registrations](registrations-and-identity.md#access)) |
 | **Money** | `DECIMAL(26,8)`, a currency code on every record, brick/math arithmetic, never floats ([Money](money.md#amounts)) |
 | **Sorting** | `utf8mb4_hungarian_ci` on our text columns ([Engineering](engineering.md#database)) |
-| **Language** | Hungarian UI strings directly in code; English identifiers and comments |
+| **Language** | Hungarian UI strings directly in code; English identifiers and comments. The one exception: a plugin declares the names of its own fields and labels with their defaults (`DeclaredName`, read through `PluginNames`) and its settings screen may override them. One option per plugin, `kalaka_<module id>_names`, holds all of its names; an empty value is the default, and the text is read where it is shown. There is no table of overrides for other strings |

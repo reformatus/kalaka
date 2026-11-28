@@ -31,14 +31,12 @@ final class MoneyWords
     }
 
     /**
-     * The note in Hungarian quotes. A note that holds quotes of its own shows them as »…« inside the outer „…”
-     * (Hungarian typography; the page and the mail read the same function). [UNAPPROVED N19]
+     * The note in Hungarian quotes, exactly as typed: quotes of its own are not converted (the page, the popover
+     * and the mail read the same function). [UNAPPROVED N1261]
      */
     public static function quoted(string $text): string
     {
-        $inner = strtr($text, ["\u{201E}" => '»', "\u{201D}" => '«', "\u{201C}" => '«']);
-
-        return "\u{201E}" . $inner . "\u{201D}";
+        return "\u{201E}" . $text . "\u{201D}";
     }
 
     /** The note cut at `NOTE_LENGTH` characters with „…” inside the quotes; the note itself when it is short. */
