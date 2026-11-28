@@ -26,6 +26,8 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * transfer details, composed from the module Apis (one statement each) and the clock. It writes nothing
  * and never evaluates.
  *
+ * `money` is read for every status, the registration's own money table beside the totals of `payment`.
+ *
  * Whether the registration is confirmed comes from Pricing's `Confirmations`; the decision kind read by name,
  * before the slice that writes it, is `payment_hold` (S32) with the state `held`.
  */
@@ -34,13 +36,17 @@ final class StatusRead
     /** A pending decision holds payment (money.md, "Core money scope"). */
     public const PAYMENT_HOLD = 'payment_hold';
 
+    private readonly MoneyRead $money;
+
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
         private readonly Events $events = new Events(),
         private readonly Decisions $decisions = new Decisions(),
         private readonly Ledger $ledger = new Ledger(),
         private readonly LineLabels $labels = new LineLabels(),
+        ?MoneyRead $money = null,
     ) {
+        $this->money = $money ?? new MoneyRead(labels: $labels);
     }
 
     /** The active registration's view, or null when there is none (or it no longer exists). */
@@ -90,6 +96,7 @@ final class StatusRead
             $confirmation,
             $payment,
             $transfer,
+            $this->money->of($key, $event->currency),
         );
     }
 

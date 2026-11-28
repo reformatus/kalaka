@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Ledger\Api;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\BalanceQuery;
@@ -15,6 +16,7 @@ use Kalaka\Ledger\ManualFeeRepository;
 use Kalaka\Ledger\PaymentNote;
 use Kalaka\Ledger\PaymentNoteRepository;
 use Kalaka\Ledger\PaymentFactQuery;
+use Kalaka\Ledger\StatementQuery;
 use Kalaka\Ledger\SummaryQuery;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -42,6 +44,7 @@ final class Ledger
         private readonly PaymentNoteRepository $notes = new PaymentNoteRepository(),
         private readonly LineListQuery $listing = new LineListQuery(),
         private readonly ManualFeeRepository $fees = new ManualFeeRepository(),
+        private readonly StatementQuery $statements = new StatementQuery(),
     ) {
     }
 
@@ -313,6 +316,16 @@ final class Ledger
     public function summaryOf(RegistrationKey $registration): Summary
     {
         return $this->summaries->of($registration);
+    }
+
+    /**
+     * A plain read, without a lock, for display (the participant blocks' money table): one payer's owed lines
+     * and money movements with their notes, and its totals, from one statement. Empty and zero in `$currency`,
+     * the event's, when the payer has no lines. Rules never read it.
+     */
+    public function statementOf(RegistrationKey $registration, string $payer, Currency $currency): PayerStatement
+    {
+        return $this->statements->of($registration, $payer, $currency);
     }
 
     /**

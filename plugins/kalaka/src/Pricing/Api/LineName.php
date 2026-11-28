@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Kalaka\Pricing\Api;
 
 /**
- * How the admin names an owed line: a `type` (the discriminator of the „Típus” column), the Hungarian word of
- * it, the title the registrant sees (a manual line only) and who recorded it (a manual line only).
+ * How an owed line is named (the admin's „Tételek”, the participant's money table): a `type` (the
+ * discriminator of the „Típus” column), the Hungarian word of it, the title the registrant sees (a manual line
+ * only) and who recorded it (a manual line only). The stage is the one its fee component composes in, null for
+ * a source of a component that is not registered: it tells the participant's money table the base price (the
+ * tier) from any other line.
  */
 final readonly class LineName
 {
@@ -25,6 +28,7 @@ final readonly class LineName
         public string $label,
         public ?string $title = null,
         public ?int $recordedBy = null,
+        public ?FeeStage $stage = null,
     ) {
     }
 }
