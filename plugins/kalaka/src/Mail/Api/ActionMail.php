@@ -36,7 +36,7 @@ enum ActionMail: string
 
     /**
      * The catalogue's name of the mail: what causes it. The label of `PaymentRecorded` changes the owner-approved
-     * „Befizetés rögzítve” (#162's N20), because the mail now covers refunds. [UNAPPROVED T1255]
+     * „Befizetés rögzítve” (#162's N20), because the mail now covers refunds.
      */
     public function label(): string
     {
