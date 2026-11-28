@@ -18,13 +18,19 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  * The mail screens (prototype, unapproved as a whole): the event's „Levelek” page, a submenu item of the event's
  * own menu item, and the site's „Kaláka › Levelezés” page the paused banner names. Both are empty containers plus
  * a configuration; every read and act goes through `kalaka-admin/v1` and the abilities, so the page decides no
- * access: the reads are full access's, and a visitor without it gets the refusal. [UNAPPROVED N271]
+ * access: the reads are full access's, and a visitor without it gets the refusal. [UNAPPROVED N271] The one
+ * exception is the sender page's settings form (the hourly budget, owner ruling 8.6): WordPress's own settings
+ * form, printed here in PHP after the app's mount, and its notices (`settings_errors()`), because the budget is a
+ * setting and not a state.
  */
 final class MailPages
 {
     private const EVENT_SLUG = 'kalaka-event-%d-mail';
     private const SITE_SLUG = 'kalaka-mail';
     private const HANDLE = 'kalaka-admin-mail';
+    /** The settings group and the option of the hourly budget (`Mail\Pause\BudgetSetting`, which registers them). */
+    private const SETTINGS_GROUP = 'kalaka_mail';
+    private const BUDGET_OPTION = 'kalaka_mail_hourly_budget';
     private const NAMESPACE = 'kalaka-admin/v1';
     /** After core's separator (4), before the events (4.01 and up). */
     private const KALAKA_POSITION = 4.001;
@@ -185,7 +191,11 @@ final class MailPages
                 'name' => $event->name,
                 'url' => admin_url('admin.php?page=' . self::slug($event)),
             ], (new Events())->notArchived());
-            $head = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html(Texts::SITE_PAGE) . '</h1>';
+            // The placement of the settings form and its notices is these two lines: the form after the status mount
+            // (a, built), above it (b) or on its own page under „Beállítások” (c) would move only them.
+            $head = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html(Texts::SITE_PAGE) . '</h1>'
+                . self::settingsNotices();
+            $tail = self::settingsForm();
         } else {
             $event = (new Events())->find($page) ?? throw new NotFound();
             $config['kind'] = 'event';
@@ -194,11 +204,62 @@ final class MailPages
             $config['registrantsUrl'] = admin_url('admin.php?page=' . GridPage::slug($event));
             $config['senderUrl'] = admin_url('admin.php?page=' . self::SITE_SLUG);
             $head = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html($event->name) . '</h1>';
+            $tail = '';
         }
         wp_add_inline_script(self::HANDLE, 'window.kalakaMail = ' . wp_json_encode($config) . ';', 'before');
         wp_enqueue_script(self::HANDLE);
 
-        return $head . '<div id="kalaka-mail"></div></div>';
+        return $head . '<div id="kalaka-mail"></div>' . $tail . '</div>';
+    }
+
+    /**
+     * The notices of the settings save: the refusal (`kalaka_mail`, `kalaka_mail_budget_invalid`) and core's own
+     * saved notice (`general`, after `settings-updated=true`). One call with no argument prints each once; core
+     * prints them by itself on the `options-*.php` screens only, not on this one.
+     */
+    private static function settingsNotices(): string
+    {
+        ob_start();
+        settings_errors();
+
+        return (string) ob_get_clean();
+    }
+
+    /**
+     * The hourly budget as WordPress's settings form, posted to `options.php` (`Mail\Pause\BudgetSetting`): core's
+     * form table, a label, one number field, the default as text (never a reset button) and core's submit button.
+     * The page checks nothing, so no `min`, `max` or `required`: the server's refusal is the one text for a bad
+     * value. The page is full access's, the gate the setting holds. [UNAPPROVED T1302] The heading is a candidate.
+     */
+    private static function settingsForm(): string
+    {
+        $registered = get_registered_settings()[self::BUDGET_OPTION] ?? null;
+        if ($registered === null) {
+            return '';
+        }
+        ob_start();
+        settings_fields(self::SETTINGS_GROUP);
+        $fields = (string) ob_get_clean();
+        $stored = get_option(self::BUDGET_OPTION);
+        $default = $registered['default'] ?? null;
+        $id = esc_attr(self::BUDGET_OPTION);
+        $value = esc_attr(is_scalar($stored) ? (string) $stored : '');
+        $help = esc_html(sprintf(Texts::BUDGET_DEFAULT, is_scalar($default) ? (int) $default : 0));
+
+        return '<section class="km-section" aria-labelledby="km-settings">'
+            . '<h2 id="km-settings" class="km-h2">' . esc_html(Texts::SETTINGS) . '</h2>'
+            . '<form method="post" action="options.php">'
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core's own hidden fields
+            . $fields
+            . '<table class="form-table" role="presentation"><tbody><tr>'
+            . '<th scope="row"><label for="' . $id . '">' . esc_html(Texts::BUDGET) . '</label></th>'
+            . '<td><input type="number" inputmode="numeric" class="small-text" id="' . $id . '" name="' . $id
+            . '" value="' . $value . '" aria-describedby="' . $id . '-default">'
+            . '<p class="description" id="' . $id . '-default">' . $help . '</p>'
+            . '</td></tr></tbody></table>'
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core's own submit button
+            . get_submit_button(Texts::SAVE)
+            . '</form></section>';
     }
 
     /** The event's id, 0 for the site page, null for any other page. */

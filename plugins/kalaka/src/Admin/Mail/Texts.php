@@ -21,4 +21,19 @@ final class Texts
 
     /** The event's submenu item and its mail page. */
     public const EVENT_PAGE = 'Levelek';
+
+    /**
+     * The sender page's settings section, the form of the hourly budget. The heading is a candidate, not approved.
+     * [UNAPPROVED T1302]
+     */
+    public const SETTINGS = 'Küldési beállítások';
+
+    /** The budget's label: the twin of `SENDER.budget` in `app/mail/texts.js`, as the status block names it. */
+    public const BUDGET = 'Óránként legfeljebb küldhető levél';
+
+    /** The default shown beside the field, as text: the twin of `SENDER.budgetDefault` (printf, one number). */
+    public const BUDGET_DEFAULT = 'Alapértelmezés: %d';
+
+    /** The form's submit button: the twin of `COMMON.save`. */
+    public const SAVE = 'Mentés';
 }

@@ -107,7 +107,6 @@ export const SENDER = {
 	error: 'Hibaüzenet', // reworded per the lektor
 	errorsInRow: 'Egymást követő hibák száma', // reworded per the lektor
 	budget: 'Óránként legfeljebb küldhető levél', // reworded per the lektor: no „keret” for the limit
-	budgetDefault: 'Alapértelmezés: %d', // under the budget field, a line of its own
 	budgetDefaultInline: 'alapértelmezés: %d', // inside the parentheses of the read-only value
 	queued: 'Küldésre váró levelek',
 	unknownEvent: '%d. esemény', // reworded per the lektor
@@ -128,8 +127,6 @@ export const CONTROLS = {
 	alreadyPaused: 'A levélküldés már szünetel.',
 	notPaused: 'A levélküldés nem szünetel.',
 	cleared: '%d levél törölve.',
-	budgetInvalid: 'Az óránként legfeljebb küldhető levelek száma csak 1 és 2000 közötti egész szám lehet.', // the refusal `kalaka_mail_budget_invalid`, shown by its code
-	budgetSaved: 'Mentve: óránként legfeljebb %d levél küldhető.', // the snackbar after the budget is saved [UNAPPROVED T900]
 };
 
 /** The per-event counts on the sender page. */

@@ -82,13 +82,6 @@
 	min-width: 0;
 }
 
-.km-budget {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-start;
-	gap: 8px;
-}
-
 .km-stored {
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;

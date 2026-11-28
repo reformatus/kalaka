@@ -99,69 +99,20 @@ async function mount() {
 	return host;
 }
 
-const type = ( input, value ) => {
-	const setter = Object.getOwnPropertyDescriptor( window.HTMLInputElement.prototype, 'value' ).set;
-	setter.call( input, value );
-	input.dispatchEvent( new Event( 'input', { bubbles: true } ) );
-};
-const press = ( host, name ) => [ ...host.querySelectorAll( 'button' ) ].find( ( b ) => b.textContent === name );
+const labels = ( host ) => [ ...host.querySelectorAll( 'dt' ) ].map( ( dt ) => dt.textContent );
 
-test( 'the budget control shows the stored value and the default, and a save sends the whole number through the ability', async () => {
-	apiFetch.mockReset();
-	apiFetch.mockImplementation( ( { method } ) => ( method === 'POST' ? Promise.resolve( 60 ) : Promise.resolve( budgetRead( {} ) ) ) );
-	const host = await mount();
-	expect( host.querySelector( 'label[for="km-budget"]' ).textContent ).toBe( 'Óránként legfeljebb küldhető levél' );
-	const input = host.querySelector( '#km-budget' );
-	expect( input.value ).toBe( '240' );
-	expect( host.textContent ).toContain( 'Alapértelmezés: 240' );
-	await act( async () => type( input, '60' ) );
-	await act( async () => press( host, 'Mentés' ).click() );
-	const post = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.method === 'POST' );
-	expect( post.path ).toBe( '/wp-abilities/v1/abilities/kalaka/set-mail-budget/run' );
-	expect( post.data ).toEqual( { input: { hourly_budget: 60 } } );
-} );
-
-test( 'a refused budget shows the server\'s own text and sends the value as typed; nothing is checked on the page', async () => {
-	apiFetch.mockReset();
-	const text = 'Az óránként legfeljebb küldhető levelek száma csak 1 és 2000 közötti egész szám lehet.';
-	apiFetch.mockImplementation( ( { method } ) =>
-		method === 'POST' ? Promise.reject( { code: 'kalaka_mail_budget_invalid', message: 'A művelet nem hajtható végre. ' + text } ) : Promise.resolve( budgetRead( {} ) )
-	);
-	const host = await mount();
-	await act( async () => type( host.querySelector( 'input' ), '5000' ) );
-	await act( async () => press( host, 'Mentés' ).click() );
-	const post = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.method === 'POST' );
-	expect( post.data ).toEqual( { input: { hourly_budget: 5000 } } );
-	expect( host.querySelector( '#km-budget-error' ).textContent ).toBe( text );
-	// The field goes back to the stored value, marked invalid and tied to the refusal until the next edit.
-	const input = host.querySelector( '#km-budget' );
-	expect( input.value ).toBe( '240' );
-	expect( input.getAttribute( 'aria-invalid' ) ).toBe( 'true' );
-	expect( input.getAttribute( 'aria-describedby' ) ).toBe( 'km-budget__help km-budget-error' );
-	expect( host.querySelector( '#km-budget-error' ).textContent ).toContain( text );
-	await act( async () => type( input, '7' ) );
-	expect( input.getAttribute( 'aria-invalid' ) ).toBeNull();
-	expect( input.getAttribute( 'aria-describedby' ) ).toBe( 'km-budget__help' );
-} );
-
-test( 'Enter in the budget field saves: the field and the button are one form', async () => {
-	apiFetch.mockReset();
-	apiFetch.mockImplementation( ( { method } ) => ( method === 'POST' ? Promise.resolve( 60 ) : Promise.resolve( budgetRead( {} ) ) ) );
-	const host = await mount();
-	await act( async () => type( host.querySelector( '#km-budget' ), '60' ) );
-	const form = host.querySelector( 'form.km-budget' );
-	expect( form.contains( press( host, 'Mentés' ) ) ).toBe( true );
-	await act( async () => form.dispatchEvent( new Event( 'submit', { bubbles: true, cancelable: true } ) ) );
-	const post = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.method === 'POST' );
-	expect( post.data ).toEqual( { input: { hourly_budget: 60 } } );
-} );
-
-test( 'without can.set_budget the budget is shown read-only: no field, no save', async () => {
-	apiFetch.mockReset();
-	apiFetch.mockResolvedValue( budgetRead( { can: {}, hourly_budget: 60 } ) );
-	const host = await mount();
-	expect( host.querySelector( 'input' ) ).toBeNull();
-	expect( press( host, 'Mentés' ) ).toBeUndefined();
-	expect( host.textContent ).toContain( '60' );
-	expect( host.textContent ).toContain( 'alapértelmezés: 240' );
+test( 'the budget is read-only text with its default for every viewer, between the errors in a row and the pending count; the form is not the page\'s', async () => {
+	for ( const can of [ { set_budget: true }, {} ] ) {
+		apiFetch.mockReset();
+		apiFetch.mockResolvedValue( budgetRead( { can, hourly_budget: 60 } ) );
+		const host = await mount();
+		const names = labels( host );
+		expect( names.indexOf( 'Óránként legfeljebb küldhető levél' ) ).toBe( names.indexOf( 'Egymást követő hibák száma' ) + 1 );
+		expect( names.indexOf( 'Küldésre váró levelek' ) ).toBe( names.indexOf( 'Óránként legfeljebb küldhető levél' ) + 1 );
+		const dd = [ ...host.querySelectorAll( 'dt' ) ].find( ( dt ) => dt.textContent === 'Óránként legfeljebb küldhető levél' ).nextElementSibling;
+		expect( dd.textContent ).toBe( '60 (alapértelmezés: 240)' );
+		expect( host.querySelector( 'input' ) ).toBeNull();
+		expect( host.querySelector( 'form' ) ).toBeNull();
+		expect( apiFetch.mock.calls.some( ( c ) => c[ 0 ].method === 'POST' ) ).toBe( false );
+	}
 } );

@@ -1,7 +1,7 @@
 /**
  * The site's „Kaláka › Levelezés” page, the one the paused banner names: whether sending runs or is paused (the
  * cause, since when, by whom, the stored error and the delivery that caused it), the errors in a row, the hourly
- * budget, the pending count, the buttons the read's `can` allows (pause, resume, clear the queue, with a confirm for
+ * budget as text (it is set in the PHP settings form below this app), the pending count, the buttons the read's `can` allows (pause, resume, clear the queue, with a confirm for
  * the clear) and each event's counts with a clear of its held mail. The banner itself is the site warning, which
  * shows on this page like on every admin page.
  *
@@ -9,8 +9,8 @@
  * settings, controls and the queue; the queue lives only there”): below the counts each event with failed, waiting-
  * after-an-error or stuck deliveries has its list, with the manual mail follow-up on the failed rows.
  */
-import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
-import { Button, Notice, SnackbarList, TextControl } from '@wordpress/components';
+import { Fragment, useMemo, useRef, useState } from '@wordpress/element';
+import { Button, Notice, SnackbarList } from '@wordpress/components';
 import * as api from './api';
 import ConfirmModal from './ConfirmModal';
 import ListTable from './ListTable';
@@ -27,8 +27,6 @@ export default function SenderPage( { config } ) {
 	const [ busy, setBusy ] = useState( false );
 	const [ failed, setFailed ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
-	const [ draft, setDraft ] = useState( '' );
-	const [ budgetRefused, setBudgetRefused ] = useState( false );
 	const timers = useRef( [] );
 	const names = Object.fromEntries( config.events.map( ( e ) => [ e.id, e ] ) );
 	const eventsById = Object.fromEntries( ( read.data ? read.data.events : [] ).map( ( e ) => [ e.event_id, e ] ) );
@@ -38,45 +36,22 @@ export default function SenderPage( { config } ) {
 		setNotices( ( list ) => withNotice( list, id, text, 'success' ) );
 		timers.current.push( setTimeout( () => setNotices( ( list ) => withoutNotice( list, id ) ), SNACKBAR_MS ) );
 	};
-	const run = async ( act, text, onFail ) => {
+	const run = async ( act, text ) => {
 		if ( busy ) {
 			return;
 		}
 		setBusy( true );
 		setFailed( null );
-		setBudgetRefused( false );
 		try {
 			const answer = await act();
 			say( typeof text === 'function' ? text( answer ) : text );
 		} catch ( error ) {
 			// A refusal shows alone: the success snackbar of an earlier act goes away with it. [UNAPPROVED N909]
 			setNotices( [] );
-			setFailed( ( onFail && onFail( error ) ) || problemText( error, COMMON.actFail ) );
+			setFailed( problemText( error, COMMON.actFail ) );
 		}
 		await read.reload();
 		setBusy( false );
-	};
-
-	// The budget field follows the read: after a save or a refusal the stored value is shown again on the next read.
-	const stored = read.data ? read.data.hourly_budget : null;
-	useEffect( () => {
-		if ( stored !== null ) {
-			setDraft( String( stored ) );
-		}
-	}, [ stored ] );
-	// The page checks nothing: the server's refusal (`kalaka_mail_budget_invalid`) is the one text for a bad value.
-	// After a refusal the field goes back to the stored value, so the page always shows the budget in force.
-	const saveBudget = ( event ) => {
-		event.preventDefault();
-		const text = draft.trim();
-		const value = /^\d+$/.test( text ) ? Number( text ) : text;
-		// Success is the snackbar and a failure the notice above the buttons, as for every act of this page. [UNAPPROVED N905]
-		return run( () => api.setBudget( value ), fmt( CONTROLS.budgetSaved, value ), ( error ) => {
-			setBudgetRefused( true );
-			setDraft( String( stored ) );
-			// The refusal is mapped by its code, not by the server's message (which starts with the generic sentence).
-			return error && error.code === 'kalaka_mail_budget_invalid' ? CONTROLS.budgetInvalid : null;
-		} );
 	};
 
 	const fields = useMemo(
@@ -187,51 +162,20 @@ export default function SenderPage( { config } ) {
 							<dd>{ value }</dd>
 						</Fragment>
 					) ) }
-					{ /* The budget keeps its row in the state list (no section of its own) and is shown on this site page only; nothing
-					here says when a change takes effect or names the ceiling. [UNAPPROVED N900] */ }
-					<dt>{ data.can.set_budget ? <label htmlFor="km-budget">{ SENDER.budget }</label> : SENDER.budget }</dt>
+					{ /* The stored budget as text, for every viewer, after the errors in a row and before the pending count; it is
+					set in the settings form below the page's app (PHP, WordPress's settings saving). [UNAPPROVED N900, N902] */ }
+					<dt>{ SENDER.budget }</dt>
 					<dd>
-						{ /* A field only when the read allows the budget to be set; otherwise the stored value as text. [UNAPPROVED N902] */ }
-						{ data.can.set_budget ? (
-							<form className="km-budget" onSubmit={ saveBudget }>
-								{ /* A number field with „Mentés” beside it, as pause and resume; nothing is saved on a change. [UNAPPROVED N901]
-								The field and the button are one form, so Enter in the field saves. */ }
-								<TextControl
-									id="km-budget"
-									type="number"
-									inputMode="numeric"
-									value={ draft }
-									onChange={ ( value ) => {
-										setBudgetRefused( false );
-										setDraft( value );
-									} }
-									help={ fmt( SENDER.budgetDefault, data.hourly_budget_default ) }
-									aria-invalid={ budgetRefused ? 'true' : undefined }
-									aria-describedby={ 'km-budget__help' + ( budgetRefused ? ' km-budget-error' : '' ) }
-									__next40pxDefaultSize
-									__nextHasNoMarginBottom
-								/>
-								{ /* The default is a text under the field, never a reset button (none is built). */ }
-								<Button type="submit" variant="secondary" disabled={ busy }>
-									{ COMMON.save }
-								</Button>
-							</form>
-						) : (
-							<Fragment>
-								{ String( data.hourly_budget ) }
-								<span className="km-budget-default">{ ' (' + fmt( SENDER.budgetDefaultInline, data.hourly_budget_default ) + ')' }</span>
-							</Fragment>
-						) }
+						{ String( data.hourly_budget ) }
+						<span className="km-budget-default">{ ' (' + fmt( SENDER.budgetDefaultInline, data.hourly_budget_default ) + ')' }</span>
 					</dd>
 					<dt>{ SENDER.queued }</dt>
 					<dd>{ String( data.queued ) }</dd>
 				</dl>
 				{ failed && (
-					<div id={ budgetRefused ? 'km-budget-error' : undefined }>
-						<Notice status="error" isDismissible={ false }>
-							{ failed }
-						</Notice>
-					</div>
+					<Notice status="error" isDismissible={ false }>
+						{ failed }
+					</Notice>
 				) }
 				<div className="km-actions">
 					{ data.can.pause && (
