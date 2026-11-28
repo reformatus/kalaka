@@ -116,6 +116,13 @@ final class ConfirmationEvaluationTest extends ConfirmationTestCase
         self::assertSame('confirmation', $kinds[0]->kind);
         self::assertSame('Visszaigazolás', $kinds[0]->label);
         self::assertSame(['confirmed' => 'Visszaigazolva', 'unconfirmed' => 'Nincs visszaigazolva'], $kinds[0]->states);
+        self::assertSame(
+            [
+                'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+            ],
+            $kinds[0]->marks
+        );
     }
 
     public function testTheDecisionCostsTheSameWhateverTheEventHolds(): void

@@ -16,8 +16,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\AidAbovePrice;
 use Kalaka\Registrations\Api\Answer;
 use Kalaka\Registrations\Api\AnswerRead;
-use Kalaka\Registrations\Api\NoOfferSeats;
-use Kalaka\Registrations\Api\OfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Registrations;
@@ -25,6 +23,9 @@ use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\RequestState;
+use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\SeatOutcome;
+use Kalaka\Registrations\Api\Seats;
 
 /**
  * "Answer a request" (foundation.md, "Facts, decisions and computed values"; money.md, "Sponsor and church
@@ -46,7 +47,11 @@ use Kalaka\Registrations\Api\RequestState;
  *   `registered` registration is answered (a waitlisted registration is inactive: its request waits until it is
  *   admitted); a waitlisted, withdrawn or removed one is a `RuleViolation`.
  * - A refusal frees the offer's seat; a "yes" after a refusal takes one again, and when the pool is full the
- *   answer stands and `over_limit` says so (B1). Both go through `OfferSeats`, a seam until slice A.
+ *   answer stands and `over_limit` says so (B1). Both go through slice A's one seat rule, `Seats`: the pool is
+ *   the request source's own (`RequestSource::seatPool()`, never a key parsed here), locked before the
+ *   registration lock, released on a refusal and retaken as `SeatAct::Answer` on a "yes" after one — both only
+ *   while the registration is `registered` — and `retake()` answering `SeatOutcome::Over` is `over_limit`.
+ *   [UNAPPROVED N4]
  *
  * Returns `{changed, answer, over_limit}`: the new record's id, null when nothing was written.
  */
@@ -56,7 +61,7 @@ final class AnswerRequest implements AdminUseCase
         private readonly Requests $requests = new Requests(),
         private readonly Registrations $registrations = new Registrations(),
         private readonly AnswerRepository $answers = new AnswerRepository(),
-        private readonly OfferSeats $seats = new NoOfferSeats(),
+        private readonly Seats $seats = new Seats(),
         private readonly Events $events = new Events(),
     ) {
     }
@@ -114,9 +119,9 @@ final class AnswerRequest implements AdminUseCase
         // The request is found with a plain read first: the seat's pool lock, which the request names, comes
         // before the registration lock. It is read again under the lock.
         $first = self::stateOf($this->requests->states($key), (string) $input['request']);
-        $pool = $first->request->kind === RequestKind::Offer ? $first->source->seatPool($first->request) : null;
+        $pool = $first->source->seatPool($first->request);
         if ($pool !== null) {
-            $this->seats->lockPool($pool, $context);
+            $this->seats->lock($pool, $context);
         }
         if (!$this->registrations->lock($key, $context)) {
             throw new NotFound();
@@ -166,9 +171,9 @@ final class AnswerRequest implements AdminUseCase
         $overLimit = false;
         if ($pool !== null) {
             if (!$yes) {
-                $this->seats->release($key, $pool, $context);
+                $this->seats->release($pool, $key, $context);
             } elseif ($previous !== null && !$previous->approved) {
-                $overLimit = !$this->seats->take($key, $pool, $context);
+                $overLimit = $this->seats->retake($pool, $key, SeatAct::Answer, $context) === SeatOutcome::Over;
             }
         }
 

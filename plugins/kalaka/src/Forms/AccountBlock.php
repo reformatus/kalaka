@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormPlacement;
@@ -68,14 +69,19 @@ final class AccountBlock
     public static function problem(FormDefinition $definition, FormPlacement $placement, ?int $eventId): ?array
     {
         $event = $eventId === null ? null : (new Events())->find($eventId);
-        if (
-            $event === null
-            || $definition->account !== null
-            || EventFormHost::stepFor($placement, $event->accountMode) === null
-        ) {
+        if ($event === null || !self::missing($definition, $placement, $event->accountMode)) {
             return null;
         }
 
         return [self::MISSING, SignUp::BLOCK];
+    }
+
+    /**
+     * The one rule: a form of that placement under that account mode needs the account block, and the definition
+     * has none. The save check asks it for the event's mode, the account-mode change for the proposed one.
+     */
+    public static function missing(FormDefinition $definition, FormPlacement $placement, AccountMode $mode): bool
+    {
+        return $definition->account === null && EventFormHost::stepFor($placement, $mode) !== null;
     }
 }

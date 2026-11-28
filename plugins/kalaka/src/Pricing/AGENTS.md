@@ -31,11 +31,16 @@ retention and the materializer
   `Ledger::chargeTotalsOf()` (a unit test checks it); a fee component gets its
   `FeeComponentInput` (facts, earlier-stage totals, the event's currency) and
   reads its own current settings, never lines.
-- Lines of components not registered now are never touched. A line of a
-  registered component that the composition no longer names (a withdrawal)
-  owes zero, so the materializer reverses it. A component that owes per item
-  writes one line per item (source key `<component>:<item>`, at most 64
-  characters).
+- A component may owe per item (`FeeTargets::ofItems()`): each item is
+  recorded and reversed on its own under the source key
+  `<component ID>:<item>` (item `[a-z0-9_]{1,40}`, at most 64 characters),
+  and an item the component no longer returns is reversed. A component ID
+  matches `[a-z][a-z0-9_]*` (no colon, which would be another component's
+  item).
+- Lines of components not registered now are never touched, and
+  `adjustment` lines never count as recorded. A line of a registered
+  component that the composition no longer names (a withdrawal) owes zero,
+  so the materializer reverses it.
 - The `manual` component composes only the Ledger's manual fee facts, one
   item per entry; nobody writes its `charge` lines but the materializer.
 - A fee component returns a value and writes nothing. Core composes the
@@ -44,6 +49,14 @@ retention and the materializer
   malformed payer or another currency than the event's is
   `FeeComponentFailed`, which fails the use case as the rule
   `money/<component id>`.
+- The components are core's fixed price, then those the modules contribute
+  (`Contributions::feeComponent()`, IDs unique), core's Extras among them. The fixed
+  price is the base only without a ladder: it composes last in the tier
+  stage and owes nothing once another tier-stage component owes something.
+- A module's settings reach a preview and an apply as
+  `Api\ProposedComponentSettings`: the preview composes its `component()` in
+  place of the registered one; the apply runs its `save()` use case before
+  re-evaluating anything.
 - Only a `registered` registration composes; every other status owes zero
   (retention is an empty step until S23).
 - The money phase runs first in the evaluation, before the decision rules,
@@ -85,7 +98,7 @@ retention and the materializer
   `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
   registration), written only by `kalaka/unconfirm`. Both use cases take the
-  per-event action `kalaka_confirm_manually` and a required reason. Setting a
+  per-event action `kalaka_confirm_manually` and an optional reason. Setting a
   set flag writes nothing; unconfirming a registration that is not confirmed
   writes nothing; unconfirming a confirmed one is a new act every time. A
   revoke keeps the flag's row with its revoke time. The flag is set on a

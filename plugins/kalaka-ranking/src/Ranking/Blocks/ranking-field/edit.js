@@ -86,8 +86,25 @@ function useSets(eventId) {
 	return sets;
 }
 
-/** The set picker: the event's sets by name; choosing one names it in the block's `set`. */
-export function SetPicker({ sets, value, setAttributes }) {
+/**
+ * The block's option conditions that still name an option of the chosen set: a set's own options are the only ones
+ * a condition can name, so switching or clearing the set drops the rest (the save check would refuse them).
+ */
+export function keptConditions(conditions, sets, chosen) {
+	if (conditions === null || typeof conditions !== 'object' || Array.isArray(conditions)) {
+		return undefined;
+	}
+	const set = sets.list.find((candidate) => candidate.id === chosen);
+	const keys = new Set((Array.isArray(set?.options) ? set.options : []).map((option) => option.value));
+	const kept = Object.fromEntries(Object.entries(conditions).filter(([key]) => keys.has(key)));
+	return Object.keys(kept).length > 0 ? kept : undefined;
+}
+
+/**
+ * The set picker: the event's sets by name; choosing one names it in the block's `set`, and keeps only the option
+ * conditions whose option the new set has.
+ */
+export function SetPicker({ sets, value, setAttributes, conditions }) {
 	let help = null;
 	if (sets.state === 'loading') {
 		help = TEXT.loading;
@@ -107,7 +124,10 @@ export function SetPicker({ sets, value, setAttributes }) {
 				...sets.list.map((set) => ({ label: set.name, value: String(set.id) })),
 			],
 			// Clearing the choice keeps the set mode, with no set chosen yet.
-			onChange: (chosen) => setAttributes({ set: chosen === '' ? 0 : Number(chosen) }),
+			onChange: (chosen) => {
+				const set = chosen === '' ? 0 : Number(chosen);
+				setAttributes({ set, optionConditions: keptConditions(conditions, sets, set) });
+			},
 			help,
 			__next40pxDefaultSize: true,
 			__nextHasNoMarginBottom: true,
@@ -144,7 +164,7 @@ export function Source({ sets, attributes, setAttributes, commit }) {
 			})
 		),
 		bySet
-			? el(SetPicker, { sets, value: attributes.set, setAttributes })
+			? el(SetPicker, { sets, value: attributes.set, setAttributes, conditions: attributes.optionConditions })
 			: el(Options, { options, setAttributes, commit })
 	);
 }

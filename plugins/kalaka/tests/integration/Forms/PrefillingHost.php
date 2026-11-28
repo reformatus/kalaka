@@ -19,14 +19,14 @@ final class PrefillingHost implements FormHost
     {
     }
 
-    public function factTypes(): array
+    public function factTypes(Form $form): array
     {
-        return $this->inner->factTypes();
+        return $this->inner->factTypes($form);
     }
 
-    public function facts(Form $form): ?ValueContext
+    public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
-        return $this->inner->facts($form);
+        return $this->inner->facts($form, $now);
     }
 
     public function refusals(Form $form, \DateTimeImmutable $now, array $roles, bool $passwordGiven): array

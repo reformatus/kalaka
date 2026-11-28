@@ -6,6 +6,7 @@ namespace Kalaka\Assignments\Api;
 
 use Kalaka\Assignments\AssignmentRepository;
 use Kalaka\Assignments\OptionRecord;
+use Kalaka\Assignments\OptionSeatPool;
 use Kalaka\Assignments\OptionRepository;
 use Kalaka\Assignments\PlacementWarnings;
 use Kalaka\Assignments\SaveAssignmentOption;
@@ -13,10 +14,10 @@ use Kalaka\Assignments\SaveAssignmentSet;
 use Kalaka\Assignments\SetRecord;
 use Kalaka\Assignments\SetRepository;
 use Kalaka\Assignments\TieRequestField;
-use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\SeatPool;
 
 /**
  * What other modules and extensions may do with assignment sets (modules-and-extensions.md, "Assignment
@@ -25,6 +26,9 @@ use Kalaka\Registrations\Api\RegistrationKey;
  */
 final class AssignmentSets
 {
+    /** The approved "full" warning of a staff placing, for a caller outside Assignments (the staff field edit). */
+    public const FULL_WARNING = PlacementWarnings::FULL;
+
     public function __construct(
         private readonly ?Runner $runner = null,
         private readonly SetRepository $sets = new SetRepository(),
@@ -63,9 +67,23 @@ final class AssignmentSets
     }
 
     /**
-     * What staff are told before placing the registration into the option by hand: the option is full, or the
-     * registration does not meet its condition (`Assignments\PlacementWarnings`). Placing never refuses for
-     * either; a plain read for a screen or the command to ask first.
+     * The seat pool of an option (`option.<set ID>.<option key>`), for `Registrations\Api\Seats::left()`, such as
+     * the form-condition variable `seats_left.<field key>.<option value>` (the set's request field key). A plain
+     * read; null when the set or its option is not there.
+     */
+    public function seatPool(int $setId, string $optionKey): ?SeatPool
+    {
+        $set = $this->sets->find($setId);
+
+        return $set === null || $this->options->find(['setId' => $setId, 'key' => $optionKey]) === null
+            ? null
+            : new OptionSeatPool($set->eventId, $setId, $optionKey);
+    }
+
+    /**
+     * What staff are told before placing the registration into the option by hand: the option is full
+     * (`Assignments\PlacementWarnings`). Placing never refuses for it; a plain read for a screen or the command
+     * to ask first.
      *
      * @return list<string> the warnings' texts, none when there is nothing to warn about
      */
@@ -88,8 +106,6 @@ final class AssignmentSets
 
     /**
      * Adds or updates an option of a set (`kalaka/save-assignment-option`); the input is passed on as given.
-     * Where the published forms of the set's event hold its request field is read first and passed in, so the
-     * use case refuses a condition that would break one (`LiveFormWouldBreak`).
      *
      * @param array<string, mixed> $input
      * @return string the option's key
@@ -97,11 +113,7 @@ final class AssignmentSets
      */
     public function saveOption(array $input, Actor $actor): string
     {
-        // The live forms are read before the run: a use case reads no WordPress post in its transaction.
-        $set = is_int($input['set_id'] ?? null) ? $this->sets->find($input['set_id']) : null;
-        $liveForms = $set === null ? [] : (new Forms())->requestScopes($set->eventId, $set->id);
-
-        return (string) $this->runner()->run(new SaveAssignmentOption($liveForms), $input, $actor);
+        return (string) $this->runner()->run(new SaveAssignmentOption(), $input, $actor);
     }
 
     /**

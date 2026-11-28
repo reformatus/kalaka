@@ -1,20 +1,19 @@
 /**
  * The „Jelentkezők” page (S37): the view tabs, one toolbar row with DataViews' own search and filter button, the
  * filters (the view's own condition as DataViews' locked chip, then the viewer's chips with DataViews' own
- * add-filter and reset), one reset of the sort and the counting, and „Táblázat másolása"; then DataViews
+ * add-filter), our one „Visszaállítás” (search, filters, sort and counting) and „Táblázat másolása"; then DataViews
  * (compact) with the sum row in its header. Every column has a filter in its header menu; the sums and the
  * copy follow the filters and the search. Kód carries the default order and the reset returns to it. The title
- * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). Every sum cell's
- * arrow opens its column's menu, with the counting choices where the column counts (G10); the counting is the
- * viewer's own for the session, full access included, and is never saved (B1, round 3).
+ * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). A countable sum
+ * cell's number opens its counting menu (owner, 2026-11-27); the counting is the viewer's own for the session,
+ * full access included, and is never saved (B1, round 3).
  *
  * S38: a row opens the detail panel (`DetailPanel`) over the grid, from the button in its first identifying cell
  * or a click on the row. The panel is not modal: another row switches it, and the grid's filters, search, sort,
- * page and scroll stay. × or Esc closes it and focus returns to the row. [UNAPPROVED N1] [UNAPPROVED N3]
+ * page and scroll stay. × or Esc closes it and focus returns to the row.
  */
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, SelectControl, SnackbarList, Tooltip } from '@wordpress/components';
-import { update } from '@wordpress/icons';
 import { DataViews } from '@wordpress/dataviews/wp';
 import { cellText, fmt, plainText, tableHtml } from './format';
 import Cell from './Cell';
@@ -85,7 +84,7 @@ export default function Page( { config } ) {
 	}
 	const [ , setPickTick ] = useState( 0 );
 	const [ sumsFail, setSumsFail ] = useState( false );
-	// The code of the registration in the panel, or null. [UNAPPROVED N3]
+	// The code of the registration in the panel, or null.
 	const [ open, setOpen ] = useState( null );
 	const openRef = useRef( null );
 	openRef.current = open;
@@ -127,16 +126,24 @@ export default function Page( { config } ) {
 		window.history.replaceState( null, '', tabUrl( id ) );
 	};
 
-	// The reset of the sort and the counting: Kód ascending again, the stored counting again. It leaves the
-	// search and the filters alone; DataViews' own search clear, filter chips and Reset are theirs. [UNAPPROVED N7]
-	const resetOrder = () => {
-		setView( { ...v, sort: defaultSort( tab ), page: 1 } );
+	// The one reset: the search, the added filters (the locked condition stays), the sort (back to the default
+	// order) and the viewer's own counting, and back to page 1. DataViews' own „Visszaállítás” clears only the
+	// search and the filters, so it is hidden (grid.css) and this button, labelled the same, takes its place.
+	// [UNAPPROVED N7]
+	const resetAll = () => {
+		setView( {
+			...v,
+			search: '',
+			filters: lockedFilters( tab.condition ),
+			sort: defaultSort( tab ),
+			page: 1,
+		} );
 		picks.current.reset();
 		setPickTick( ( n ) => n + 1 );
 	};
 
 	// S38: the rows open the detail panel. The button sits in the first identifying cell: Kód, else the first
-	// column that is not the Sorszám (the name, when the view lists it, comes right after Kód). [UNAPPROVED N3]
+	// column that is not the Sorszám (the name, when the view lists it, comes right after Kód).
 	const opener = (
 		tab.columns.find( ( c ) => c.type === 'code' ) ||
 		tab.columns.find( ( c ) => c.type !== 'serial' ) ||
@@ -167,7 +174,7 @@ export default function Page( { config } ) {
 				return;
 			}
 			// Esc belongs to the control that has focus (a column menu, the search box); the panel takes it only
-			// from inside itself, from a row button, or when nothing has focus. [UNAPPROVED N3]
+			// from inside itself, from a row button, or when nothing has focus.
 			const active = document.activeElement;
 			if ( active && active !== document.body && ! active.closest( '.kg-panel' ) && ! active.classList.contains( 'kg-open' ) ) {
 				return;
@@ -179,7 +186,7 @@ export default function Page( { config } ) {
 		document.addEventListener( 'keydown', onKey, true );
 		return () => document.removeEventListener( 'keydown', onKey, true );
 	}, [] );
-	// The open row is marked, and every row with a button is clickable. The look is mine. [UNAPPROVED N2]
+	// The open row is marked, and every row with a button is clickable. The look is mine.
 	useLayoutEffect( () => {
 		if ( ! host ) {
 			return;
@@ -202,7 +209,7 @@ export default function Page( { config } ) {
 		}
 	};
 	// After an entry is saved the grid quietly re-reads its page and sums (no loading state, scroll kept); an
-	// answer for a query that is no longer the one on screen is dropped. [UNAPPROVED N21]
+	// answer for a query that is no longer the one on screen is dropped.
 	const queryKey = JSON.stringify( [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
 	const queryRef = useRef( queryKey );
 	queryRef.current = queryKey;
@@ -411,21 +418,25 @@ export default function Page( { config } ) {
 		/>
 	);
 
-	const menuFor = ( column ) => (
+	const menuFor = ( column, shown ) => (
 		<ColumnMenu
 			column={ column }
-			view={ v }
-			onSort={ ( sorted ) => setView( { ...v, sort: sorted, page: 1 } ) }
+			shown={ shown }
 			chosen={ picks.current.chosen( column.column, chosenFor( column ) ) }
 			onToggle={ pick }
 		/>
 	);
 
-	// A grant holder's counting is theirs too, and so is a full-access user's: the reset is enabled while only
-	// the sort or the counting differs from the view's default.
+	// A grant holder's counting is theirs too, and so is a full-access user's: the reset is shown while any of the
+	// search, the added filters (the locked condition is the view's own), the sort or the counting differs from a
+	// freshly opened view, and not shown otherwise.
 	const defaultView = defaultSort( tab );
 	const sortDiffers = JSON.stringify( v.sort || null ) !== JSON.stringify( defaultView || null );
-	const orderDiffers = sortDiffers || countsDiffer( tab.columns, tab.counts || {}, picks.current.all() );
+	const canReset =
+		!! v.search ||
+		( v.filters || [] ).some( ( f ) => ! f.isLocked ) ||
+		sortDiffers ||
+		countsDiffer( tab.columns, tab.counts || {}, picks.current.all() );
 	let empty;
 	if ( loadError ) {
 		empty = (
@@ -506,15 +517,11 @@ export default function Page( { config } ) {
 						{ /* DataViews' own add-filter: the funnel opens its menu while no filter is shown. [UNAPPROVED N63] */ }
 						<DataViews.FiltersToggle />
 						<DataViews.FiltersToggled className="kg-filters" />
-						<Button
-							variant="secondary"
-							size="compact"
-							icon={ update }
-							label={ GRID.reload }
-							onClick={ resetOrder }
-							disabled={ ! orderDiffers }
-							accessibleWhenDisabled
-						/>
+						{ canReset && (
+							<Button variant="tertiary" size="compact" onClick={ resetAll }>
+								{ GRID.reset }
+							</Button>
+						) }
 						<span className="kg-spacer" />
 						<div className="kg-bulkbar-actions">
 							{ narrowed ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }
