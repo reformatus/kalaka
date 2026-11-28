@@ -15,6 +15,7 @@ use Kalaka\Portal\Api\MovementRow;
 use Kalaka\Portal\Api\ParticipantMoney;
 use Kalaka\Portal\Api\RegistrationStatusView;
 use Kalaka\Portal\Api\WithdrawOffer;
+use Kalaka\Portal\Api\Withdrawal;
 use Kalaka\Portal\Rest\CardPaymentRoute;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
