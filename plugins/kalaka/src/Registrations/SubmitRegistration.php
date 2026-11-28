@@ -68,6 +68,10 @@ final class SubmitRegistration implements PublicUseCase
      *     stored value's key must be a participant field of the event with that type
      * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
      * @param AccountOutcome|null $account the owner account; null for none
+     * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
+     *     until the token's repeat rule has been applied under the lock, then thrown
+     * @param string|null $fingerprint of the answers as sent (`fingerprint()`); null (not given) never matches an
+     *     earlier submit's, so a repeat is refused
      * @param list<SeatClaim> $seatClaims the limited choices of the answers, each a pool whose seat a
      *     `registered` submit takes (a waitlisted one may claim no limited pool)
      */
@@ -89,6 +93,8 @@ final class SubmitRegistration implements PublicUseCase
         private readonly Seats $seats = new Seats(),
         private readonly ActionMails $mails = new ActionMails(),
         private readonly ?AccountOutcome $account = null,
+        private readonly ?\Throwable $walkFailure = null,
+        private readonly ?string $fingerprint = null,
         private readonly ?string $draftClaimHash = null,
         private readonly DraftRepository $drafts = new DraftRepository(),
         private readonly array $seatClaims = [],
@@ -132,12 +138,16 @@ final class SubmitRegistration implements PublicUseCase
 
         $event = $this->capacity->lockForRegistration($context, $eventId);
 
-        $fingerprint = self::fingerprint($this->form->id, $this->answers->stored());
+        $fingerprint = $this->fingerprint;
         $earlier = $this->submissions->withToken($eventId, $token);
         if ($earlier !== null) {
             // N6: a repeat must carry the same answers; its answer names the registration to nothing but the
             // after-submit content (N13).
-            if ($earlier->answersHash === null || !hash_equals($earlier->answersHash, $fingerprint)) {
+            if (
+                $fingerprint === null
+                || $earlier->answersHash === null
+                || !hash_equals($earlier->answersHash, $fingerprint)
+            ) {
                 $error = new SubmitTokenReused();
                 throw $error;
             }
@@ -156,6 +166,10 @@ final class SubmitRegistration implements PublicUseCase
             $error = new VersionConflict();
             throw $error;
         }
+        // The answers' walk failed before the transaction: said now, after the repeat rule had its say.
+        if ($this->walkFailure !== null) {
+            throw $this->walkFailure;
+        }
 
         $refusals = $this->forms->refusals(
             $this->form,
@@ -170,7 +184,7 @@ final class SubmitRegistration implements PublicUseCase
             throw new FormRefused($refusals);
         }
 
-        $values = $this->declaredValues();
+        $values = self::declared($this->answers->stored(), $this->fieldTypes, $this->participantFields);
 
         if ($event->capacity === null) {
             $error = new SystemFailure(null, new \LogicException('A published event without a capacity.'));
@@ -312,18 +326,24 @@ final class SubmitRegistration implements PublicUseCase
      * means the form and the event's list disagree (a declaration that has not caught up): a
      * `SystemFailure`, never a partial write.
      *
+     * The additional form's submit (`SubmitAdditionalForm`) checks its answers the same way.
+     *
+     * @param array<string, string> $stored field key → the value to store
+     * @param array<string, string> $fieldTypes field key → the field block's name, of the form's definition
+     * @param list<ParticipantField> $participantFields
      * @return array<string, string> field key → the value to store
      * @throws SystemFailure
      */
-    private function declaredValues(): array
+    public static function declared(array $stored, array $fieldTypes, array $participantFields): array
     {
         $declared = [];
-        foreach ($this->participantFields as $field) {
+        foreach ($participantFields as $field) {
             $declared[$field->key] = $field;
         }
-        foreach (array_keys($this->answers->stored()) as $fieldKey) {
+        foreach (array_keys($stored) as $fieldKey) {
+            $fieldKey = (string) $fieldKey;
             $field = $declared[$fieldKey] ?? null;
-            $type = $this->fieldTypes[$fieldKey] ?? null;
+            $type = $fieldTypes[$fieldKey] ?? null;
             if ($field === null || ($type !== null && $field->type !== $type)) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
                 throw new SystemFailure('undeclared_field_key ' . $fieldKey);
@@ -335,18 +355,20 @@ final class SubmitRegistration implements PublicUseCase
             }
         }
 
-        return $this->answers->stored();
+        return $stored;
     }
 
     /**
-     * The fingerprint of a submit's answers (N6): SHA-256 of the form ID and the stored answers, sorted by
-     * key, as JSON. Two submits with the same answers have the same fingerprint whatever their order.
+     * The fingerprint of a submit's answers (N6): SHA-256 of the form ID and the answers as sent, sorted by
+     * key, as JSON. Two submits with the same answers have the same fingerprint whatever their order. It is
+     * over what was sent, not what the walk kept, so a resend is a repeat even when a value the form's
+     * conditions read (the places left) has changed since and the walk keeps other answers now (CF2).
      *
-     * @param array<string, string> $stored
+     * @param array<array-key, mixed> $sent
      */
-    public static function fingerprint(int $formId, array $stored): string
+    public static function fingerprint(int $formId, array $sent): string
     {
-        ksort($stored, SORT_STRING);
+        $stored = self::sorted($sent);
         try {
             $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR;
             // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- wp_json_encode() would repair invalid UTF-8
@@ -357,5 +379,18 @@ final class SubmitRegistration implements PublicUseCase
         }
 
         return hash('sha256', $json);
+    }
+
+    /**
+     * @param array<array-key, mixed> $value
+     * @return array<array-key, mixed>
+     */
+    private static function sorted(array $value): array
+    {
+        if (!array_is_list($value)) {
+            ksort($value, SORT_STRING);
+        }
+
+        return array_map(static fn (mixed $item): mixed => is_array($item) ? self::sorted($item) : $item, $value);
     }
 }

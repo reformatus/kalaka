@@ -680,7 +680,15 @@ final class DraftsTest extends FormsTestCase
         $token = $this->handOver(['note' => 'a kvízből']);
 
         (new RegistrationSubmit($this->runner))->submit(
-            new SubmitRequest($this->form, $this->version(), self::ANSWERS, SubmitToken::generate(), [], false, $token),
+            new SubmitRequest(
+                $this->form,
+                $this->version(),
+                self::ANSWERS,
+                SubmitToken::generate(),
+                [],
+                false,
+                draftClaim: $token
+            ),
             $anna
         );
 
@@ -694,7 +702,15 @@ final class DraftsTest extends FormsTestCase
         $token = $this->handOver(['note' => 'a kvízből']);
 
         (new RegistrationSubmit($this->runner))->submit(
-            new SubmitRequest($this->form, $this->version(), self::ANSWERS, SubmitToken::generate(), [], false, $token),
+            new SubmitRequest(
+                $this->form,
+                $this->version(),
+                self::ANSWERS,
+                SubmitToken::generate(),
+                [],
+                false,
+                draftClaim: $token
+            ),
             new GuestActor()
         );
 

@@ -22,9 +22,9 @@ final class HttpResponse implements Response
         FormCaching::preventCaching();
     }
 
-    public function redirect(string $url): void
+    public function redirect(string $url, int $status = 302): void
     {
-        wp_safe_redirect($url, 302);
+        wp_safe_redirect($url, $status);
         exit;
     }
 }

@@ -23,6 +23,7 @@ use Kalaka\Forms\Engine\ThemeAdapters;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Portal\Api\ActiveRegistration;
 
 defined('ABSPATH') || exit;
 
@@ -42,7 +43,13 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
             FormPageView::NOT_STARTED => 'A jelentkezés még nem kezdődött el.',
             FormPageView::CLOSED => 'A jelentkezés lezárult.',
             FormPageView::ROLE_REQUIRED => 'Az űrlap kitöltéséhez jelentkezz be egy megfelelő jogosultságú fiókkal.',
+            FormPageView::NO_ACTIVE_REGISTRATION =>
+                'Az űrlap kitöltéséhez nyisd meg a jelentkezés után kapott e-mailben lévő linket.',
         ];
+        // A link that did not match says so, as the status block does, instead of asking for the link.
+        if ($kalakaView->refusal === FormPageView::NO_ACTIVE_REGISTRATION && ActiveRegistration::followsBadLink()) {
+            $kalakaTexts[FormPageView::NO_ACTIVE_REGISTRATION] = ActiveRegistration::BAD_LINK_TEXT;
+        }
         echo '<p>' . esc_html($kalakaTexts[$kalakaView->refusal] ?? $kalakaTexts[FormPageView::UNAVAILABLE]) . '</p>';
         if ($kalakaView->loginUrl !== '') {
             // T8's approved link text: the role refusal of someone not logged in, who may hold the role.

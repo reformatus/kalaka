@@ -11,8 +11,10 @@ values and conditions, prefill and form links
   [Fields](../../../../docs/architecture/events-and-forms.md#fields),
   [Values and conditions](../../../../docs/architecture/events-and-forms.md#values-and-conditions)
   with [Conditions](../../../../docs/architecture/events-and-forms.md#conditions);
-  later [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit),
-  [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link) and
+  the additional forms and the prefill from the active registration of
+  [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit)
+  and [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link);
+  later the link prefill and
   [Form links and admin submissions](../../../../docs/architecture/events-and-forms.md#form-links-and-admin-submissions).
 - modules-and-extensions.md: the field-type and theme-adapter points of
   [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface).
@@ -48,14 +50,20 @@ values and conditions, prefill and form links
   forms. A block that arrives without its key takes back its stored key
   (same type and title) before anything is derived. A choice field's options are
   the union over the event's forms; one no form holds is retired, its label
-  kept.
+  kept. An `extension` field's options are its declarer's: a form joining it
+  offers any subset of them and never adds one (`extension_option`); a number
+  field that joins an `extension` field whose declarer fixed its decimals (an
+  extra charge's) holds that many (`extension_decimals`).
 - A participant field's title and its choice options' labels are its own,
   separate from the labels the forms show: each is set when it is first
   declared (an option is matched by value), never from a later form's label,
   and changed only by `ParticipantFields::rename()` (a `form` or `staff` field; a
   `system` or `extension` field's texts are its declarer's). Mails, views
   and the status page show the participant field's labels; a form shows its
-  own.
+  own, and the participant field's only where it leaves one empty (a field
+  block's `label`, a choice option's `label` by value): the engine fills them
+  from the host (`FormHost::labelFallbacks()`, `Engine\LabelFallback`), so the
+  page, the definition and the answers' texts read the same.
 - A form's event is set when it is created and fixed once the form has
   fields or submissions refer to it (`Registrations\Api\FormSubmissions`),
   on every path that writes the setting, with one known gap: code that sets
@@ -71,7 +79,8 @@ values and conditions, prefill and form links
   refuse (REST 400, else a graceful veto with an admin notice, a log line
   and, on WP-CLI, a warning and a failing exit), and
   `ParticipantFieldSync`, after the post and its settings are stored, writes
-  the participant fields through `ParticipantFields::declare()`; besides it
+  the participant fields through `ParticipantFields::declare()`, each field with `money_relevant` from its block
+  type (`MoneyRelevantFieldType`); besides it
   only the rename route (an explicit request) does, through
   `ParticipantFields::rename()`.
 - The form editor derives a key unique across the form's event: against the
@@ -141,12 +150,30 @@ values and conditions, prefill and form links
   names another module's post type; that module contributes the host. The
   condition blocks are not gated: every block editor offers them.
 - Every form in the registration slot has exactly one contact email and one
-  display name; additional forms have neither.
-- Access checks are pure: they read no current user, cookie or request; the
-  caller passes the roles, whether the password was given and whether someone
-  is logged in. The engine's `FormHost::refusals()` contract leaves the last
-  to the host: `EventFormHost::refusals()` passes `is_user_logged_in()`, and
-  a submit passes whether its actor is an account.
+  display name; additional forms have neither. A registration form also holds every participant field an
+  extension requires of its event (`Api\SlotRequirement`, asked through `FormHost::slotRequiredKeys()`: the
+  price ladder's `price_tier`), required and outside any branch or conditional page
+  (`SlotRules::requiredFieldProblem()`, `required_field_missing`). Like the account block it is event-dependent, so
+  it is checked when a form is served (`FormEngine::definition()` with `$serving`) and when it is saved live
+  (`DefinitionCheck`), never on an earlier version.
+- An additional form writes only to the active registration
+  (`Portal\Api\ActiveRegistration`) of its own event, while that registration
+  is `registered` or `waitlisted` and the form is within its open period
+  (`OpenPeriod`: each end a date reference in `kalaka_opens` / `kalaka_closes`,
+  a fixed UTC instant or an event point; an end not set does not limit it,
+  one that does not resolve closes the form). Its submit runs as that
+  registration's `SecretLinkActor`; it never creates a registration.
+- A form opens with its host's stored values (`FormHost::prefill()`; for an
+  additional form the registration's current field values), each turned into
+  its field's answer by `FieldType::prefill()` (null opens it empty: a type
+  that refuses prefill). The page is walked and rendered for those answers;
+  each field block renders its own (`FieldMarkup::prefilled()`).
+- Access checks read the request's active registration (an additional form
+  acts on it) and nothing else from the request besides the logged-in user:
+  no other cookie or request state. The caller passes the roles and whether
+  the password was given; the engine's `FormHost::refusals()` contract leaves
+  the logged-in user to the host: `EventFormHost::refusals()` passes
+  `is_user_logged_in()`, and a submit passes whether its actor is an account.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
   transaction, never inside it. The exceptions are `Forms::refusals()`,
   which reads nothing: a submit checks it under the event's lock; and
@@ -170,7 +197,7 @@ values and conditions, prefill and form links
   submissions and field values.
 - One availability base (S76): everything shown or selectable (fields,
   branches, pages, choice options, the options a request field takes from a
-  set, tiers, offers, aid) is decided by one condition through
+  set, offers, aid) is decided by one condition through
   `Engine\Condition\ConditionEvaluator`, reached for a form's elements through
   `FormWalk`. Set options carry no condition of their own: the ranking block
   that names the set holds one per option. No second evaluator anywhere, and JavaScript never evaluates a
@@ -191,9 +218,28 @@ values and conditions, prefill and form links
   source without it fails loudly; nobody catches that failure into a pass.
 - A form is walked the same way for a draft's re-render and at submit
   (`FormWalk`). In a form, a condition reads only answers of fields before it
-  and the event's keys (`Api\EventValues`). At submit, an answer in a branch
+  and the host's keys (`FormHost::factTypes()`: the event's, `Api\EventValues`,
+  and an additional form's stored values). At submit, an answer in a branch
   that does not hold, or an option that is not offered, is dropped: never
   stored, never required, never an error.
+- The keys only a form's conditions read (`event.seats_left`,
+  `event.points.<id>`) are `EventValues::volatile()`,
+  never in `EventValues::of()`, which mails, the after-submit section and
+  `RegistrationFacts` also read. An additional form also reads
+  `registration.status` and, by key, the stored values of the event's
+  participant fields it does not hold (a field the form holds is read from its
+  answers: `DefinitionParser` drops its key from the host's list, and
+  `FormScope` prefers the form's own field). `EventFormHost::typesOf()` and
+  `factsFor()` are the one pair that declares and values them, for the page,
+  the re-fetch and the submit's walk (`Forms::submitFacts()`) alike, and the
+  editor lists the same keys (`Module::editorData()`). A branch that reads any
+  of them is withheld. The submit's walk reads them as they are then.
+- A key a revision's conditions read that the host says is gone (`FormHost::goneTypes()`: a custom point staff
+  removed, and `choice_open.<field key>`, the dropped set choice window of an older revision, owner ruling
+  2026-11-25) is declared as its type with value none when a definition is read, for every revision, so a removed
+  point or key never closes a form or an older revision; the save check refuses a point (`unknown_point`) and
+  a `choice_open.*` key (as any unknown key). Only conditions
+  count: text that mentions a key declares nothing (`Engine\Condition\ConditionKeys`).
 - A form's chains are numbered once, by `Engine\Condition\ChainMarks`, on the parsed
   blocks: `DefinitionParser` reads the numbers from those marks and the branch
   blocks render them (`data-kalaka-chain`, `data-kalaka-branch`), so nothing
@@ -315,10 +361,11 @@ values and conditions, prefill and form links
   creates their guest draft and sets its cookie on the first answer, counted
   through `SubmitGuard::checkHandoff()` only when it creates one; `DraftHandoff` counts each
   handoff request through `SubmitGuard::checkHandoff()`, the submit's budget),
-  the options and window of the set a request field names, the submit token
-  and the submit, the after-submit section's keys, and whether the form needs
-  an account (`accountStep()`). Kaláka's event form, `EventFormHost`, is the
-  first host; `Api\Forms` and the form page's wiring (`Module.php`,
+  the options of the set a request field names, the submit token and the
+  submit, the after-submit section's keys, the participant fields' texts for
+  a label the form leaves empty (`labelFallbacks()`), and whether the form
+  needs an account (`accountStep()`). Kaláka's event form, `EventFormHost`, is
+  the first host; `Api\Forms` and the form page's wiring (`Module.php`,
   `Blocks/form/render.php`) hand it to the engine.
 - A request field (`Api\RequestFieldType`, e.g. the module ranking; S44)
   that names an assignment set holds no options of its own: the definition
@@ -329,10 +376,9 @@ values and conditions, prefill and form links
   `optionConditions` that is no option of the set is refused when the form is
   saved (`unknown_option`) and ignored when the definition is read, so a
   removed option never closes the form. `FormEngine::blocks()`
-  renders it with those attributes. Outside the set's choice window, decided
-  when the definition is built from the runner's clock, it is closed: it does
-  not show, renders nothing and whatever is sent for it is dropped; the walk
-  and the evaluator stay pure. A block of such a type that names no set
+  renders it with those attributes. A set has no choice window (owner ruling
+  2026-11-25): the form's own open period and conditions decide when the
+  field can be answered. A block of such a type that names no set
   (`requestSet()` null) keeps its own options and is no request field: the
   block's set attribute decides, and the type is then also an
   `OptionsFieldType`, whose checks apply only to a block that names no set.

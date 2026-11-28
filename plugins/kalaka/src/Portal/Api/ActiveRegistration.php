@@ -14,6 +14,9 @@ use Kalaka\Registrations\Api\RegistrationKey;
  */
 final class ActiveRegistration
 {
+    /** What a page says when this request follows a secret link that did not match. */
+    public const BAD_LINK_TEXT = 'Ez a link nem érvényes. Nyisd meg a legutóbb kapott e-mailben lévő linket.';
+
     /** The active registration's key, or null when there is none. */
     public static function current(): ?RegistrationKey
     {

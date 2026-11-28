@@ -13,7 +13,8 @@ namespace Kalaka\ParticipantFields\Api;
  * title's inline HTML), `source` one of `form`, `staff`, `extension` and
  * `system`, `formWritable` whether a form may hold its key, and `forms` the forms of the event that hold it
  * now (trashed ones not): `ParticipantFields::of()` names none, `Forms::participantFields()` adds them
- * (`withForms()`).
+ * (`withForms()`). `moneyRelevant` is whether its value is locked after the first write (declared by an extension
+ * for its field, or by the block type for a form field).
  */
 final readonly class ParticipantField
 {
@@ -39,6 +40,7 @@ final readonly class ParticipantField
         public bool $formWritable = true,
         public array $forms = [],
         public array $settings = [],
+        public bool $moneyRelevant = false,
     ) {
     }
 
@@ -60,6 +62,7 @@ final readonly class ParticipantField
             $this->formWritable,
             $forms,
             $this->settings,
+            $this->moneyRelevant,
         );
     }
 

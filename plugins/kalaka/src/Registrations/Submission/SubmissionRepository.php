@@ -26,6 +26,17 @@ final class SubmissionRepository extends AppendOnlyRepository
         return $this->findWhere('event_id = %d AND submit_token = %s', [$eventId, $token])[0] ?? null;
     }
 
+    /** The number of the registration's latest submission, 0 when it has none; a plain read. */
+    public function lastNumber(RegistrationKey $registration): int
+    {
+        $numbers = array_map(
+            static fn (Submission $submission): int => $submission->number,
+            $this->findWhere('event_id = %d AND code = %s', [$registration->eventId, $registration->code])
+        );
+
+        return $numbers === [] ? 0 : max($numbers);
+    }
+
     protected function table(): string
     {
         return 'kalaka_submissions';

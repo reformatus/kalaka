@@ -27,6 +27,11 @@ final class PrefillingHost implements FormHost
         return $this->inner->factTypes($form);
     }
 
+    public function goneTypes(Form $form, array $keys): array
+    {
+        return $this->inner->goneTypes($form, $keys);
+    }
+
     public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
         return $this->inner->facts($form, $now);
@@ -103,5 +108,15 @@ final class PrefillingHost implements FormHost
     public function accountStep(Form $form): ?AccountStep
     {
         return $this->inner->accountStep($form);
+    }
+
+    public function slotRequiredKeys(Form $form): array
+    {
+        return $this->inner->slotRequiredKeys($form);
+    }
+
+    public function labelFallbacks(Form $form): array
+    {
+        return $this->inner->labelFallbacks($form);
     }
 }

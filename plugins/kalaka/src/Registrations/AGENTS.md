@@ -71,6 +71,24 @@ the waitlist and reference codes
   run, the submit queues the action mail of the resulting status
   (`registered` or `waitlisted`) through `Mail\Api\ActionMails::due()`, with
   the registration as the cause; a repeat queues nothing.
+- An additional form's submit is `kalaka-portal/submit-additional-form`
+  (`SubmitAdditionalForm`, reached through `Api\RegistrationSubmit` with the
+  target registration): the same checks before the transaction and the same
+  repeat rule, the event row first, then the form's requirements (its open
+  period among them) and the registration row `FOR UPDATE`, which must be
+  `registered` or `waitlisted`. It appends a submission with the next number
+  and writes only the fields that showed: an answer replaces the value, a
+  shown field left blank deletes a value the form showed (one its type
+  prefills), and a money-relevant field's value is never changed once
+  written. It never writes the registration row, its status or
+  `registered_at`, and never changes capacity or the latch (its walk reads
+  `event.seats_left` unlocked, before the transaction). The
+  registration's status and field values are read once per attempt before the
+  transaction, for the walk's conditions, and read again under the registration
+  lock: if either differs, the use case throws `VersionConflict` and the walk is
+  run again.
+- An additional form's submit sends no action mail; the page shows the
+  form's after-submit text.
 - The submit token is a secret: masked in the audit, never in a log. It is
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.
@@ -79,7 +97,9 @@ the waitlist and reference codes
   it last became `registered` (`registered_at`, null while it is not), which
   every time-dependent rule counts from, never the submit. It
   holds values only; field values join in S25, over #181's participant-field
-  read.
+  read. A caller may add computed values under dotted keys the source does
+  not have (`withComputed()`, e.g. the fee composer's `price_tier.applied`);
+  they are never stored.
 - The owner account (`owner_user_id`, a WordPress user ID) is set once, by
   the submit of a logged-in person, and nothing changes or clears it. In
   the event's account mode `off` a submit records no owner; in `mandatory`
@@ -199,9 +219,13 @@ the waitlist and reference codes
 - Removing a chosen item (a tier, an option, an offer) is refused through one call,
   `Registrations::refuseRemovingChosen()`, which throws `Api\ItemChosen` (`kalaka_item_chosen`); a module's own
   removal guard calls it and does not throw its own refusal.
+- A live registration is a registered one (owner 2026-11-27): code that means live calls `RegistrationStatus::isLive()`
+  (SQL: `RegistrationTables::isLive()`), never compares with `Registered`. Waitlisted, withdrawn and removed are
+  not live ("active registration" stays the registrant's access). Code that means the status itself (a
+  transition's target, `registered_at`, the sorszám's groups) names it.
 - `RegistrationStatus::showsDetails()` (true unless waitlisted) is the one read of what a waitlisted registrant
   sees (the registrant's page shows only that they are waitlisted: owner ruling 2026-11-25). It is not an action
-  gate: additional forms and payments stay on `=== Registered`.
+  gate: additional forms and payments stay on `isLive()`.
 - A staff correction of a field value (`Api\FieldCorrections`, used by Admin's `EditFieldValue`) writes the value
   only through `FieldValueRepository` and moves seats only through the claim sources: the seats the old value
   claimed and the new one does not are freed, the others taken, never through per-field code. The pools to take are

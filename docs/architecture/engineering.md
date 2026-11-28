@@ -89,8 +89,9 @@ title: Engineering
 ## WordPress surfaces
 
 - **REST follows WordPress core conventions** (paging, search, sorting,
-  totals, schemas), so the admin screens use WordPress's own data layer and
-  admin components (DataViews, DataForm) over core-data entities.
+  totals, schemas). The admin screens use WordPress's admin components
+  (DataViews, DataForm); admin tables read our own REST routes, which follow
+  core's paging conventions, without core-data entities.
 - **A page that changes majorly is rendered in PHP:** the server renders
   the page, and only its dynamic parts re-render in the browser (on a save,
   for example). Existing pages are not reworked for this before launch.

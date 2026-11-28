@@ -62,8 +62,10 @@ final class FormEngine
      * A form being served to a visitor (`$serving`: the page, the re-fetch, the submit and the broken-form
      * scan) whose host gives an account step (`FormHost::accountStep()`, the event's current mode) must also
      * hold the account block, so an event switched to accounts closes its published forms that lack it, like
-     * any other broken form. A stored submission's definition (a mail's recipient and context) is read
-     * without it: a mode change never costs an existing registration its mail.
+     * any other broken form. So does an extension's requirement of the registration form's fields
+     * (`FormHost::slotRequiredKeys()`: an event with a price ladder needs `price_tier`). A stored submission's
+     * definition (a mail's recipient and context) is read without either: a mode or ladder change never costs
+     * an existing registration its mail.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
@@ -71,7 +73,13 @@ final class FormEngine
     {
         $version ??= $form->version;
         $content = $this->posts->content($form, $version);
-        $definition = $this->parser->parse($form, $version, $content, Contributions::current(), $this->host);
+        $definition = $this->parser->parse(
+            $form,
+            $version,
+            $this->filled($form, $content),
+            Contributions::current(),
+            $this->host
+        );
         if ($version === $form->version) {
             $problem = $this->host->keyProblem($form, $content);
             if ($problem !== null) {
@@ -81,6 +89,13 @@ final class FormEngine
             if ($serving && $this->host->accountStep($form) !== null && $definition->account === null) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name
                 throw new SystemFailure(SignUp::BLOCK_MISSING . ' ' . SignUp::BLOCK);
+            }
+            $missing = $serving
+                ? (new SlotRules())->requiredFieldProblem($definition, $this->host->slotRequiredKeys($form))
+                : null;
+            if ($missing !== null) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a field key
+                throw new SystemFailure($missing[0] . ' ' . $missing[1]);
             }
         }
 
@@ -113,7 +128,8 @@ final class FormEngine
     public function blocks(Form $form, ?int $version = null, ?FormAvailability $availability = null): array
     {
         $version ??= $form->version;
-        $marked = ChainMarks::mark(array_values(parse_blocks($this->posts->content($form, $version))));
+        $content = $this->filled($form, $this->posts->content($form, $version));
+        $marked = ChainMarks::mark(array_values(parse_blocks($content)));
         $definition = $this->definition($form, $version);
         $withheld = [];
         foreach ($definition->withheldChains() as $number) {
@@ -128,9 +144,32 @@ final class FormEngine
     }
 
     /**
+     * The content with each field block's empty label (and each choice option's) filled from the host's
+     * participant-field texts (`FormHost::labelFallbacks()`), so the page, the definition and the answers' texts
+     * all read the same labels. The host is asked only when a field block has an empty label; otherwise the
+     * content is returned as it is. A label the form wrote is never replaced.
+     */
+    private function filled(Form $form, string $content): string
+    {
+        $blocks = array_values(parse_blocks($content));
+        $types = array_keys(Contributions::current()->fieldTypes());
+        $keys = LabelFallback::keys($blocks, $types);
+        if ($keys === []) {
+            return $content;
+        }
+        /** @var list<array<string, mixed>> $blocks */
+        $filled = LabelFallback::fill($blocks, $types, $this->host->labelFallbacks($form));
+        if ($filled === $blocks) {
+            return $content;
+        }
+
+        /** @var array<array{blockName: string|null, attrs: array<string, mixed>, innerBlocks: array<array<string, mixed>>, innerHTML: string, innerContent: array<string|null>}> $filled */
+        return serialize_blocks($filled);
+    }
+
+    /**
      * The blocks with each request field's attributes as its definition has them (its set's options in
-     * `options`, S44); a request field whose set's choice window is closed becomes an empty block (it does
-     * not show, and the inner content keeps its places).
+     * `options`, S44).
      *
      * @param list<array<string, mixed>> $blocks
      * @return list<array<string, mixed>>
@@ -143,9 +182,7 @@ final class FormEngine
             $key = $block['attrs']['key'] ?? null;
             $field = is_string($key) ? $definition->field($key) : null;
             if (is_string($name) && ($types[$name] ?? null) instanceof RequestFieldType && $field !== null) {
-                $blocks[$index] = $field->closed
-                    ? ['blockName' => null, 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => '', 'innerContent' => []]
-                    : ['attrs' => $field->attributes] + $block;
+                $blocks[$index] = ['attrs' => $field->attributes] + $block;
                 continue;
             }
             if (is_array($block['innerBlocks'] ?? null) && $block['innerBlocks'] !== []) {

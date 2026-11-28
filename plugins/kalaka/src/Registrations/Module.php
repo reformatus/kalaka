@@ -6,6 +6,7 @@ namespace Kalaka\Registrations;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Registrations\Cli\RegistrationSeeder;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Registrations\Draft\DraftSweep;
 
@@ -53,7 +54,7 @@ SQL;
      * `submit_token` is the form page's token: a repeated submit with it and the same answers creates
      * nothing and is answered only as a repeat (`{repeated: true, after_submit}`); `utf8mb4_nopad_bin`,
      * compared exactly, and unique within the event. `answers_hash` is the SHA-256 fingerprint of the
-     * stored answers that a repeat with the token must match.
+     * answers as sent that a repeat with the token must match.
      */
     private const SUBMISSIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_submissions (
@@ -154,7 +155,6 @@ SQL;
             'kalaka_withdraw_registration',
             'kalaka_remove_registration',
             'kalaka_admit_registration',
-            'kalaka_regenerate_link',
         ];
     }
 
@@ -163,6 +163,7 @@ SQL;
     {
         $to->siteWarning(new Account\SettingsWarning());
         $to->periodicStep(new DraftSweep());
+        $to->seeder(new RegistrationSeeder());
     }
 
     public function boot(): void
