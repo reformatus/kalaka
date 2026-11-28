@@ -3,6 +3,7 @@
  */
 import { cellText } from './format';
 import { markOf } from './confirmation';
+import NotApplicable from './NotApplicable';
 
 const STATUS_ICON = {
 	registered: [ 'dashicons-yes-alt', 'kg-ok' ],
@@ -26,6 +27,15 @@ export default function Cell( { column, item } ) {
 		return '';
 	}
 	const tone = isInactive( item ) ? ' kg-inactive' : '';
+	const value = item.values[ column.column ];
+	if ( column.na && ( value === null || value === undefined || value === '' ) ) {
+		// No value is N/A: „–” with spoken text, never „Nem”.
+		return (
+			<span className={ tone.trim() || undefined }>
+				<NotApplicable text={ text } />
+			</span>
+		);
+	}
 	if ( column.type === 'status' ) {
 		const [ icon, color ] = STATUS_ICON[ item.values.status ] || [ '', '' ];
 		return (

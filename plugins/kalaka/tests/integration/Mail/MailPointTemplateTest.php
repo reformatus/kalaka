@@ -237,6 +237,7 @@ final class MailPointTemplateTest extends MailAdminTestCase
                 'waitlisted' => true,
                 'payment_recorded' => false,
                 'confirmed' => true,
+                'answered' => true,
             ],
             array_map(static fn (array $mail): bool => $mail['wired'], $byKey)
         );

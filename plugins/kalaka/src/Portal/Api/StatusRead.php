@@ -19,7 +19,6 @@ use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationRead;
 use Kalaka\Registrations\Api\Registrations;
-use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
@@ -30,7 +29,8 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * `money` is read for every status, the registration's own money table beside the totals of `payment`.
  *
  * Whether the registration is confirmed comes from Pricing's `Confirmations`. Whether a request awaits an answer
- * is computed (`Requests::awaits()`), never read from a stored hold: it replaces the old payment hold.
+ * is computed (`RegistrationFacts::awaitsAnswer`), never read from a stored hold: it replaces the old payment
+ * hold.
  */
 final class StatusRead
 {
@@ -43,7 +43,6 @@ final class StatusRead
         private readonly Ledger $ledger = new Ledger(),
         private readonly LineLabels $labels = new LineLabels(),
         ?MoneyRead $money = null,
-        private readonly Requests $requests = new Requests(),
     ) {
         $this->money = $money ?? new MoneyRead(labels: $labels);
     }
@@ -81,8 +80,9 @@ final class StatusRead
                 $confirmed,
                 $decisions[ConfirmationRule::KIND]->effectiveAt ?? null
             );
-            $awaits = $this->requests->awaits($key, $registration->status);
-            $payment = $this->payment($registration, $event, $confirmed, $awaits, $now);
+            $facts = $this->registrations->factsOf($key, $event, $now);
+            $awaits = $facts !== null && $facts->awaitsAnswer === true;
+            $payment = $this->payment($registration, $event, $confirmed, $awaits, $now, $facts?->paymentDue());
             $transfer = $this->transfer($key, $event, $availability, $payment);
         }
 
@@ -115,6 +115,7 @@ final class StatusRead
         bool $confirmed,
         bool $awaits,
         \DateTimeImmutable $now,
+        ?\DateTimeImmutable $due,
     ): PaymentView {
         $summary = $this->ledger->summaryOf($registration->key);
         $participant = self::amounts($summary->of(Payer::PARTICIPANT, $event->currency));
@@ -137,7 +138,6 @@ final class StatusRead
                 ? $line->amount->negated() : $line->amount);
         }
 
-        $due = $awaits ? null : $event->paymentDue($registration->registeredAt);
         // Overdue only while something is still payable, the same rule as the deadline line (SB-3).
         $owes = $participant->balance->roundedUpToPayableUnit()->isPositive();
         $overdue = $owes && !$confirmed && !$awaits && $due !== null && $now >= $due;

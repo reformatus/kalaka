@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Mail;
 
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\Body\MailRenderer;
 use Kalaka\Mail\BodyUnusable;
 use Kalaka\Mail\Body\MailValues;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\Requests;
+use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /** The renderer: a mail's body, its layout and its context. mail.md, "Content". */
 final class MailRendererTest extends MailBodyTestCase
@@ -139,6 +143,25 @@ final class MailRendererTest extends MailBodyTestCase
         // No admission act exists yet: every registration reads `no`.
         self::assertStringContainsString('Szia', $html);
         self::assertStringNotContainsString('várólistáról', $html);
+    }
+
+    public function testABodyMayBranchOnWhetherARequestAwaitsAnAnswer(): void
+    {
+        $event = $this->create();
+        $asking = $this->registration($event, '12A3', ['email' => 'teszt@example.test', 'support' => 'church']);
+        $plain = $this->registration($event, '00B0');
+        $values = new MailValues(new Registrations(requests: new Requests([new TestRequestSource()])));
+
+        self::assertSame(
+            ['yes'],
+            $values->context($asking, self::now())->get('registration.awaits_answer')->data
+        );
+        self::assertSame('', $values->context($asking, self::now())->get('registration.awaits_answer')->text);
+        self::assertSame(['no'], $values->context($plain, self::now())->get('registration.awaits_answer')->data);
+        self::assertSame(
+            ValueType::Choice,
+            $values->types($event)['registration.awaits_answer']
+        );
     }
 
     public function testAnEventDateThatIsNotSetReadsAsNone(): void

@@ -102,6 +102,7 @@ final class Registrations
             [],
             $fields->kinds,
             $this->requests->awaits($key, $registration->status),
+            $this->requests->lastAnsweredAt($key),
         );
     }
 

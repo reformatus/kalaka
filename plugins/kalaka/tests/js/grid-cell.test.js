@@ -4,6 +4,11 @@ import Cell, { isInactive } from '../../src/Admin/app/grid/Cell';
 import fs from 'fs';
 import path from 'path';
 
+jest.mock( '@wordpress/components', () => {
+	const { createElement: h } = require( 'react' );
+	return { VisuallyHidden: ( { children } ) => h( 'span', { className: 'vh' }, children ) };
+} );
+
 const columns = {
 	code: { column: 'code', type: 'code' },
 	name: { column: 'field:name', type: 'text' },
@@ -47,6 +52,30 @@ describe( 'a dimmed row', () => {
 		expect( css ).toMatch( /\.kg-inactive \{ color: var\(--wpds-color-foreground-interactive-neutral-disabled, #8d8d8d\); \}/ );
 		expect( css ).not.toContain( 'kg-active' );
 		expect( css ).not.toContain( '#646970' );
+	} );
+} );
+
+describe( 'the awaits cell (owner rulings 6.2/6.3)', () => {
+	const awaits = { column: 'awaits_answer', type: 'consent', options: { 1: 'Igen', 0: 'Nem' }, na: '–' };
+	const cell = ( value ) => html( awaits, { values: { status: 'waitlisted', awaits_answer: value } } );
+
+	test( 'no value shows the meta’s „–” with a hidden „Nem értelmezhető”, never „Nem”', () => {
+		for ( const value of [ null, undefined ] ) {
+			const out = cell( value );
+			expect( out ).toContain( '<span aria-hidden="true">–</span>' );
+			expect( out ).toContain( 'Nem értelmezhető' );
+			expect( out ).not.toMatch( />Nem</ );
+		}
+	} );
+
+	test( 'a value shows Igen or Nem as before, without the spoken text', () => {
+		expect( cell( '1' ) ).not.toContain( 'Nem értelmezhető' );
+		expect( cell( '0' ) ).toContain( 'Nem' );
+		expect( cell( '0' ) ).not.toContain( 'Nem értelmezhető' );
+	} );
+
+	test( 'the „–” comes from the meta’s na, not a literal', () => {
+		expect( html( { ...awaits, na: '?' }, { values: { awaits_answer: null } } ) ).toContain( '>?</span>' );
 	} );
 } );
 

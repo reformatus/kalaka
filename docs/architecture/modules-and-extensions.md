@@ -351,7 +351,9 @@ flowchart LR
 - **A request source** is an inside point: a module's requests on a
   registration that need an answer (a support offer that needs approval, an
   aid request), read from its field values, and the writer of its own field
-  when the one "answer a request" act answers one. Core keeps the answer
+  when the one "answer a request" act answers one. It also states when its
+  request awaits an answer as data (`awaitingRule()`: any-of groups of field
+  tests), which core compiles to SQL for the grid column. Core keeps the answer
   record and the computed "awaits an answer"
   ([Money](money.md#sponsor-and-church-support)).
 - **A seat claim source** is an outside point: a submit's validated answers

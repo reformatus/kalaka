@@ -16,6 +16,7 @@ use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\Accounts;
+use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -64,6 +65,14 @@ final class MailValues
      * exists yet, so it reads `no`; the admission slice gives Registrations the fact and this reads it.
      */
     public const FROM_WAITLIST = 'registration.from_waitlist';
+
+    /**
+     * Whether a request of the registration awaits an answer now: a choice of `yes` or `no`, with no display
+     * text, like `from_waitlist`, for a condition in the "answered" mail (a body can tell an answer that
+     * settles every request from one that leaves another open). The same key and value as the form's fact
+     * (`RegistrationFacts::AWAITS_ANSWER`), read at send time. [UNAPPROVED N86]
+     */
+    public const AWAITS_ANSWER = RegistrationFacts::AWAITS_ANSWER;
 
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
@@ -124,6 +133,7 @@ final class MailValues
             self::STATUS => ValueType::Choice,
             self::LINK => ValueType::Text,
             self::FROM_WAITLIST => ValueType::Choice,
+            self::AWAITS_ANSWER => ValueType::Choice,
             self::ACCOUNT_UNVERIFIED => ValueType::Choice,
             self::ACCOUNT_PASSWORD_LINK => ValueType::Text,
             ...array_fill_keys(
@@ -198,6 +208,12 @@ final class MailValues
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
             throw new SystemFailure('no_event ' . $key->eventId);
         }
+        // The registration's own facts (code, status and its word, awaits_answer) come from the one builder.
+        $facts = $this->registrations->factsOf($key, $event, $now);
+        if ($facts === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+            throw new SystemFailure('no_registration ' . $key->eventId . ' ' . $key->code);
+        }
         $definition = $this->definition($record);
         $email = $this->marked($definition, true);
         $name = $this->marked($definition, false);
@@ -228,10 +244,11 @@ final class MailValues
             ...EventValues::now($now),
             self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record['values'][$email] ?? '')),
             self::RECIPIENT_NAME => self::text($name === null ? '' : ($record['values'][$name] ?? '')),
-            self::CODE => self::text($key->code),
-            self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
+            self::CODE => $facts->get(RegistrationFacts::CODE),
+            self::STATUS => $facts->get(RegistrationFacts::STATUS),
             self::LINK => self::text($link),
             self::FROM_WAITLIST => Value::choice(['no'], ''),
+            self::AWAITS_ANSWER => $facts->get(RegistrationFacts::AWAITS_ANSWER),
             self::ACCOUNT_UNVERIFIED => $unverified === null
                 ? Value::none(ValueType::Choice)
                 : EventValues::yesNo($unverified),

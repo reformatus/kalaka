@@ -35,6 +35,10 @@ describe( 'the state line', () => {
 		expect( stateText( { ...offer, state: 'refused' }, 'HUF' ) ).toBe( REQUESTS.refused );
 	} );
 
+	test( 'shows „–” for an inactive request, never „Válaszra vár” or „Nem” (N655, N1236, T1224)', () => {
+		expect( stateText( { ...offer, state: 'inactive' }, 'HUF' ) ).toBe( '–' );
+	} );
+
 	test( 'shows the award of a granted aid and „Elutasítva” for an award of zero', () => {
 		const granted = { ...aid, state: 'approved', amount: '12000.00000000' };
 		expect( stateText( granted, 'HUF' ) ).toBe( 'Jóváhagyva (12\u00a0000\u00a0Ft)' );

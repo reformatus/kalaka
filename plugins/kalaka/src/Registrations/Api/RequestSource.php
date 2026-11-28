@@ -35,6 +35,17 @@ interface RequestSource
     public function isAnswered(Request $request, array $values): bool;
 
     /**
+     * The same question as `requestsOf()` and `isAnswered()` together, stated as data for the admin grid's "awaits
+     * an answer" column: an `AwaitingRule` over the registration's field values, true when this source has a
+     * request awaiting an answer. It means exactly what the two reads mean: a request the source names now and its
+     * answer field empty (the field is the truth). It does not look at the registration's status (core does: only
+     * a `registered` registration awaits in the grid). Core compiles the rule to SQL (`awaitingCondition()`) and
+     * evaluates it in PHP (`awaits()`); the source writes no SQL and reads no database, only its configuration (which
+     * offers need approval). Null when this event's registrations can have no request from the source.
+     */
+    public function awaitingRule(int $eventId): ?AwaitingRule;
+
+    /**
      * The seat pool an offer's seat comes from, or null when the request has no limit (an aid request, an offer
      * with no quota). The source builds its own pool, so core never parses a pool key; the answer act passes it to
      * `Seats` and the detail read asks `Seats::wouldOverfill()` of it. [UNAPPROVED N4]

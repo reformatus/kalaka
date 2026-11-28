@@ -50,9 +50,9 @@ final class ViewQuery extends Query
     }
 
     /**
-     * The view's columns: the stored ones, or for the master view `code`, `status`, `serial`, every field
-     * key stored in the event (read-write) and every decision kind recorded in it or with a base state, in byte
-     * order.
+     * The view's columns: the stored ones, or for the master view every core column (`ViewShape::CORE_COLUMNS`),
+     * every field key stored in the event (read-write) and every decision kind recorded in it or with a base
+     * state, in byte order.
      *
      * @return list<array{column: string, write: bool}>
      */
@@ -181,6 +181,11 @@ final class ViewQuery extends Query
             );
             $join = ' LEFT JOIN (' . $ranked . ') n ON n.code = r.code';
             $order = 'n.serial_no' . $direction . ', ' . $serialOrder;
+        } elseif ($sort === 'awaits_answer') {
+            // Yes first descending: yes, then no, then N/A (NULL, a registration that is not `registered`);
+            // ascending is the reverse. [UNAPPROVED N690]
+            [$awaiting, $sortArgs] = $this->awaiting($eventId);
+            $order = $awaiting . $direction . ', ' . $serialOrder;
         } elseif ($sort !== null && str_starts_with($sort, 'field:')) {
             $value = '(SELECT s.value FROM %i s WHERE s.event_id = r.event_id AND s.code = r.code'
                 . ' AND s.field_key = %s)';
@@ -208,11 +213,15 @@ final class ViewQuery extends Query
             $offset,
             $total,
         ): ViewPage {
+            // "awaits an answer" comes from the same SQL as its filter, sort and count, in the
+            // page's one statement; with no request source it is the constant false.
+            [$awaiting, $awaitingArgs] = $this->awaiting($eventId);
             $registrations = $this->select(
                 'registration',
-                'SELECT r.code, r.status, r.registered_at FROM %i r' . $join . ' WHERE r.event_id = %d' . $conditions
-                . ' ORDER BY ' . $order . ' LIMIT %d OFFSET %d',
+                'SELECT r.code, r.status, r.registered_at, ' . $awaiting . ' AS awaits_answer FROM %i r' . $join
+                . ' WHERE r.event_id = %d' . $conditions . ' ORDER BY ' . $order . ' LIMIT %d OFFSET %d',
                 [
+                    ...$awaitingArgs,
                     $this->table(RegistrationTables::REGISTRATIONS),
                     ...$joinArgs,
                     $eventId,
@@ -233,8 +242,13 @@ final class ViewQuery extends Query
             $serials = $shape->lists('serial') && $codes !== [] ? $this->serials->forEvent($eventId) : [];
             $submitted = $shape->lists('submitted_at') ? $this->firstSubmissionTimes($eventId, $codes) : [];
 
-            // A row value, not a column: read for the page's codes at a fixed cost.
-            $awaits = $this->requests->awaitsOf($eventId, $statuses);
+            $awaitsByCode = [];
+            foreach ($registrations as $registration) {
+                // NULL is N/A (the registration is not `registered`), never false.
+                $awaitsByCode[(string) $registration['code']] = $registration['awaits_answer'] === null
+                    ? null
+                    : (int) $registration['awaits_answer'] === 1;
+            }
 
             $rows = [];
             foreach ($registrations as $registration) {
@@ -246,6 +260,11 @@ final class ViewQuery extends Query
                         $column === 'code' => $code,
                         $column === 'status' => (string) $registration['status'],
                         $column === 'serial' => $serials[$code] ?? null,
+                        $column === 'awaits_answer' => match ($awaitsByCode[$code]) {
+                            null => null,
+                            true => '1',
+                            false => '0',
+                        },
                         $column === 'registered_at' => $registration['registered_at'] === null
                             ? null
                             : Instant::fromStorage((string) $registration['registered_at'])
@@ -255,7 +274,7 @@ final class ViewQuery extends Query
                         default => $decisions[$code][substr($column, 9)] ?? null,
                     };
                 }
-                $rows[] = new ViewRow(new RegistrationKey($eventId, $code), $values, $awaits[$code] ?? false);
+                $rows[] = new ViewRow(new RegistrationKey($eventId, $code), $values, $awaitsByCode[$code]);
             }
 
             return new ViewPage($shape->columns, $rows, $total);
@@ -295,7 +314,7 @@ final class ViewQuery extends Query
      * ones `Access::holding()` found to hold it (or the master view of full access): this read does not
      * check the filter again. Null when the event has no such registration. The times of `registered_at` and
      * the first submission are shown only where a held view lists the column (`registered_at`, `submitted_at`),
-     * and always to full access.
+     * and always to full access (the master view lists every column).
      *
      * @param non-empty-list<HeldView> $views
      */
@@ -420,7 +439,7 @@ final class ViewQuery extends Query
         $selects = [];
         $args = [];
         foreach ($specs as $index => $spec) {
-            [$expression, $expressionArgs] = $this->aggregate($spec, $values);
+            [$expression, $expressionArgs] = $this->aggregate($spec, $values, $view->eventId);
             $selects[] = $expression . ' AS %i';
             array_push($args, ...$expressionArgs);
             $args[] = 'a' . $index;
@@ -651,6 +670,7 @@ final class ViewQuery extends Query
             $column === 'code' => $kind === FilterKind::Text,
             $column === 'serial' => $kind === FilterKind::Number,
             $column === 'status' => $kind === FilterKind::Members,
+            $column === 'awaits_answer' => $kind === FilterKind::YesNo && $filter->value !== ColumnFilter::NO_ANSWER,
             str_starts_with($column, 'decision:') => $kind === FilterKind::Members || $kind === FilterKind::Text,
             str_starts_with($column, 'field:') => true,
             default => false,
@@ -684,6 +704,14 @@ final class ViewQuery extends Query
                 'r.code IN (SELECT n.code FROM (' . $ranked . ') n WHERE ' . $compare . ')',
                 [...$rankedArgs, ...$compareArgs],
             ];
+        }
+        if ($column === 'awaits_answer') {
+            // Igen / Nem over the one SQL of the column. N/A (NULL) is neither: `NOT NULL` is NULL, so „Nem” never
+            // matches it. No „Nincs válasz” and no N/A option. [UNAPPROVED N690]
+            [$awaiting, $awaitingArgs] = $this->awaiting($eventId);
+            $holds = ($filter->operator === 'is') === ($value === true);
+
+            return [$holds ? $awaiting : 'NOT ' . $awaiting, $awaitingArgs];
         }
         if ($column === 'code' && is_string($value)) {
             return ['r.code LIKE %s COLLATE ' . self::SQL_COLLATION, [self::likeAnywhere($value)]];
@@ -846,6 +874,23 @@ final class ViewQuery extends Query
                 $keys,
             ];
         }
+        if ($column === 'awaits_answer') {
+            // Shown as Igen / Nem: the word matches the stored '1' (awaits) and '0' (does not) it is contained in.
+            if ($keys === null || $keys === []) {
+                return null;
+            }
+            [$awaiting, $awaitingArgs] = $this->awaiting($eventId);
+            $parts = [];
+            $args = [];
+            foreach (['1' => $awaiting, '0' => 'NOT ' . $awaiting] as $stored => $part) {
+                if (in_array((string) $stored, $keys, true)) {
+                    $parts[] = $part;
+                    array_push($args, ...$awaitingArgs);
+                }
+            }
+
+            return ['(' . implode(' OR ', $parts) . ')', $args];
+        }
         if (str_starts_with($column, 'decision:')) {
             [$state, $kindArgs] = $this->decisionState(substr($column, 9));
             if ($keys === null) {
@@ -902,6 +947,21 @@ final class ViewQuery extends Query
     private static function likeAnywhere(string $text): string
     {
         return '%' . addcslashes($text, '\\%_') . '%';
+    }
+
+    /**
+     * "Awaits an answer" as one three-valued expression over `r`: 1 for a `registered` registration with a request
+     * waiting, 0 for a `registered` one with none, NULL (N/A) for every other status (`Requests::awaitingCondition()`).
+     * The column's filter, sort and count and the row's mark all use this one expression.
+     * [UNAPPROVED N690]
+     *
+     * @return array{0: literal-string, 1: list<string|int>}
+     */
+    private function awaiting(int $eventId): array
+    {
+        [$sql, $args] = $this->requests->awaitingCondition($eventId, $this->table(RegistrationTables::FIELD_VALUES));
+
+        return ['(' . $sql . ')', $args];
     }
 
     private function shapeOf(HeldView $view): ViewShape
@@ -1038,10 +1098,17 @@ final class ViewQuery extends Query
     /**
      * One aggregate as a select expression over the alias `r`, with its arguments in placeholder order.
      *
-     * @return array{0: literal-string, 1: list<string>}
+     * @return array{0: literal-string, 1: list<string|int>}
      */
-    private function aggregate(AggregateSpec $spec, string $values): array
+    private function aggregate(AggregateSpec $spec, string $values, int $eventId): array
     {
+        if ($spec->column === 'awaits_answer') {
+            // Yes: the registrations that await an answer.
+            [$awaiting, $awaitingArgs] = $this->awaiting($eventId);
+
+            return ['COALESCE(SUM(' . $awaiting . '), 0)', $awaitingArgs];
+        }
+
         $field = 'SELECT 1 FROM %i s WHERE s.event_id = r.event_id AND s.code = r.code AND s.field_key = %s';
         $number = '(SELECT CAST(s.value AS DECIMAL(26,8)) FROM %i s WHERE s.event_id = r.event_id'
             . " AND s.code = r.code AND s.field_key = %s AND s.value <> '')";
