@@ -23,8 +23,9 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  *
  * The `set` attribute decides where its options come from (the owner's ruling, 2026-11-18). A block that
  * names a set (S44-1) has the set's options: core fills the block's `options` attribute from the set
- * (`RequestFieldType`), each `{value, label}` with its eligibility condition, and offers only the options
- * whose condition holds for the answers before it (S76); the field it declares is the set's one request
+ * (`RequestFieldType`), each `{value, label}`, with the block's own `optionConditions` (option key → condition) as the
+ * options' conditions, and offers only the options whose condition holds for the answers before it (S76);
+ * who may pick an option is decided there, not by the set. The field it declares is the set's one request
  * field. A block with no `set` holds its own list of `{value, label}` in `options`, every option offered, and
  * is an `OptionsFieldType` there: core derives a missing option key on save and the definition check refuses
  * a block without a valid option, as for a choice.

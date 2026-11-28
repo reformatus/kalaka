@@ -227,7 +227,7 @@ abstract class ConfirmationTestCase extends PricingTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
     }
 

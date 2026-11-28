@@ -97,7 +97,7 @@ final class MailRefusalCodesTest extends MailBodyTestCase
         // so the check is given such a state directly.
         $shared = [new ActionMailEntry($event->id, ActionMail::Confirmed, false, 41)];
         $off = new ActionMailEntry($event->id, ActionMail::Waitlisted, false, 41);
-        $flipped = new ActionMailEntry($event->id, ActionMail::Waitlisted, true, 41, false);
+        $flipped = new ActionMailEntry($event->id, ActionMail::Waitlisted, true, 41);
         UpdateActionMail::refuse($event, ActionMail::Waitlisted, $off, 41, true, null, $shared);
         UpdateActionMail::refuse($event, ActionMail::Waitlisted, $flipped, 41, true, null, $shared);
         // A body newly given with no facts read is the caller's programming error, never a refusal.

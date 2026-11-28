@@ -1,0 +1,18 @@
+{
+    "name": "kalaka/deposits",
+    "description": "Kaláka deposits: the per-event deposit amount",
+    "type": "wordpress-plugin",
+    "require": {
+        "php": ">=8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kalaka\\Deposits\\": "src/Deposits/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        }
+    }
+}

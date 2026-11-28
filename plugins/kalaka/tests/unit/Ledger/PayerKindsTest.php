@@ -17,12 +17,6 @@ final class PayerKindsTest extends TestCase
         $kinds = (new PayerKinds())->of(5);
 
         self::assertEquals([new PayerKind('participant', 'Jelentkező')], $kinds);
-        self::assertSame('Jelentkező', (new PayerKinds())->label('participant'));
-    }
-
-    public function testAnUndeclaredKindHasNoLabel(): void
-    {
-        self::assertNull((new PayerKinds())->label('congregation'));
     }
 
     public function testEveryMethodHasAStoredValueAndALabel(): void

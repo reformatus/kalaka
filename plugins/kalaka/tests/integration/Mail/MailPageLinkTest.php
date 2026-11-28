@@ -37,7 +37,7 @@ final class MailPageLinkTest extends MailBodyTestCase
         $page = $this->page();
         $body = $this->document($event, $this->placing($page));
 
-        $html = (new MailRenderer())->renderBody($event, $body, false, $key)->html;
+        $html = (new MailRenderer())->renderBody($event, $body, $key, self::now())->html;
 
         $link = add_query_arg('kalaka_link', $event . '.12A3.' . self::SECRET, (string) get_permalink($page));
         $link = esc_html($link);
@@ -61,10 +61,10 @@ final class MailPageLinkTest extends MailBodyTestCase
 
         $renderer = new MailRenderer();
 
-        self::assertStringContainsString(self::SECRET, $renderer->renderBody($event, $body, false, $first)->html);
+        self::assertStringContainsString(self::SECRET, $renderer->renderBody($event, $body, $first, self::now())->html);
         self::assertStringContainsString(
             'MasikTitokMasikTitok02',
-            $renderer->renderBody($event, $body, false, $second)->html
+            $renderer->renderBody($event, $body, $second, self::now())->html
         );
     }
 
@@ -88,7 +88,7 @@ final class MailPageLinkTest extends MailBodyTestCase
         wp_update_post(['ID' => $page, 'post_status' => 'draft']);
 
         try {
-            (new MailRenderer())->renderBody($event, $body, false, $key);
+            (new MailRenderer())->renderBody($event, $body, $key, self::now());
             self::fail('The page is gone, the body cannot render.');
         } catch (BodyUnusable $e) {
             self::assertStringStartsWith('unknown_value_key', $e->problem);

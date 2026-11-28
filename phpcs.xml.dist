@@ -15,11 +15,19 @@
     <file>plugins/kalaka-woocommerce/src</file>
     <file>plugins/kalaka-woocommerce/kalaka-woocommerce.php</file>
     <file>plugins/kalaka-woocommerce/uninstall.php</file>
+    <file>plugins/kalaka-deposits/src</file>
+    <file>plugins/kalaka-deposits/kalaka-deposits.php</file>
+    <file>plugins/kalaka-deposits/uninstall.php</file>
     <file>plugins/kalaka/tests</file>
     <file>plugins/kalaka-support/tests</file>
     <file>plugins/kalaka-divi4/tests</file>
     <file>plugins/kalaka-ranking/tests</file>
     <file>plugins/kalaka-woocommerce/tests</file>
+    <file>plugins/kalaka-price-ladder/src</file>
+    <file>plugins/kalaka-price-ladder/kalaka-price-ladder.php</file>
+    <file>plugins/kalaka-price-ladder/uninstall.php</file>
+    <file>plugins/kalaka-price-ladder/tests</file>
+    <file>plugins/kalaka-deposits/tests</file>
     <file>bin</file>
     <arg name="extensions" value="php"/>
     <exclude-pattern>*/vendor/*</exclude-pattern>

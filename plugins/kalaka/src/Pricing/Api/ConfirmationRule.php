@@ -38,9 +38,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  *   unconfirms (the owner's ruling 2026-11-19); a lower threshold can confirm at the next evaluation. That
  *   transition is followed, in the same answer, by the rule's own second check: the flag is revoked by then, so
  *   payments that reach every threshold, or nothing due, confirm the registration again in the same pass. A
- *   later payment or correction that reaches the threshold confirms again too. [UNAPPROVED N9, N12, N16]
+ *   later payment or correction that reaches the threshold confirms again too. [UNAPPROVED N9, N12]
  * - No record is the base state: a `registered` registration with none reads `unconfirmed`, derived, never
- *   written (`defaultState()`, the owner's ruling 2026-11-19); other statuses read no state. [UNAPPROVED N7]
+ *   written (`defaultState()`, the owner's ruling 2026-11-19); other statuses read no state.
  * - Withdrawal or removal closes the sequence: a `confirmed` registration that is no longer `registered` gets
  *   `unconfirmed`, so a restore or admission writes a new `confirmed` record if it qualifies and the old one is
  *   never revived.
@@ -79,7 +79,7 @@ final class ConfirmationRule implements DecisionRule
         return [self::CONFIRMED => 'Visszaigazolva', self::UNCONFIRMED => 'Nincs visszaigazolva'];
     }
 
-    /** The marks of the grid and the detail (UX's table, the owner's Q51 (b)). [UNAPPROVED N1107] */
+    /** The marks of the grid and the detail (UX's table, the owner's Q51 (b)). */
     public function marks(): array
     {
         return [
@@ -143,7 +143,7 @@ final class ConfirmationRule implements DecisionRule
         }
 
         // The second check, run in a row with the flag already revoked: payments that reach every threshold, or
-        // nothing due, confirm the registration again at once. [UNAPPROVED N16]
+        // nothing due, confirm the registration again at once.
         return [
             new Transition(
                 self::UNCONFIRMED,

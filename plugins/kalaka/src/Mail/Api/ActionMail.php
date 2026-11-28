@@ -17,7 +17,21 @@ enum ActionMail: string
     case Waitlisted = 'waitlisted';
     case PaymentRecorded = 'payment_recorded';
     case Confirmed = 'confirmed';
-    case LinkRegenerated = 'link_regenerated';
+
+    /**
+     * Whether an act on this line queues this mail: the one declared list of the points that work (owner
+     * 2026-11-27, walkthrough 8.5; the screen shows only those as usable). A point that is not wired can be set
+     * up and switched on, but nothing sends it yet. A point whose producer another slice brings is not here: the
+     * "payment recorded" mail is queued by the payment-recorded mail's own slice (#233), and the "answered" mail
+     * of the walkthrough's list does not exist on this branch. The PR that adds a producer adds its point here.
+     */
+    public function isWired(): bool
+    {
+        return match ($this) {
+            self::Registered, self::Waitlisted, self::Confirmed => true,
+            self::PaymentRecorded => false,
+        };
+    }
 
     /** The catalogue's name of the mail: what causes it. */
     public function label(): string
@@ -27,7 +41,6 @@ enum ActionMail: string
             self::Waitlisted => 'Jelentkezés várólistára helyezve',
             self::PaymentRecorded => 'Befizetés rögzítve',
             self::Confirmed => 'Jelentkezés véglegesítve',
-            self::LinkRegenerated => 'Személyes link lecserélve',
         };
     }
 }

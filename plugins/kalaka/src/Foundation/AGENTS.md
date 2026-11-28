@@ -16,7 +16,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   [Deferred work](../../../../docs/architecture/foundation.md#deferred-work),
   [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
   [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values),
-  the Time and Money rows of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
+  the Time, Money and Language rows of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
 - mail.md: the periodic run's part of [Sending](../../../../docs/architecture/mail.md#sending) (no sender run in an interactive request).
 - engineering.md: [Static checks](../../../../docs/architecture/engineering.md#static-checks), [Fixtures](../../../../docs/architecture/engineering.md#fixtures).
 - money.md: [Amounts](../../../../docs/architecture/money.md#amounts).
@@ -49,10 +49,16 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Locks are taken in the lock order; the guard refuses a lower level after a
   higher one, and a lower key within the event, quota or registration level,
   for every repository read `FOR UPDATE` and write.
+  `Api\UseCase\LockOrder::compare()` is the guard's key order for a use case that locks several rows of one
+  level.
 - The boot records every booted module's per-event actions
   (`Module::capabilities()`) as the `ActionCatalogue`, in boot order; a
   malformed name (`kalaka_` and a lowercase identifier, at most 64
   characters) or one already offered fails that module's load.
+- A plugin's declared names (`Api\Naming`) live in that plugin's one option, `kalaka_<module id>_names`, written
+  only by WordPress's Settings API through `NamesScreen`; an empty or whitespace-only value is the declared default,
+  a refusal (an undeclared key, a non-text value, over `PluginNames::MAX_LENGTH`) is `InvalidInput`, and the read
+  never throws on what is stored. Names are read where they are shown, never copied into a table.
 - A query reads WordPress's users tables only through `usersTable()` and
   `capabilitiesMetaKey()`, with plain statements that fire no hook.
 - The admin-side coarse permission check is Admin's (`Admin\Api\AdminAccess`),
@@ -194,6 +200,11 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   unless a run recorded it, and the next step and the last-run write go on.
   The steps run even when the sweep or the flag retries throw; that run then
   ends without its last-run time.
+- An act's retry key is `Api\ActKeys`: `recall()` inside the transaction with the
+  registration locked, then `remember()` with the result; a key held with other
+  input is an `IdempotencyConflict` (409), a preview and a null key neither
+  recall nor store. Only `ActKeyRepository` writes `kalaka_act_keys`, append-only,
+  one registration's key each. The ledger's manual entries keep their own key.
 - A once-only insert uses `insertUnlessDuplicate()` (`INSERT IGNORE`): a taken
   unique key writes nothing, audits nothing and is no error; it is never
   retried.

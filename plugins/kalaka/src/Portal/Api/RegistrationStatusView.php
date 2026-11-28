@@ -14,7 +14,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  *
  * `confirmation` and `payment` are set only while the status is `registered`; `transfer` only when the
  * transfer block may show (SB-4: registered, the event open, not held, a participant balance above zero
- * after rounding, and the event's bank details set).
+ * after rounding, and the event's bank details set). `money` is the participant's money table, set for every
+ * status (a withdrawn or removed registration keeps its rows and movements); it is read beside `payment`,
+ * whose `lines` go when the blocks switch to it.
  */
 final readonly class RegistrationStatusView
 {
@@ -27,6 +29,7 @@ final readonly class RegistrationStatusView
         public ?ConfirmationView $confirmation,
         public ?PaymentView $payment,
         public ?TransferDetails $transfer,
+        public ParticipantMoney $money,
     ) {
     }
 }

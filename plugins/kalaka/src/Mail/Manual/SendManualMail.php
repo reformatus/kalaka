@@ -45,7 +45,7 @@ use Kalaka\Registrations\Api\Registrations;
  * codes inside a view of theirs that carries the action, whichever form the selection took. Its result carries
  * the caller's warnings, `paused` and `held`, on every path.
  *
- * - A withdrawn or removed registration is skipped and listed; a waitlisted one is sent to.
+ * - A registration that is not registered (withdrawn, removed or waitlisted) is skipped and listed.
  * - A code that is no registration of the event refuses the whole batch (`UnknownRegistrationCode`); a selection
  *   that matches no row is refused (`InvalidInput`).
  * - The optional `request_key` is the repeat guard: the same key in the same event returns the first batch and
@@ -189,7 +189,6 @@ final class SendManualMail implements AdminUseCase
                 'event_id' => ['type' => 'integer', 'minimum' => 1],
                 'body_id' => ['type' => 'integer', 'minimum' => 1],
                 'selection' => self::selectionSchema(),
-                'layout' => ['type' => 'boolean'],
                 'request_key' => ['type' => 'string', 'pattern' => '^[A-Za-z0-9_-]{8,64}$'],
             ],
             'required' => ['event_id', 'body_id', 'selection'],
@@ -238,7 +237,6 @@ final class SendManualMail implements AdminUseCase
         if ($codes === []) {
             throw new InvalidInput();
         }
-        $layout = (bool) ($input['layout'] ?? true);
         $requestKey = isset($input['request_key']) ? (string) $input['request_key'] : null;
 
         $event = $this->events->find($eventId) ?? throw new NotFound();
@@ -269,7 +267,6 @@ final class SendManualMail implements AdminUseCase
         $batch = $this->batches->insert(new MailBatch(
             $eventId,
             $bodyId,
-            $layout,
             $requestKey,
             $context->now(),
             self::userOf($context->actor()),

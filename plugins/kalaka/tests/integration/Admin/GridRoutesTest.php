@@ -156,7 +156,8 @@ final class GridRoutesTest extends GrantTestCase
         $own = (array) $this->rest('GET', '/views/0/sums', [
             'counts' => (string) wp_json_encode(['status' => ['waitlisted']]),
         ])->get_data();
-        self::assertSame(1, $own['status']['n']);
+        // The waitlisted row is not registered, and an inactive row never counts in the sum row (2026-11-27).
+        self::assertSame(0, $own['status']['n']);
         self::assertSame(['waitlisted'], $own['status']['members']);
         // Nothing was stored, so the next read is the default again.
         self::assertSame([], (new ViewList())->masterCounts($this->event));
@@ -444,7 +445,8 @@ final class GridRoutesTest extends GrantTestCase
         self::assertSame(200, $saved->get_status());
         self::assertSame('{"status":["waitlisted"]}', $this->viewRow($listed)['counts']);
         $sums = (array) $this->rest('GET', '/views/' . $listed . '/sums')->get_data();
-        self::assertSame(1, $sums['status']['n']);
+        // The stored waitlisted choice is kept, but the waitlisted row is inactive and never counts (2026-11-27).
+        self::assertSame(0, $sums['status']['n']);
         // A stale version is refused with the conflict the dialog shows.
         $stale = $this->ability('kalaka/save-view', $input + ['counts' => ['status' => ['registered']]]);
         self::assertSame(409, $stale->get_status());

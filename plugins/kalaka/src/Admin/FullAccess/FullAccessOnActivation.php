@@ -11,8 +11,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 /**
  * When the plugin is activated and no user holds `kalaka_full_access`, the activating user
  * gets it (`GrantFullAccess`, run as the system, so it is audited). That covers the first activation and
- * the recovery when every holder is gone; while anyone holds it (by `FullAccessQuery`'s holder rule, a role
- * carrying it included), activating again gives nobody anything.
+ * the recovery when every holder is gone (a database-level change, since WordPress cannot delete the last
+ * holder); while anyone holds it by `FullAccessQuery`'s rule (their own capability, never a role's),
+ * activating again gives nobody anything.
  */
 final class FullAccessOnActivation
 {

@@ -195,8 +195,28 @@ describe('the ranking’s editor uses core’s field-editor pieces', () => {
 
 		const select = SetPicker(under.props).props.children;
 		select.props.onChange('');
-		expect(setAttributes).toHaveBeenLastCalledWith({ set: 0 });
+		expect(setAttributes).toHaveBeenLastCalledWith({ set: 0, optionConditions: undefined });
 		select.props.onChange('9');
-		expect(setAttributes).toHaveBeenLastCalledWith({ set: 9 });
+		expect(setAttributes).toHaveBeenLastCalledWith({ set: 9, optionConditions: undefined });
+	});
+
+	test('switching the set keeps only the option conditions whose option the new set has; clearing drops them all', () => {
+		const condition = { op: 'eq' };
+		const sets = {
+			state: 'ready',
+			list: [
+				{ id: 7, name: 'A', options: [{ value: 'a' }, { value: 'b' }] },
+				{ id: 9, name: 'B', options: [{ value: 'b' }, { value: 'c' }] },
+			],
+		};
+		const setAttributes = jest.fn();
+		const props = { sets, value: 7, setAttributes, conditions: { a: condition, b: condition } };
+
+		SetPicker(props).props.children.props.onChange('9');
+		expect(setAttributes).toHaveBeenLastCalledWith({ set: 9, optionConditions: { b: condition } });
+		SetPicker(props).props.children.props.onChange('');
+		expect(setAttributes).toHaveBeenLastCalledWith({ set: 0, optionConditions: undefined });
+		SetPicker({ ...props, conditions: undefined }).props.children.props.onChange('9');
+		expect(setAttributes).toHaveBeenLastCalledWith({ set: 9, optionConditions: undefined });
 	});
 });

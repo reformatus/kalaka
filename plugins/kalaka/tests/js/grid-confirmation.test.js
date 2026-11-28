@@ -1,50 +1,20 @@
 import * as confirmation from '../../src/Admin/app/grid/confirmation';
 import {
-	CONFIRMATION_KIND,
-	confirmationOf,
 	manualActions,
-	markOf,
 	REASON_MAX,
 	snackbarAfter,
+	unconfirmBlocked,
 	validateReason,
 	warningOf,
 } from '../../src/Admin/app/grid/confirmation';
 import { formatMoment } from '../../src/Admin/app/grid/money';
 import { CONFIRM } from '../../src/Admin/app/grid/texts';
 
-const confirmed = {
-	kind: 'confirmation',
-	label: 'Visszaigazolás',
-	state: 'confirmed',
-	state_label: 'Visszaigazolva',
-	effective_at: '2026-11-19T10:00:00Z',
-};
-
-describe( 'the confirmation decision of a read', () => {
-	test( 'is found by its kind among the decisions', () => {
-		const other = { kind: 'payment_hold', state: 'held', state_label: 'Zárolva' };
-		expect( CONFIRMATION_KIND ).toBe( 'confirmation' );
-		expect( confirmationOf( { decisions: [ other, confirmed ] } ) ).toBe( confirmed );
-	} );
-
-	test( 'is null when the read has none, or no decisions at all', () => {
-		expect( confirmationOf( { decisions: [] } ) ).toBeNull();
-		expect( confirmationOf( { decisions: [ { kind: 'payment_hold' } ] } ) ).toBeNull();
-		expect( confirmationOf( {} ) ).toBeNull();
-		expect( confirmationOf( undefined ) ).toBeNull();
-	} );
-
-	test( 'a state has its icon, an unknown one the grid\'s marker', () => {
-		expect( markOf( 'confirmed' ) ).toEqual( [ 'dashicons-yes-alt', 'kg-ok' ] );
-		expect( markOf( 'unconfirmed' ) ).toEqual( [ 'dashicons-marker', '' ] );
-		expect( markOf( 'whatever' ) ).toEqual( [ 'dashicons-marker', '' ] );
-	} );
-} );
-
 describe( 'the reason', () => {
-	test( 'is required: empty and blank are refused with the message', () => {
-		expect( validateReason( '' ) ).toBe( CONFIRM.reasonEmpty );
-		expect( validateReason( '   \n ' ) ).toBe( CONFIRM.reasonEmpty );
+	test( 'is never required: empty and blank may be sent, and the old message is gone', () => {
+		expect( validateReason( '' ) ).toBe( '' );
+		expect( validateReason( '   \n ' ) ).toBe( '' );
+		expect( CONFIRM.reasonEmpty ).toBeUndefined();
 	} );
 
 	test( 'any text is accepted', () => {
@@ -63,7 +33,7 @@ describe( 'the reason', () => {
 	} );
 
 	test( 'both messages are the dialog\'s', () => {
-		expect( CONFIRM.reasonTooLong ).toBe( 'Az indoklás legfeljebb 500 karakter lehet.' );
+		expect( CONFIRM.reasonTooLong ).toBe( 'A megjegyzés legfeljebb 500 karakter lehet.' );
 	} );
 } );
 
@@ -77,6 +47,20 @@ describe( 'the moment of the flag', () => {
 
 	test( 'is empty for no instant', () => {
 		expect( formatMoment( null, 'UTC' ) ).toBe( '' );
+	} );
+} );
+
+describe( 'the status the confirmation row is shown on', () => {
+	test( 'a withdrawn or removed registration hides the row', () => {
+		expect( confirmation.cancelled( 'withdrawn' ) ).toBe( true );
+		expect( confirmation.cancelled( 'removed' ) ).toBe( true );
+	} );
+
+	test( 'every other status, and no status, keeps it', () => {
+		expect( confirmation.cancelled( 'registered' ) ).toBe( false );
+		expect( confirmation.cancelled( 'waitlisted' ) ).toBe( false );
+		expect( confirmation.cancelled( undefined ) ).toBe( false );
+		expect( confirmation.cancelled( null ) ).toBe( false );
 	} );
 } );
 
@@ -94,25 +78,40 @@ describe( 'the buttons of the manual confirmation block', () => {
 		expect( manualActions( flag, { confirm_manually: true } ) ).toEqual( [] );
 	} );
 
+	test( 'the unconfirm is never offered on an unconfirmed registration (the server\'s can.unconfirm is false there)', () => {
+		expect( manualActions( null, { confirm_manually: true, unconfirm: false }, false ) ).toEqual( [ 'confirm' ] );
+		expect( manualActions( flag, { confirm_manually: true, unconfirm: false }, false ) ).toEqual( [] );
+	} );
+
 	test( 'a read without the flag (no money view) still offers setting, which is idempotent', () => {
 		expect( manualActions( undefined, { confirm_manually: true } ) ).toEqual( [ 'confirm' ] );
 	} );
 
 	test( 'the one unconfirm is offered only with can.unconfirm, whatever the flag says', () => {
 		expect( manualActions( null, { confirm_manually: true, unconfirm: true } ) ).toEqual( [ 'confirm', 'unconfirm' ] );
+		expect( manualActions( null, { confirm_manually: true, unconfirm: true }, false ) ).toEqual( [ 'confirm', 'unconfirm' ] );
 		expect( manualActions( flag, { confirm_manually: true, unconfirm: true } ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( undefined, { unconfirm: true } ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( flag, { confirm_manually: true, unconfirm: false } ) ).toEqual( [] );
 	} );
 
 	test( 'can.unconfirm decides alone: it does not matter why the registration is confirmed', () => {
-		// The pure logic takes only the flag and `can`: no status, no confirmation cause, no money.
-		expect( manualActions.length ).toBe( 2 );
+		// The pure logic takes only the flag, `can` and the confirmed fact: no status, no confirmation cause, no money.
+		expect( manualActions.length ).toBe( 3 );
 		const can = { unconfirm: true, status: 'waitlisted', cause: 'payments', threshold: 'below', view_money: false };
 		expect( manualActions( null, can ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( flag, { ...can, cause: 'nothing_due' } ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( flag, { ...can, cause: 'manual' } ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( flag, { ...can, unconfirm: false, cause: 'manual' } ) ).toEqual( [] );
+	} );
+
+	test( 'the set button is hidden while the registration is confirmed: the two buttons never show together', () => {
+		const can = { confirm_manually: true, unconfirm: true };
+		expect( manualActions( null, can, true ) ).toEqual( [ 'unconfirm' ] );
+		expect( manualActions( undefined, can, true ) ).toEqual( [ 'unconfirm' ] );
+		// Not known (an old server): the set stays.
+		expect( manualActions( null, { confirm_manually: true }, undefined ) ).toEqual( [ 'confirm' ] );
+		expect( manualActions( null, { confirm_manually: true }, null ) ).toEqual( [ 'confirm' ] );
 	} );
 
 	test( 'the set button follows can.confirm_manually only, whatever else the read says', () => {
@@ -142,6 +141,20 @@ describe( 'the warning before the unconfirm', () => {
 	} );
 } );
 
+describe( 'the disabled unconfirm', () => {
+	test( 'is blocked when the read says the rules would confirm again at once, for each of the three answers', () => {
+		expect( unconfirmBlocked( { unconfirm_reconfirms: 'payments' } ) ).toBe( true );
+		expect( unconfirmBlocked( { unconfirm_reconfirms: 'nothing_due' } ) ).toBe( true );
+		expect( unconfirmBlocked( { unconfirm_reconfirms: 'yes' } ) ).toBe( true );
+	} );
+
+	test( 'is not blocked when the unconfirm would really take effect (null) or the read does not say', () => {
+		expect( unconfirmBlocked( { unconfirm_reconfirms: null } ) ).toBe( false );
+		expect( unconfirmBlocked( {} ) ).toBe( false );
+		expect( unconfirmBlocked( undefined ) ).toBe( false );
+	} );
+} );
+
 describe( 'the snackbar after a save', () => {
 	const detail = ( confirmedNow ) => ( { registration: { confirmed: confirmedNow } } );
 
@@ -150,29 +163,15 @@ describe( 'the snackbar after a save', () => {
 		expect( snackbarAfter( false, { changed: true }, { registration: {} } ) ).toBe( CONFIRM.saved );
 	} );
 
-	test( 'an unconfirm that ends not confirmed says it was revoked', () => {
+	test( 'an unconfirm always says it was revoked, whatever the re-read shows', () => {
 		expect( snackbarAfter( true, { changed: true }, detail( false ) ) ).toBe( CONFIRM.unconfirmed );
+		expect( snackbarAfter( true, { changed: true }, detail( true ) ) ).toBe( CONFIRM.unconfirmed );
+		expect( snackbarAfter( true, { changed: true }, { registration: {} } ) ).toBe( CONFIRM.unconfirmed );
 		expect( CONFIRM.unconfirmed ).toBe( 'Visszaigazolás visszavonva.' );
 	} );
 
-	test( 'an unconfirm the rules re-confirmed at once says so: the re-read ends confirmed', () => {
-		expect( snackbarAfter( true, { changed: true }, detail( true ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
-		expect( CONFIRM.unconfirmedReconfirmed ).toBe( 'Visszaigazolás visszavonva; a szabályok szerint újra visszaigazolva.' );
-	} );
-
-	test( 'registration.confirmed alone decides: not the decision list, not can.unconfirm', () => {
-		const read = ( confirmedNow, state, unconfirm ) => ( {
-			registration: { confirmed: confirmedNow, decisions: [ { kind: 'confirmation', state } ] },
-			can: { unconfirm },
-		} );
-		expect( snackbarAfter( true, { changed: true }, read( false, 'confirmed', true ) ) ).toBe( CONFIRM.unconfirmed );
-		expect( snackbarAfter( true, { changed: true }, read( true, 'unconfirmed', false ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
-	} );
-
-	test( 'a read without the field (an old server) cannot tell: no snackbar', () => {
-		expect( snackbarAfter( true, { changed: true }, { registration: {} } ) ).toBeNull();
-		expect( snackbarAfter( true, { changed: true }, { registration: { confirmed: null }, can: { unconfirm: true } } ) ).toBeNull();
-		expect( snackbarAfter( true, { changed: true }, {} ) ).toBeNull();
+	test( 'the re-confirm snackbar is gone', () => {
+		expect( CONFIRM.unconfirmedReconfirmed ).toBeUndefined();
 	} );
 
 	test( 'changed: false writes nothing: no snackbar, for either act', () => {

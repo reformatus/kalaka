@@ -212,13 +212,6 @@ final class MoneySettingsTest extends PricingTestCase
         return $this->runner->run($useCase, $input, new CliActor(null));
     }
 
-    private function lineCount(): int
-    {
-        global $wpdb;
-
-        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}kalaka_ledger_lines");
-    }
-
     private static function plain(string $amount): string
     {
         return str_contains($amount, '.') ? rtrim(rtrim($amount, '0'), '.') : $amount;

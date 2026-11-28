@@ -11,7 +11,6 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
  */
 final class MailBudgetInvalid extends RuleViolation
 {
-    /** [UNAPPROVED T902] */
     public const MESSAGE = 'Az óránként legfeljebb küldhető levelek száma csak 1 és 2000 közötti egész szám lehet.';
 
     public function __construct()
