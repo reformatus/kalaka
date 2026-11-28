@@ -31,19 +31,15 @@ retention and the materializer
   `Ledger::chargeTotalsOf()` (a unit test checks it); a fee component gets its
   `FeeComponentInput` (facts, earlier-stage totals, the event's currency) and
   reads its own current settings, never lines.
-- Lines of components not registered now are never touched. A line of a
-  registered component that the composition no longer names (a withdrawal)
-  owes zero, so the materializer reverses it. A component that owes per item
-  writes one line per item (source key `<component>:<item>`, at most 64
-  characters).
-- A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings as plain data and reads
-  them back (`settingsToArray()`, `settingsFromArray()` into `ProposedComponentSettings`), so
-  `wp kalaka money-settings show|preview|apply` (`Cli/`) carries every component's settings as JSON by component
-  ID without Pricing knowing any of them; Pricing itself reads and writes only the fixed price. The command is a
-  thin entry point over `Api\MoneySettings`: it runs as the command line, or as WP-CLI's `--user`, and the apply
-  asks first. Every verb, `show` and `preview` too, is checked as the fixed price's save (`SetFixedPrice`, full
-  access only) before it reads.
-- A component ID matches `[a-z][a-z0-9_]*` (no colon, which would be another component's item).
+- A component may owe per item (`FeeTargets::ofItems()`): each item is
+  recorded and reversed on its own under the source key
+  `<component ID>:<item>` (item `[a-z0-9_]{1,40}`, at most 64 characters),
+  and an item the component no longer returns is reversed. A component ID
+  matches `[a-z][a-z0-9_]*` (no colon, which would be another component's
+  item).
+- Lines of components not registered now are never touched. A line of a registered
+  component that the composition no longer names (a withdrawal) owes zero,
+  so the materializer reverses it.
 - The `manual` component composes only the Ledger's manual fee facts, one
   item per entry; nobody writes its `charge` lines but the materializer.
 - A fee component returns a value and writes nothing. Core composes the
@@ -78,7 +74,22 @@ retention and the materializer
   `Evaluations` (Pricing never marks a registration touched itself); one
   failure never stops the others, a failed one is flagged "evaluation failed",
   and it converges on its next evaluation. The preview refuses what the apply
-  refuses (a negative price).
+  refuses: a negative price, and an actor without full access (it takes the actor and checks it itself, as it
+  reads payment-derived flags of every registration outside a use case). It also says, per `registered` registration not
+  confirmed now, whether it would be confirmed under the proposed composition
+  (`ConfirmationRule::wouldConfirm()`, a dry run that reads payment facts and
+  the manual flag and writes nothing) and whether the event's "confirmed" mail
+  would go; a confirmed one is never counted.
+- A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings
+  as plain data and reads them back (`settingsToArray()`, `settingsFromArray()`
+  into `ProposedComponentSettings`), so `wp kalaka money-settings show|preview|apply`
+  (`Cli/`) carries every component's settings as JSON by component ID without Pricing
+  knowing any of them; Pricing itself reads and writes only the fixed price (core's Extras
+  carries its own). The
+  command is a thin entry point over `Api\MoneySettings`: it runs as the command
+  line, or as WP-CLI's `--user`, and the apply asks first. Every verb, `show` and
+  `preview` too, is checked as the fixed price's save (`SetFixedPrice`, full
+  access only) before it reads.
 - Once confirmed, a registered registration never becomes unconfirmed because
   amounts change later, an apply included (owner rule, 2026-11-14), nor by a
   refund (the owner's ruling 2026-11-19): only staff's unconfirm
@@ -104,12 +115,15 @@ retention and the materializer
   confirmed sequence with an `unconfirmed` record, so a restore writes a new
   record.
 - Whether a registration is confirmed is read only through `Api\Confirmations` (`isConfirmed()`, or `confirmedOf()`
-  for a batch of one event); nobody else names the decision's kind or state.
+  for a batch of one event). Pricing owns the confirmation kind and its states;
+  readers elsewhere (the confirmed-mail pass in `Foundation\Evaluation\Evaluation`,
+  the portal's `Portal\Api\StatusRead`) name them only through the constants of
+  `Api\ConfirmationRule` (`KIND`, `CONFIRMED`), never as string literals.
 - The manual flag is a fact in `kalaka_manual_confirmations`, set only by
   `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
   registration), written only by `kalaka/unconfirm`. Both use cases take the
-  per-event action `kalaka_confirm_manually` and a required reason. Setting a
+  per-event action `kalaka_confirm_manually` and an optional reason. [UNAPPROVED R352] Setting a
   set flag writes nothing; unconfirming a registration that is not confirmed
   writes nothing; unconfirming a confirmed one is a new act every time. A
   revoke keeps the flag's row with its revoke time. The flag is set on a

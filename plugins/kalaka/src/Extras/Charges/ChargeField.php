@@ -19,7 +19,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * type, so a key `ParticipantFields::checkDeclarable()` refuses (a `staff` or `system` field, a field of another
  * type, another declarer's field) is refused here as the declaration would refuse it, and a number field that
  * multiplies the amount must take whole numbers (decimals 0). It reads the event's participant fields
- * (no post). [UNAPPROVED N13]
+ * (no post).
  */
 final class ChargeField
 {
@@ -75,7 +75,7 @@ final class ChargeField
      * key with other decimals: adopting the key would close it (`SharedKeyCheck`'s `extension_decimals`). It reads
      * the event's form posts (every status whose fields count, `Forms::formsWithOtherDecimals()`), so it runs
      * outside a use case's transaction: at the preview and again just before the apply runs the save, never in
-     * the save. The record-based check of `check()` is the one inside it. [UNAPPROVED N808]
+     * the save. The record-based check of `check()` is the one inside it.
      *
      * @throws FieldDecimalsHeld when a form holds the key with other decimals
      */

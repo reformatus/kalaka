@@ -1,12 +1,13 @@
 /**
  * The requests block's pure logic (slice B): the state lines, when the dialog asks for an amount, the one check
- * and the ability's input. Every string is unapproved until the owner ticks its box: [UNAPPROVED T3] to
+ * and the ability's input. Every string is unapproved until the owner ticks its box: to
  * [UNAPPROVED T11], see `REQUESTS`.
  */
 import {
+	aidFigures,
 	asksAmount,
-	asksReason,
 	buildAnswer,
+	hintedAmount,
 	itemsOf,
 	savedText,
 	stateText,
@@ -64,10 +65,7 @@ describe( 'the dialog', () => {
 		expect( validateAnswer( offer, 'yes', '' ) ).toBe( '' );
 	} );
 
-	test( 'names the note a reason for a yes to an offer only, and never requires it', () => {
-		expect( asksReason( offer, 'yes' ) ).toBe( true );
-		expect( asksReason( offer, 'no' ) ).toBe( false );
-		expect( asksReason( aid, 'yes' ) ).toBe( false );
+	test( 'never requires the note, whichever way the answer goes (N1183)', () => {
 		expect( validateNote( offer, 'yes', '' ) ).toBe( '' );
 		expect( validateNote( offer, 'yes', '   ' ) ).toBe( '' );
 		expect( validateNote( offer, 'yes', 'Telefonon megerősítve' ) ).toBe( '' );
@@ -90,6 +88,43 @@ describe( 'the dialog', () => {
 			request: 'offer:church',
 			answer: 'no',
 		} );
+	} );
+} );
+
+describe( 'the aid context (walkthrough 6.8)', () => {
+	const figures = {
+		full_price: '30000.00000000',
+		can_pay: null,
+		asked: '12000.00000000',
+		max_award: '30000.00000000',
+	};
+
+	test( 'shows the figures the read carries, and none without them', () => {
+		const shown = aidFigures( { ...aid, aid: figures } );
+		expect( shown.map( ( figure ) => figure.key ) ).toEqual( [ 'full_price', 'asked', 'max_award' ] );
+		expect( shown.map( ( figure ) => figure.label ) ).toEqual( [
+			REQUESTS.figures.full_price,
+			REQUESTS.figures.asked,
+			REQUESTS.figures.max_award,
+		] );
+		expect( aidFigures( aid ) ).toEqual( [] );
+		expect( aidFigures( { ...offer, aid: figures } ) ).toEqual( [] );
+	} );
+
+	test( 'hints the asked amount, and nothing without it', () => {
+		expect( hintedAmount( { ...aid, aid: figures } ) ).toBe( '12000' );
+		expect( hintedAmount( aid ) ).toBe( '' );
+		expect( hintedAmount( { ...aid, aid: { ...figures, asked: null } } ) ).toBe( '' );
+	} );
+
+	test( 'refuses a yes above the full price with the act\'s own sentence, and only then', () => {
+		const held = { ...aid, aid: figures };
+		expect( validateAnswer( held, 'yes', '12000' ) ).toBe( '' );
+		expect( validateAnswer( held, 'yes', '30000' ) ).toBe( '' );
+		expect( validateAnswer( held, 'yes', '30000.5' ) ).toBe( REQUESTS.aidAbovePrice );
+		expect( REQUESTS.aidAbovePrice ).toBe( 'A támogatás nem lehet több a fizetendő összegnél.' );
+		// Without the figures the amount checks stay and the act still refuses.
+		expect( validateAnswer( aid, 'yes', '999999' ) ).toBe( '' );
 	} );
 } );
 

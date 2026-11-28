@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 
 /**
  * A use case refused because a fee component refused (`FeeRefusal`): a `RuleViolation` whose text is the
- * component's own for the actor's side. [UNAPPROVED, #200 N11]
+ * component's own for the actor's side.
  */
 final class FeeRefused extends RuleViolation
 {

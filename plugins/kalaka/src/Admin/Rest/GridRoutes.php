@@ -136,7 +136,7 @@ final class GridRoutes
             $rows[] = [
                 'key' => $row->key->code,
                 'values' => (object) $row->values,
-                'awaits_answer' => $row->awaitsAnswer, // [UNAPPROVED N669]
+                'awaits_answer' => $row->awaitsAnswer, // true, false or null (N/A) [UNAPPROVED N690]
             ];
         }
         $response = new \WP_REST_Response($rows);
@@ -242,21 +242,12 @@ final class GridRoutes
      */
     private static function held(\WP_REST_Request $request): HeldView
     {
-        $eventId = self::event($request);
-        $viewId = (int) $request->get_param('view');
-        $grant = (int) $request->get_param('grant');
-        $actor = self::actor();
-        $access = new Access();
-        if ($access->isFull($actor)) {
-            return $viewId === 0 ? $access->master($actor, $eventId) : $access->fullView($actor, $eventId, $viewId);
-        }
-        foreach ($access->heldViews($actor, $eventId) as $held) {
-            if ($held->grantId === $grant && ($held->viewId ?? 0) === $viewId) {
-                return $held;
-            }
-        }
-
-        throw new PermissionDenied();
+        return (new Access())->viewOf(
+            self::actor(),
+            self::event($request),
+            (int) $request->get_param('view'),
+            (int) $request->get_param('grant')
+        );
     }
 
     /**

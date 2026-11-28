@@ -7,7 +7,10 @@ namespace Kalaka\PriceLadder;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\PriceLadder\Api\Tier;
 
-/** A row of `kalaka_price_ladder_tiers`: one tier of an event's ladder, at its position (0 first). */
+/**
+ * A row of `kalaka_price_ladder_tiers`: one tier of an event's ladder, at its position (0 first), with its limit
+ * of people when it has one.
+ */
 final class TierRecord
 {
     public function __construct(
@@ -17,11 +20,12 @@ final class TierRecord
         public string $label,
         public Money $amount,
         public int $version = 0,
+        public ?int $limit = null,
     ) {
     }
 
     public function tier(): Tier
     {
-        return new Tier($this->key, $this->label, $this->amount);
+        return new Tier($this->key, $this->label, $this->amount, $this->limit);
     }
 }

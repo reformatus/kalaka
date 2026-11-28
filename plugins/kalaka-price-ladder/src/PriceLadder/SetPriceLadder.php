@@ -25,6 +25,10 @@ use Kalaka\PriceLadder\Api\Tier;
  * key as its value and the tier's label as its label. A new tier adds an option, a removed tier's option is
  * retired with its label kept, and a renamed tier renames its option (the declarer's text). An event that
  * never had a ladder gets no field from an empty one (#200 N13, approved).
+ *
+ * It refuses to remove a tier an open (registered or waitlisted) registration has chosen, and to declare
+ * `price_tier` over another declarer's field (`LadderSaveGuard`, which the preview runs too). A tier's
+ * limit may be given, changed or removed at any time: every chooser of a tier holds a seat row, limited or not.
  */
 final class SetPriceLadder implements AdminUseCase
 {
@@ -33,6 +37,7 @@ final class SetPriceLadder implements AdminUseCase
         private readonly Events $events = new Events(),
         private readonly LadderInput $ladder = new LadderInput(),
         private readonly ParticipantFields $fields = new ParticipantFields(),
+        private readonly LadderSaveGuard $guard = new LadderSaveGuard(),
     ) {
     }
 
@@ -84,17 +89,27 @@ final class SetPriceLadder implements AdminUseCase
         foreach ($this->tiers->forEvent($eventId, $context) as $record) {
             $stored[$record->key] = $record;
         }
+        $this->guard->check($eventId, $stored, $proposed);
+
         foreach ($proposed as $position => $tier) {
             $record = $stored[$tier->key] ?? null;
             unset($stored[$tier->key]);
             if ($record === null) {
-                $record = new TierRecord($eventId, $tier->key, $position, $tier->label, $tier->amount);
+                $record = new TierRecord(
+                    $eventId,
+                    $tier->key,
+                    $position,
+                    $tier->label,
+                    $tier->amount,
+                    limit: $tier->limit,
+                );
                 $this->tiers->upsert($record, $context);
                 continue;
             }
             $record->position = $position;
             $record->label = $tier->label;
             $record->amount = $tier->amount;
+            $record->limit = $tier->limit;
             $this->tiers->upsert($record, $context);
         }
         $hadLadder = $stored !== [] || $proposed !== [];

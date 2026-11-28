@@ -178,9 +178,10 @@ final class RequestsTest extends RegistrationsTestCase
         $key = $this->asking();
         $requests = new Requests([new TestRequestSource()]);
 
-        self::assertFalse($requests->awaits($key, RegistrationStatus::Withdrawn));
-        self::assertFalse($requests->awaits($key, RegistrationStatus::Removed));
-        self::assertFalse($requests->awaits($key, RegistrationStatus::Waitlisted));
+        // N/A (null) is not "no": a registration that is not registered has no request state.
+        self::assertNull($requests->awaits($key, RegistrationStatus::Withdrawn));
+        self::assertNull($requests->awaits($key, RegistrationStatus::Removed));
+        self::assertNull($requests->awaits($key, RegistrationStatus::Waitlisted));
         self::assertTrue($requests->awaits($key, RegistrationStatus::Registered), 'true again at admission');
     }
 
@@ -190,7 +191,7 @@ final class RequestsTest extends RegistrationsTestCase
         $requests = new Requests([]);
 
         $statements = $this->statementsOf(
-            static fn (): bool => $requests->awaits($key, RegistrationStatus::Registered)
+            static fn (): ?bool => $requests->awaits($key, RegistrationStatus::Registered)
         );
 
         self::assertSame([], $statements);
@@ -207,11 +208,6 @@ final class RequestsTest extends RegistrationsTestCase
         self::assertTrue((new Requests())->awaits($key, RegistrationStatus::Registered));
     }
 
-    private static function now(): \DateTimeImmutable
-    {
-        return new \DateTimeImmutable('2026-11-30 08:00:00', new \DateTimeZone('UTC'));
-    }
-
     public function testTheFactSourceReadsYesWhileARequestAwaitsAndNoOtherwise(): void
     {
         $key = $this->asking();
@@ -220,16 +216,32 @@ final class RequestsTest extends RegistrationsTestCase
         Contributions::record($contributions);
         $event = $this->event();
 
-        $facts = (new Registrations())->factsOf($key, $event, self::now());
+        $facts = (new Registrations())->factsOf($key, $event, new \DateTimeImmutable());
         self::assertInstanceOf(RegistrationFacts::class, $facts);
         self::assertSame(['yes'], $facts->get(RegistrationFacts::AWAITS_ANSWER)->data);
         self::assertSame('', $facts->get(RegistrationFacts::AWAITS_ANSWER)->text);
         self::assertSame('rögzített', $facts->get(RegistrationFacts::STATUS)->text);
 
         $this->answer($key, true);
-        $facts = (new Registrations())->factsOf($key, $event, self::now());
+        $facts = (new Registrations())->factsOf($key, $event, new \DateTimeImmutable());
         self::assertInstanceOf(RegistrationFacts::class, $facts);
         self::assertSame(['no'], $facts->get(RegistrationFacts::AWAITS_ANSWER)->data);
+    }
+
+    public function testTheFactIsNotApplicableNotNoWhileTheRegistrationIsNotRegistered(): void
+    {
+        $key = $this->asking('00A0', 'waitlisted');
+        $contributions = new Contributions();
+        $contributions->requestSource(new TestRequestSource());
+        Contributions::record($contributions);
+        $event = $this->event();
+
+        $facts = (new Registrations())->factsOf($key, $event, new \DateTimeImmutable());
+
+        self::assertInstanceOf(RegistrationFacts::class, $facts);
+        $fact = $facts->get(RegistrationFacts::AWAITS_ANSWER);
+        self::assertTrue($fact->isEmpty(), 'N/A is no value: only "empty" reads it, "is no" does not match.');
+        self::assertNull($fact->data);
     }
 
     public function testTheReadsCostOneOrTwoStatementsAndNoneWithoutRequests(): void
@@ -237,7 +249,7 @@ final class RequestsTest extends RegistrationsTestCase
         $key = $this->asking();
         $requests = new Requests([new TestRequestSource()]);
 
-        $selects = $this->statementsOf(static fn (): bool => $requests->awaits($key, RegistrationStatus::Registered));
+        $selects = $this->statementsOf(static fn (): ?bool => $requests->awaits($key, RegistrationStatus::Registered));
         self::assertCount(1, $selects, 'The field values hold every answer.');
         $states = $this->statementsOf(static fn (): array => $requests->states($key));
         self::assertCount(2, $states, 'The field values and the answer records, one statement each.');
@@ -249,7 +261,7 @@ final class RequestsTest extends RegistrationsTestCase
             ['value' => 'nincs'],
             ['event_id' => $plain->eventId, 'code' => '00A2']
         );
-        $none = $this->statementsOf(static fn (): bool => $requests->awaits($plain, RegistrationStatus::Registered));
+        $none = $this->statementsOf(static fn (): ?bool => $requests->awaits($plain, RegistrationStatus::Registered));
         self::assertCount(1, $none, 'No request: only the field values are read.');
     }
 

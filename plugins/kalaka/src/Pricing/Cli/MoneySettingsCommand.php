@@ -22,7 +22,7 @@ use Kalaka\Pricing\SetFixedPrice;
  * as the command line without a user (full access), or, with WP-CLI's `--user`, checked as that user, and is
  * audited like the use cases it runs. Every verb is checked as the write of the same data, the fixed price's
  * save (`SetFixedPrice`, full access only), before it reads or writes anything. The screen for the same is
- * S72's. [UNAPPROVED N3]
+ * S72's.
  */
 final class MoneySettingsCommand
 {
@@ -87,8 +87,10 @@ final class MoneySettingsCommand
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
             $eventId = self::eventId($args);
-            self::check($eventId, self::actor());
-            $rows = $this->settings->preview($eventId, $this->document->proposed($eventId, self::file($assocArgs)));
+            $actor = self::actor();
+            self::check($eventId, $actor);
+            $proposed = $this->document->proposed($eventId, self::file($assocArgs));
+            $rows = $this->settings->preview($eventId, $proposed, $actor);
             $this->printRows($rows, self::format($assocArgs));
         });
     }
@@ -124,7 +126,7 @@ final class MoneySettingsCommand
             $actor = self::actor();
             self::check($eventId, $actor);
             $proposed = $this->document->proposed($eventId, self::file($assocArgs));
-            $rows = $this->settings->preview($eventId, $proposed);
+            $rows = $this->settings->preview($eventId, $proposed, $actor);
             $this->printRows($rows, self::format($assocArgs));
             \WP_CLI::confirm('Apply these settings to ' . count($rows) . ' registrations?', $assocArgs);
 

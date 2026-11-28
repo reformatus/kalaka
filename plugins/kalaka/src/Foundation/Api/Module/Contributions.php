@@ -11,9 +11,9 @@ use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
+use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\SeatClaimSource;
-use Kalaka\Pricing\Api\FeeComponent;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
 final class Contributions
@@ -44,10 +44,11 @@ final class Contributions
     /** @var list<RequestSource> */
     private array $requestSources = [];
 
-    /** @var list<SeatClaimSource> */
-    private array $seatClaimSources = [];
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
+
+    /** @var list<SeatClaimSource> */
+    private array $seatClaimSources = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -206,12 +207,13 @@ final class Contributions
     }
 
     /**
-     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
-     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     * In contribution order.
+     *
+     * @return list<RequestSource>
      */
-    public function seatClaimSource(SeatClaimSource $source): void
+    public function requestSources(): array
     {
-        $this->seatClaimSources[] = $source;
+        return $this->requestSources;
     }
 
     /**
@@ -236,11 +238,20 @@ final class Contributions
     /**
      * In contribution order.
      *
-     * @return list<RequestSource>
+     * @return list<FeeComponent>
      */
-    public function requestSources(): array
+    public function feeComponents(): array
     {
-        return $this->requestSources;
+        return array_values($this->feeComponents);
+    }
+
+    /**
+     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
+     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     */
+    public function seatClaimSource(SeatClaimSource $source): void
+    {
+        $this->seatClaimSources[] = $source;
     }
 
     /**
@@ -251,15 +262,5 @@ final class Contributions
     public function seatClaimSources(): array
     {
         return $this->seatClaimSources;
-    }
-
-    /**
-     * In contribution order.
-     *
-     * @return list<FeeComponent>
-     */
-    public function feeComponents(): array
-    {
-        return array_values($this->feeComponents);
     }
 }
