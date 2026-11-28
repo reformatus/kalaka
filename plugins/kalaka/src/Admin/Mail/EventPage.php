@@ -21,16 +21,16 @@ use Kalaka\Mail\EventMailNotHeld;
 
 /**
  * The event's „Levelek” page, rendered in PHP (owner 2026-11-27, walkthrough 8; section 8 of the build list): no
- * tabs. Top: the „Áttekintés” card — the event's counts, its failures, the clear act, the held notice and the group
- * mails with their members in a dialog —, then „Küldési pontok” and „Hozzá nem rendelt sablonok”; „Levélkeret” is
- * the same admin page with `&view=layout`. Every act and every read is the server's: this class only lays out what
- * `Mail\Api` reports, so no rule is copied here. The client does only the dynamic parts (`app/mail/event-page.js`):
- * the switch, the choose dialog, the X, the group-mail details and the clear. Words are `Texts`' constants.
+ * tabs. The „Áttekintés” box (the figures in one row, the failures and the group mails each behind a window, the
+ * clear act), „Küldési pontok”, „Hozzá nem rendelt sablonok”, then „Levélkeret”, which opens the same admin page with
+ * `&view=layout`. Every act and every read is the server's: this class only lays out what `Mail\Api` reports, so no
+ * rule is copied here. The client does only the dynamic parts (`app/mail/event-page.js`): the switch, the choose
+ * dialog, the X, the two new-template buttons, the two windows, the clear and the layout save. Words are `Texts`'
+ * constants. [UNAPPROVED N1280 N1296]
  *
- * Today's branch lacks three shapes the section-8 plan adds to the read — `template`,
- * `enable_unavailable`/`can.enable` and `wired`. The page renders the template from the assigned `body_id` and the
- * `bodies` list instead, keeps the switch's own `refusals` for its disabled state, shows every point (no `wired`
- * filter), and disables „Új sablon”, whose route is not on the branch either. [UNAPPROVED N1280 N1281 N1282]
+ * The look is WordPress's own (the owner's 2026-11-28 rework): the page's thin stylesheet
+ * (`app/mail/event-page.scss`, built from `@wordpress/base-styles`), the components' toggle and icon-button markup,
+ * core's `.button`; below 782 px every table row stacks, cell under cell with its column name. [UNAPPROVED N1294]
  */
 final class EventPage
 {
@@ -44,24 +44,25 @@ final class EventPage
         }
 
         $data = self::data($event);
-        $html = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html($event->name) . '</h1>';
-        $html .= '<p><a class="button" href="' . esc_url(self::layoutUrl($event)) . '">'
-            . esc_html(Texts::LAYOUT_LINK) . '</a></p>';
+        $html = '<div class="wrap kalaka-mail-wrap kalaka-mail-event"><h1>' . esc_html($event->name) . '</h1>';
         if ($data['held']) {
             $html .= '<div class="notice notice-warning inline"><p>' . esc_html(Texts::HELD) . '</p></div>';
         }
         $html .= self::overview($event, $data);
-        $html .= self::points($event, $data);
+        $html .= self::points($data);
         $html .= self::unassigned($data);
+        $html .= self::frame($event);
 
         return $html . '</div>';
     }
 
     /**
-     * `window.kalakaMailPage`: the event, the bodies of its choose dialog and the dialog words.
+     * `window.kalakaMailPage`: the event, the bodies of its choose dialog, the group mails of their window and the
+     * words of the dialogs and windows.
      *
      * @return array{event: int, rest: string, bodies: list<array{id: int, label: string}>,
-     *     texts: array<string, string>, urls: array<string, string>}
+     *     batches: list<array{id: int, subject: string, queued: int, skipped: int}>,
+     *     texts: array<string, mixed>, urls: array<string, string>}
      */
     public static function config(Event $event): array
     {
@@ -77,6 +78,12 @@ final class EventPage
                 $data['bodies'],
                 static fn (MailBodyInfo $body): bool => $body->status === 'publish'
             ))),
+            'batches' => array_map(static fn (BatchInfo $batch): array => [
+                'id' => $batch->id,
+                'subject' => (string) $batch->subject,
+                'queued' => $batch->queued,
+                'skipped' => $batch->skipped,
+            ], $data['batches']),
             'texts' => [
                 'chooseTitle' => Texts::CHOOSE_TEMPLATE,
                 'choose' => Texts::CHOOSE_TEMPLATE,
@@ -85,193 +92,226 @@ final class EventPage
                 'clearConfirm' => Texts::CLEAR_CONFIRM,
                 'clear' => Texts::CLEAR_QUEUED,
                 'actFail' => Texts::ACT_FAIL,
+                'loading' => Texts::LOADING,
+                'details' => Texts::DETAILS,
+                'back' => Texts::BACK_TO_BATCHES,
+                'batchesTitle' => Texts::BATCHES_TITLE,
                 'batchTitle' => Texts::BATCH_OPEN,
+                'batchManual' => Texts::BATCH_MANUAL,
+                'batchColumns' => [
+                    Texts::BATCH_NUMBER,
+                    Texts::BATCH_SUBJECT,
+                    Texts::BATCH_QUEUED,
+                    Texts::BATCH_SKIPPED,
+                ],
+                'memberColumns' => [Texts::BATCH_MEMBERS, Texts::TROUBLED_STATUS],
+                'troubledTitle' => Texts::TROUBLED_TITLE,
+                'troubledColumns' => [
+                    Texts::TROUBLED_CODE,
+                    Texts::TROUBLED_MAIL,
+                    Texts::TROUBLED_STATUS,
+                    Texts::TROUBLED_ERROR,
+                ],
+                'deliveryStatus' => [
+                    'failed' => Texts::DELIVERY_FAILED,
+                    'sending' => Texts::DELIVERY_SENDING,
+                    'pending' => Texts::DELIVERY_PENDING,
+                ],
+                'senderLink' => Texts::SENDER_LINK,
             ],
             'urls' => [
                 'layout' => self::layoutUrl($event),
+                'sender' => admin_url('admin.php?page=' . MailPages::siteSlug()),
             ],
         ];
     }
 
     /**
-     * The overview card: counts, the clear act, the failures, the group mails with their details.
+     * The „Áttekintés” box: the figures side by side in one row (wrapping on a phone), „Sikertelen” and „Csoportos
+     * levelek” each with a „Részletek” button that opens its window, and the clear act on its own line under the
+     * row. [UNAPPROVED N1297]
      *
      * @param array<string, mixed> $data see `data()`
      */
     private static function overview(Event $event, array $data): string
     {
         $stats = $data['stats'];
-        $html = '<div class="card" style="max-width:100%">';
+        $html = '<div class="kalaka-mail-panel kalaka-mail-overview">';
         $html .= '<h2>' . esc_html(Texts::OVERVIEW_TITLE) . '</h2>';
-        $html .= '<ul class="kalaka-mail-counts">';
-        $html .= '<li>' . esc_html(Texts::QUEUED) . ': <strong>' . (int) $stats->queued . '</strong></li>';
-        $html .= '<li>' . esc_html(Texts::SENT) . ': <strong>' . (int) $stats->sent . '</strong></li>';
-        $html .= '<li>' . esc_html(Texts::FAILED) . ': <strong>' . (int) $stats->failed . '</strong></li>';
+        $html .= '<ul class="kalaka-mail-figures">';
+        $html .= self::figure('queued', Texts::QUEUED, (int) $stats->queued);
+        $html .= self::figure('sent', Texts::SENT, (int) $stats->sent);
+        // The failures' window: shown while the event has a delivery that needs a look (failed, waiting after an
+        // error, or stuck in sending), the same list the old table showed; the figure counts only the failed ones.
+        // [UNAPPROVED N1299]
+        $html .= self::figure(
+            'failed',
+            Texts::FAILED,
+            (int) $stats->failed,
+            $data['troubled'] === [] ? '' : 'data-kalaka-troubled'
+        );
+        // The group mails: their count, and their list in a window; no button while there is none. [UNAPPROVED N1298]
+        $html .= self::figure(
+            'batches',
+            Texts::BATCHES_TITLE,
+            count($data['batches']),
+            $data['batches'] === [] ? '' : 'data-kalaka-batches'
+        );
         $html .= '</ul>';
         if ($data['canClear']) {
-            $html .= '<p><button type="button" class="button" data-kalaka-clear-event="' . (int) $event->id . '">'
+            $html .= '<p><button type="button" class="button button-compact" data-kalaka-clear-event="'
+                . (int) $event->id . '">'
                 . esc_html(Texts::CLEAR_QUEUED) . '</button></p>';
         }
-        $html .= self::troubled($data['troubled'], $event);
-        $html .= self::batches($data['batches']);
 
         return $html . '</div>';
     }
 
     /**
-     * The event's failures: what is failed, waiting after an error, or stuck in sending.
-     *
-     * @param list<TroubledDelivery> $troubled the event's deliveries that need a look
+     * One figure: „label: number”, and the button of its window when `$opens` names one. The button's accessible
+     * name is its own word and the figure's label („Részletek Sikertelen”).
      */
-    private static function troubled(array $troubled, Event $event): string
+    private static function figure(string $key, string $label, int $number, string $opens = ''): string
     {
-        if ($troubled === []) {
-            return '';
+        $id = 'kalaka-figure-' . $key;
+        $html = '<li><span id="' . esc_attr($id) . '">' . esc_html($label) . '</span>: <strong>' . $number
+            . '</strong>';
+        if ($opens !== '') {
+            $html .= ' <button type="button" class="button button-compact" id="' . esc_attr($id . '-open') . '" '
+                . esc_attr($opens) . ' aria-labelledby="' . esc_attr($id . '-open ' . $id) . '">'
+                . esc_html(Texts::DETAILS) . '</button>';
         }
-        $html = '<h3>' . esc_html(Texts::TROUBLED_TITLE) . '</h3>';
-        $html .= self::tableOpen();
-        $html .= '<table class="widefat striped"><thead><tr>';
-        foreach ([Texts::TROUBLED_CODE, Texts::TROUBLED_MAIL, Texts::TROUBLED_STATUS, Texts::TROUBLED_ERROR] as $word) {
-            $html .= '<th scope="col">' . esc_html($word) . '</th>';
-        }
-        $html .= '</tr></thead><tbody>';
-        foreach ($troubled as $delivery) {
-            /** @var TroubledDelivery $delivery */
-            $html .= '<tr>';
-            $html .= '<td><code>' . esc_html($delivery->code) . '</code></td>';
-            $label = $delivery->action !== null
-                ? $delivery->action->label()
-                : ($delivery->batchId === null
-                    ? $delivery->mail
-                    : sprintf(Texts::BATCH_MANUAL, $delivery->batchId));
-            $html .= '<td>' . esc_html($label) . '</td>';
-            $html .= '<td>' . esc_html(self::deliveryStatus($delivery->status)) . '</td>';
-            $html .= '<td>' . esc_html((string) $delivery->error) . '</td>';
-            $html .= '</tr>';
-        }
-        $html .= '</tbody></table>';
-        $html .= self::tableClose();
 
-        // The full list, with the follow-up on each failed row, is the site page's. [UNAPPROVED N1283]
-        $html .= '<p><a href="' . esc_url(admin_url('admin.php?page=' . MailPages::siteSlug())) . '">'
-            . esc_html(Texts::SENDER_LINK) . '</a></p>';
-
-        return $html;
+        return $html . '</li>';
     }
 
     /**
-     * The group mails: one row each, the members in a dialog.
-     *
-     * @param list<BatchInfo> $batches the event's send batches
-     */
-    private static function batches(array $batches): string
-    {
-        if ($batches === []) {
-            return '';
-        }
-        $html = '<h3>' . esc_html(Texts::BATCHES_TITLE) . '</h3>';
-        $html .= self::tableOpen();
-        $html .= '<table class="widefat striped"><thead><tr>';
-        foreach ([Texts::BATCH_NUMBER, Texts::BATCH_SUBJECT, Texts::BATCH_QUEUED, Texts::BATCH_SKIPPED] as $word) {
-            $html .= '<th scope="col">' . esc_html($word) . '</th>';
-        }
-        $html .= '<th scope="col"><span class="screen-reader-text">'
-            . esc_html(Texts::BATCH_DETAILS_LABEL) . '</span></th>';
-        $html .= '</tr></thead><tbody>';
-        foreach ($batches as $batch) {
-            /** @var BatchInfo $batch */
-            $html .= '<tr>';
-            $html .= '<td>' . (int) $batch->id . '</td>';
-            $html .= '<td>' . esc_html((string) $batch->subject) . '</td>';
-            $html .= '<td>' . (int) $batch->queued . '</td>';
-            $html .= '<td>' . (int) $batch->skipped . '</td>';
-            $html .= '<td><button type="button" class="button" data-kalaka-batch="' . (int) $batch->id . '">'
-                . esc_html(sprintf(Texts::BATCH_OPEN, $batch->id)) . '</button></td>';
-            $html .= '</tr>';
-        }
-
-        return $html . '</tbody></table>' . self::tableClose();
-    }
-
-    /**
-     * „Küldési pontok”: the point, its template's card or the choose/new buttons, and the switch.
+     * „Küldési pontok”: one line per point: the point, its template's subject, status, levélkeret use and last
+     * change, the switch, and the acts. A filled point offers „Szerkesztés” and the X; an empty one „Sablon
+     * kiválasztása” and „Új sablon” (the owner's flow: after the X, the two buttons again). [UNAPPROVED N1300]
      *
      * @param array<string, mixed> $data see `data()`
      */
-    private static function points(Event $event, array $data): string
+    private static function points(array $data): string
     {
         $html = '<h2>' . esc_html(Texts::SECTION_POINTS) . '</h2>';
-        $html .= self::tableOpen();
-        $html .= '<table class="widefat striped kalaka-points"><thead><tr>';
-        $html .= '<th scope="col">' . esc_html(Texts::POINT_COLUMN) . '</th>';
-        $html .= '<th scope="col">' . esc_html(Texts::TEMPLATE_COLUMN) . '</th>';
-        $html .= '<th scope="col">' . esc_html(Texts::SWITCH_COLUMN) . '</th>';
+        $html .= '<div class="kalaka-mail-panel kalaka-mail-panel--table">';
+        $html .= '<table class="kalaka-mail-table kalaka-mail-points"><thead><tr>';
+        $columns = [Texts::POINT_COLUMN, Texts::TEMPLATE_COLUMN, Texts::TEMPLATE_STATUS, Texts::USES_FRAME,
+            Texts::MODIFIED, Texts::SWITCH_COLUMN];
+        foreach ($columns as $word) {
+            $html .= '<th scope="col">' . esc_html($word) . '</th>';
+        }
+        $html .= '<th scope="col" class="kalaka-mail-acts"></th>';
         $html .= '</tr></thead><tbody>';
         foreach ($data['mails'] as $mail) {
             /** @var ActionMailSetting $mail */
-            $point = $data['points'][$mail->action->value]
-                ?? ['template' => null, 'enable_unavailable' => null, 'wired' => false];
+            $point = $data['points'][$mail->action->value] ?? ['template' => null, 'wired' => false];
             if (!$point['wired']) {
                 continue;
             }
-            $switch = $data['switches'][$mail->action->value] ?? [
-                'can' => ['enable' => false, 'switch_off' => false],
-                'refusals' => ['switch_on' => null, 'switch_off' => null],
-            ];
-            $allowed = $mail->enabled ? $switch['can']['switch_off'] : $switch['can']['enable'];
-
+            $body = $point['template'];
             $html .= '<tr>';
             $html .= '<th scope="row">' . esc_html($mail->action->label()) . '</th>';
-            $html .= '<td>' . self::templateCell($mail, $point['template'], $data) . '</td>';
-            // The switch is simply disabled while it cannot be used, with no standing help text (owner 8.2); a server
-            // text shows only after an act was refused (the client's line under it). [UNAPPROVED N1292]
-            $html .= '<td>';
-            $html .= '<input type="checkbox" data-kalaka-switch="' . esc_attr($mail->action->value) . '"'
-                . ' data-kalaka-on="' . ($mail->enabled ? '1' : '0') . '"'
-                . ($mail->enabled ? ' checked' : '')
-                . ($allowed ? '' : ' disabled')
-                . '>';
-            $html .= '</td>';
+            if ($body === null) {
+                $html .= self::cell(Texts::TEMPLATE_COLUMN, esc_html(Texts::NO_TEMPLATE));
+                $html .= self::cell(Texts::TEMPLATE_STATUS, esc_html(Texts::NONE));
+                $html .= self::cell(Texts::USES_FRAME, esc_html(Texts::NONE));
+                $html .= self::cell(Texts::MODIFIED, esc_html(Texts::NONE));
+            } else {
+                $html .= self::templateCells($body);
+            }
+            $html .= self::cell(Texts::SWITCH_COLUMN, self::toggle($mail, $data));
+            $html .= '<td class="kalaka-mail-acts"><span class="kalaka-mail-buttons">'
+                . ($body === null
+                    ? self::chooseButton($mail) . self::newButton($mail)
+                    : self::editButton($body) . self::removeButton($mail))
+                . '</span></td>';
             $html .= '</tr>';
         }
 
-        return $html . '</tbody></table>' . self::tableClose();
+        return $html . '</tbody></table></div>';
     }
 
     /**
-     * One point's template cell: the card, or the two buttons (choose, new).
+     * A data cell with its column's name, which a phone shows in front of the value (the row stacks).
+     * [UNAPPROVED N1295]
+     *
+     * @param string $html the cell's content, already escaped
+     */
+    private static function cell(string $column, string $html): string
+    {
+        return '<td data-colname="' . esc_attr($column) . '">' . $html . '</td>';
+    }
+
+    /** A template's four cells: the subject (or its number when it has none), status, levélkeret use, last change. */
+    private static function templateCells(MailBodyInfo $body): string
+    {
+        return self::cell(Texts::TEMPLATE_COLUMN, esc_html(self::subject($body)))
+            . self::cell(Texts::TEMPLATE_STATUS, esc_html(self::statusWord($body->status)))
+            . self::cell(Texts::USES_FRAME, esc_html($body->usesFrame ? Texts::YES : Texts::NO))
+            . self::cell(Texts::MODIFIED, esc_html(self::moment($body->modified)));
+    }
+
+    /** A template with no subject yet (a fresh draft) is named by its number: „22. levélsablon”. [UNAPPROVED N1306] */
+    private static function subject(MailBodyInfo $body): string
+    {
+        return trim($body->subject) === '' ? sprintf(Texts::UNTITLED_TEMPLATE, $body->id) : $body->subject;
+    }
+
+    /**
+     * The point's switch: the components' toggle, printed here, named by the point („Jelentkezés rögzítve”). It is
+     * simply disabled while it cannot be used, with no standing help text (owner 8.2); a server text shows only after
+     * an act was refused. [UNAPPROVED N1292 N1301]
      *
      * @param array<string, mixed> $data see `data()`
      */
-    private static function templateCell(ActionMailSetting $mail, ?MailBodyInfo $body, array $data): string
+    private static function toggle(ActionMailSetting $mail, array $data): string
     {
-        if ($body === null) {
-            $html = '<p>' . esc_html(Texts::NO_TEMPLATE) . '</p>';
-            $html .= self::chooseButton($mail);
-            $html .= ' ' . self::newButton($mail);
+        $switch = $data['switches'][$mail->action->value] ?? [
+            'can' => ['enable' => false, 'switch_off' => false],
+        ];
+        $allowed = $mail->enabled ? $switch['can']['switch_off'] : $switch['can']['enable'];
+        $classes = 'components-form-toggle' . ($mail->enabled ? ' is-checked' : '') . ($allowed ? '' : ' is-disabled');
 
-            return $html;
-        }
+        return '<span class="' . $classes . '">'
+            . '<input type="checkbox" class="components-form-toggle__input"'
+            . ' data-kalaka-switch="' . esc_attr($mail->action->value) . '"'
+            . ' aria-label="' . esc_attr($mail->action->label()) . '"'
+            . ($mail->enabled ? ' checked' : '')
+            . ($allowed ? '' : ' disabled')
+            . '>'
+            . '<span class="components-form-toggle__track"></span>'
+            . '<span class="components-form-toggle__thumb"></span>'
+            . '</span>';
+    }
 
-        $html = '<div class="kalaka-template-card">';
-        $html .= '<p><strong>' . esc_html($body->subject) . '</strong></p>';
-        $html .= '<p>' . esc_html(Texts::TEMPLATE_STATUS) . ': ' . esc_html(self::statusWord($body->status)) . '</p>';
-        $html .= '<p>' . esc_html(Texts::USES_FRAME) . ': '
-            . esc_html($body->usesFrame ? Texts::YES : Texts::NO) . '</p>';
-        $html .= '<p>' . esc_html(Texts::MODIFIED) . ': ' . esc_html(self::moment($body->modified)) . '</p>';
-        $html .= '<p>';
-        $html .= '<a href="' . esc_url($body->editUrl) . '">' . esc_html(Texts::EDIT) . '</a>';
-        $html .= ' <button type="button" class="button-link kalaka-remove-template" data-kalaka-remove="'
-            . esc_attr($mail->action->value) . '" aria-label="' . esc_attr(Texts::REMOVE_TEMPLATE) . '">×</button>';
-        $html .= '</p>';
-        $html .= self::chooseButton($mail);
+    /** „Szerkesztés”: a link to the editor, drawn as core's button. [UNAPPROVED N1303] */
+    private static function editButton(MailBodyInfo $body): string
+    {
+        return '<a class="button button-compact" href="' . esc_url($body->editUrl) . '">' . esc_html(Texts::EDIT)
+            . '</a>';
+    }
 
-        return $html . '</div>';
+    /**
+     * The X: the components' icon button with core's „close” icon; its name and tooltip are „Sablon eltávolítása”.
+     * One click removes the template and switches the point off, with no confirm. [UNAPPROVED N1302]
+     */
+    private static function removeButton(ActionMailSetting $mail): string
+    {
+        return '<button type="button" class="components-button is-compact has-icon kalaka-mail-remove"'
+            . ' data-kalaka-remove="' . esc_attr($mail->action->value) . '"'
+            . ' aria-label="' . esc_attr(Texts::REMOVE_TEMPLATE) . '" title="' . esc_attr(Texts::REMOVE_TEMPLATE) . '">'
+            . '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"'
+            . ' focusable="false" fill="none" stroke="currentColor" stroke-width="1.5">'
+            . '<path d="M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75"></path></svg>'
+            . '</button>';
     }
 
     private static function chooseButton(ActionMailSetting $mail): string
     {
-        return '<button type="button" class="button" data-kalaka-choose="' . esc_attr($mail->action->value) . '">'
+        return '<button type="button" class="button button-compact" data-kalaka-choose="'
+            . esc_attr($mail->action->value) . '">'
             . esc_html(Texts::CHOOSE_TEMPLATE) . '</button>';
     }
 
@@ -281,24 +321,30 @@ final class EventPage
      */
     private static function newButton(ActionMailSetting $mail): string
     {
-        return '<button type="button" class="button" data-kalaka-new="' . esc_attr($mail->action->value) . '">'
+        return '<button type="button" class="button button-compact" data-kalaka-new="'
+            . esc_attr($mail->action->value) . '">'
             . esc_html(Texts::NEW_TEMPLATE) . '</button>';
     }
 
     /**
-     * „Hozzá nem rendelt sablonok”: the event's templates no point uses.
+     * „Hozzá nem rendelt sablonok”: the event's templates no point uses, in the points' template columns, each with
+     * „Szerkesztés”. Beside the heading, „Új sablon” makes a draft of the event with no point
+     * (`POST …/mail/templates`) and opens its editor. [UNAPPROVED N1304]
      *
      * @param array<string, mixed> $data see `data()`
      */
     private static function unassigned(array $data): string
     {
-        $html = '<h2>' . esc_html(Texts::SECTION_UNASSIGNED) . '</h2>';
-        $html .= self::tableOpen();
-        $html .= '<table class="widefat striped"><thead><tr>';
+        $html = '<div class="kalaka-mail-heading"><h2>' . esc_html(Texts::SECTION_UNASSIGNED) . '</h2>'
+            . '<button type="button" class="button button-compact" data-kalaka-new-unassigned>'
+            . esc_html(Texts::NEW_TEMPLATE) . '</button></div>';
+        $html .= '<div class="kalaka-mail-panel kalaka-mail-panel--table">';
+        $html .= '<table class="kalaka-mail-table kalaka-mail-unassigned"><thead><tr>';
         foreach ([Texts::TEMPLATE_COLUMN, Texts::TEMPLATE_STATUS, Texts::USES_FRAME, Texts::MODIFIED] as $word) {
             $html .= '<th scope="col">' . esc_html($word) . '</th>';
         }
-        $html .= '<th scope="col"><span class="screen-reader-text">' . esc_html(Texts::EDIT) . '</span></th>';
+        $html .= '<th scope="col" class="kalaka-mail-acts"><span class="screen-reader-text">'
+            . esc_html(Texts::EDIT) . '</span></th>';
         $html .= '</tr></thead><tbody>';
         $any = false;
         foreach ($data['bodies'] as $body) {
@@ -307,42 +353,39 @@ final class EventPage
                 continue;
             }
             $any = true;
-            $html .= '<tr>';
-            $html .= '<td>' . esc_html($body->subject) . '</td>';
-            $html .= '<td>' . esc_html(self::statusWord($body->status)) . '</td>';
-            $html .= '<td>' . esc_html($body->usesFrame ? Texts::YES : Texts::NO) . '</td>';
-            $html .= '<td>' . esc_html(self::moment($body->modified)) . '</td>';
-            $html .= '<td><a href="' . esc_url($body->editUrl) . '">' . esc_html(Texts::EDIT) . '</a></td>';
+            $html .= '<tr>' . self::templateCells($body);
+            $html .= '<td class="kalaka-mail-acts"><span class="kalaka-mail-buttons">' . self::editButton($body)
+                . '</span></td>';
             $html .= '</tr>';
         }
         if (!$any) {
             $html .= '<tr><td colspan="5">' . esc_html(Texts::NONE_UNASSIGNED) . '</td></tr>';
         }
 
-        return $html . '</tbody></table>' . self::tableClose();
+        return $html . '</tbody></table></div>';
     }
 
     /**
-     * A wide table scrolls inside its own box, so the page itself never scrolls sideways on a phone (measured at
-     * 375 px). A wrapper, not a new table style: the core `widefat` table keeps its look. [UNAPPROVED N1291]
+     * „Levélkeret”: the page's last section, a heading and one ordinary button to the levélkeret screen; nothing
+     * about it at the top of the page (owner 2026-11-28: not a main action). [UNAPPROVED N1296]
      */
-    private static function tableOpen(): string
+    private static function frame(Event $event): string
     {
-        return '<div style="overflow-x: auto; max-width: 100%;">';
+        return '<h2>' . esc_html(Texts::FRAME_SECTION) . '</h2>'
+            . '<p><a class="button button-compact" href="' . esc_url(self::layoutUrl($event)) . '">'
+            . esc_html(Texts::LAYOUT_LINK) . '</a></p>';
     }
 
-    private static function tableClose(): string
-    {
-        return '</div>';
-    }
-
-    /** „Levélkeret”: a plain code editor on half the screen; the other half is the roadmap's preview. */
+    /**
+     * „Levélkeret”: a plain code editor on half the screen (the other half is the roadmap's preview), the whole width
+     * below 782 px; no help line (owner 2026-11-28). [UNAPPROVED N1308]
+     */
     private static function layout(Event $event): string
     {
         $data = self::data($event);
-        $html = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html(Texts::LAYOUT_TITLE) . '</h1>';
+        $html = '<div class="wrap kalaka-mail-wrap kalaka-mail-event"><h1>' . esc_html(Texts::LAYOUT_TITLE) . '</h1>';
         $html .= '<p><a href="' . esc_url(self::pageUrl($event)) . '">' . esc_html(Texts::BACK_TO_PAGE) . '</a></p>';
-        $html .= '<div style="max-width:50%">';
+        $html .= '<div class="kalaka-mail-layout">';
         $html .= '<p><label for="kalaka-mail-layout">' . esc_html(Texts::LAYOUT_FIELD) . '</label></p>';
         $html .= '<textarea id="kalaka-mail-layout" class="large-text code" rows="20" data-kalaka-layout="'
             . (int) $event->id . '">' . esc_textarea($data['layoutHtml']) . '</textarea>';
@@ -358,10 +401,10 @@ final class EventPage
      *
      * @return array{mails: list<ActionMailSetting>, layoutHtml: string, bodies: list<MailBodyInfo>,
      *     bodiesById: array<int, MailBodyInfo>,
-     *     points: array<string, array{template: ?MailBodyInfo, enable_unavailable: ?string, wired: bool}>,
-     *     switches: array<string, array{can: array{switch_on: bool, switch_off: bool},
+     *     points: array<string, array{template: ?MailBodyInfo, wired: bool}>,
+     *     switches: array<string, array{can: array{enable: bool, switch_off: bool},
      *         refusals: array{switch_on: ?array{code: string, message: string},
-     *         switch_off: ?array{code: string, message: string}}}>,
+     *         switch_off: ?array{code: string, message: string}}, enable_unavailable: ?string}>,
      *     stats: EventMailStats, held: bool, troubled: list<TroubledDelivery>,
      *     batches: list<BatchInfo>, canClear: bool}
      */
@@ -396,25 +439,19 @@ final class EventPage
     }
 
     /**
-     * The read's per-point facts, built from the same classes the route uses: the template, why a switch-on is not
-     * offered, and whether the point really sends (only `wired` ones are shown).
+     * The read's per-point facts, built from the same classes the route uses: the template, and whether the point
+     * really sends; only the `wired` points are listed. [UNAPPROVED N1288]
      *
      * @param list<ActionMailSetting> $mails
      * @param array<int, MailBodyInfo> $bodies
-     * @return array<string, array{template: ?MailBodyInfo, enable_unavailable: ?string, wired: bool}>
+     * @return array<string, array{template: ?MailBodyInfo, wired: bool}>
      */
     private static function pointFacts(array $mails, array $bodies): array
     {
         $points = [];
         foreach ($mails as $mail) {
-            $body = $mail->bodyId === null ? null : ($bodies[$mail->bodyId] ?? null);
-            $reason = null;
-            if (!$mail->enabled) {
-                $reason = $body === null ? 'no_template' : ($body->facts->published ? null : 'template_draft');
-            }
             $points[$mail->action->value] = [
-                'template' => $body,
-                'enable_unavailable' => $reason,
+                'template' => $mail->bodyId === null ? null : ($bodies[$mail->bodyId] ?? null),
                 'wired' => $mail->action->isWired(),
             ];
         }
@@ -443,15 +480,6 @@ final class EventPage
             'pending' => Texts::PENDING,
             'private' => Texts::PRIVATE_STATUS,
             default => Texts::DRAFT,
-        };
-    }
-
-    private static function deliveryStatus(string $status): string
-    {
-        return match ($status) {
-            'failed' => Texts::DELIVERY_FAILED,
-            'sending' => Texts::DELIVERY_SENDING,
-            default => Texts::DELIVERY_PENDING,
         };
     }
 

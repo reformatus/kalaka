@@ -142,17 +142,21 @@ final class MailPages
             $asset['version'],
             true
         );
-        // DataViews' stylesheet is one shared chunk, named after the first entry that imports it (the grid's).
-        wp_register_style(
-            self::HANDLE . '-dataviews',
-            plugins_url('build/Admin/app/style-grid.css', KALAKA_FILE),
-            ['wp-components'],
-            $asset['version']
-        );
+        if ($page === 0) {
+            // DataViews' stylesheet is one shared chunk, named after the first entry that imports it (the grid's).
+            wp_register_style(
+                self::HANDLE . '-dataviews',
+                plugins_url('build/Admin/app/style-grid.css', KALAKA_FILE),
+                ['wp-components'],
+                $asset['version']
+            );
+        }
+        // The event page's own thin stylesheet needs only the components' (the toggle, the icon button, the
+        // windows); no DataViews. [UNAPPROVED N1294]
         wp_enqueue_style(
             self::HANDLE,
-            plugins_url('build/Admin/app/mail.css', KALAKA_FILE),
-            [self::HANDLE . '-dataviews'],
+            plugins_url('build/Admin/app/' . $entry . '.css', KALAKA_FILE),
+            [$page === 0 ? self::HANDLE . '-dataviews' : 'wp-components'],
             $asset['version']
         );
         Translations::load(self::HANDLE);

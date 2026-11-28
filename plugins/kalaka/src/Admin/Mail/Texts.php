@@ -58,8 +58,8 @@ final class Texts
      * list). The words it keeps are approved and reused as they are: „Tárgy”, „Állapot”, „Módosítva”, „Szerkesztés”,
      * „Elérhető”, „Vázlat”, „Levélkeret”, „A levélkeret HTML-je”, „Mentés”, „Mégsem”, „Bezárás”, „Csoportos levelek”,
      * „Küldésre vár”, „Elküldve”, „Sikertelen”, „Jelentkező”, „Levél”, „Kihagyva”, „Sorszám”, „Sorba állítva”,
-     * „%d. csoportos levél részletei” and the held sentence (the site page's and the old tabs'). Every new word is
-     * boxed below.
+     * „%d. csoportos levél részletei”, „Jelentkezők”, „Betöltés…” and the held sentence (the site page's, the grid's
+     * and the old tabs'). Every new word is boxed below.
      */
     public const SECTION_POINTS = 'Küldési pontok'; // [UNAPPROVED T1260]
 
@@ -80,7 +80,7 @@ final class Texts
     /** The new-template button. [UNAPPROVED T1267] */
     public const NEW_TEMPLATE = 'Új sablon';
 
-    /** The X's accessible name. [UNAPPROVED T1268] */
+    /** The X's accessible name and its tooltip. [UNAPPROVED T1268] */
     public const REMOVE_TEMPLATE = 'Sablon eltávolítása';
 
     /** The clear-queued act's confirm, on the overview card. [UNAPPROVED T1269] */
@@ -98,6 +98,22 @@ final class Texts
     /** An act that failed, with no server text of its own. [UNAPPROVED T1273] */
     public const ACT_FAIL = 'A művelet nem sikerült. Próbáld újra.';
 
+    /**
+     * The overview's buttons that open the failures' and the group mails' windows, and each group mail's button in
+     * its window (the rework, 2026-11-28). The figure's label, or „%d. csoportos levél részletei”, completes the
+     * accessible name. [UNAPPROVED T1275]
+     */
+    public const DETAILS = 'Részletek';
+
+    /** The group mails' window: from one group mail's members back to the list. [UNAPPROVED T1276] */
+    public const BACK_TO_BATCHES = 'Vissza a csoportos levelekhez';
+
+    /** A template with no subject yet, by its number (as „22. levélsablon” elsewhere). [UNAPPROVED T1277] */
+    public const UNTITLED_TEMPLATE = '%d. levélsablon';
+
+    /** The page's last section's heading; its button keeps the approved „Levélkeret”. [UNAPPROVED T1278] */
+    public const FRAME_SECTION = 'Levélkeret';
+
     // The words the page keeps (approved elsewhere; not re-boxed):
     public const TEMPLATE_COLUMN = 'Levélsablon';
     public const TEMPLATE_STATUS = 'Állapot';
@@ -109,6 +125,7 @@ final class Texts
     public const NONE = '–';
     public const SAVE = 'Mentés';
     public const CANCEL = 'Mégsem';
+    public const LOADING = 'Betöltés…';
     public const CLOSE = 'Bezárás';
     public const PUBLISHED = 'Elérhető';
     public const DRAFT = 'Vázlat';
@@ -133,7 +150,7 @@ final class Texts
     public const BATCH_SKIPPED = 'Kihagyva';
     public const BATCH_OPEN = '%d. csoportos levél részletei';
     public const BATCH_MANUAL = '%d. csoportos levél';
-    public const BATCH_DETAILS_LABEL = 'Részletek';
+    public const BATCH_MEMBERS = 'Jelentkezők';
     public const NUMBERED = '%1$s (%2$d. levélsablon)';
     public const LAYOUT_LINK = 'Levélkeret';
     public const LAYOUT_TITLE = 'Levélkeret';
