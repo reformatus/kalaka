@@ -9,7 +9,7 @@ use Kalaka\Ledger\Api\LineKind;
 
 /**
  * Records one correction (the owner's ruling 2026-11-19): a payment row of either direction, flagged as a
- * correction, with a required reason, no method and no value date; it counts from the time it is recorded.
+ * correction, with an optional reason, no method and no value date; it counts from the time it is recorded.
  * `direction` `in` is a `manual_payment` (money in, below zero), `out` a `manual_refund` (money out, above
  * zero); `amount` is positive. As a payment fact it counts toward confirmation and the balances like any
  * recorded payment. Carried by the per-event action `kalaka_record_money`. Returns the
@@ -41,12 +41,12 @@ final class RecordCorrection extends RecordManualEntry
     {
         return [
             'direction' => ['type' => 'string', 'enum' => ['in', 'out']],
-            'reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 500],
+            'reason' => ['type' => 'string', 'maxLength' => 500],
         ];
     }
 
     protected function extraRequired(): array
     {
-        return ['direction', 'reason'];
+        return ['direction'];
     }
 }

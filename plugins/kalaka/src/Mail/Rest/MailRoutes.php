@@ -14,6 +14,7 @@ use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMailSettings;
 use Kalaka\Mail\Api\BatchInfo;
 use Kalaka\Mail\Api\Deliveries;
@@ -22,6 +23,7 @@ use Kalaka\Mail\Api\MailBodies;
 use Kalaka\Mail\Api\MailBodyInfo;
 use Kalaka\Mail\Api\MailHold;
 use Kalaka\Mail\Api\MailStats;
+use Kalaka\Mail\Api\MailTemplates;
 use Kalaka\Mail\Api\ManualMails;
 use Kalaka\Mail\Api\TroubledDelivery;
 use Kalaka\Mail\ClearEventMail;
@@ -39,8 +41,17 @@ use Kalaka\Mail\Pause\MailState;
  * access check (`AdminAccess::check()`) runs inside the read, before anything about the codes. An event's
  * existence is checked after the gate (404).
  *
- * - `GET /events/{id}/mail`: the event's mail page: the action mails with `can` and `refusals` of a switch, the
- *   bodies, the counts and `can.clear_event`.
+ * - `GET /events/{id}/mail`: the event's mail page: the action mails (the sending points) with `can` and
+ *   `refusals` of a switch, the `template` each holds (`{id, status, title, subject, modified, uses_frame,
+ *   edit_url}` or null), why it cannot be switched on (`enable_unavailable`, the switch check's own
+ *   answer: `no_template`, `template_draft` or null) and whether an act queues it on this line (`wired`),
+ *   the bodies, the counts and `can.clear_event`.
+ *   `can.enable` is the point's own switch-on capability (the same check the use case runs). [UNAPPROVED N1176]
+ * - `POST /events/{id}/mail/templates`: a new draft template of the event with no point (the screen's
+ *   unassigned templates); no point changes and nothing switches off; `{id, edit_url}` (through
+ *   `Api\MailTemplates::createDraft()`). [UNAPPROVED N1184]
+ * - `POST /events/{id}/mail/points/{mail}/template`: a new draft template for the point, assigned to it, the point
+ *   switched off; `{id, edit_url}` (the other write here, through `Api\MailTemplates`).
  * - `GET /mail`: the sender: the pause, the errors in a row, the budget and its default, the pending count and
  *   each event's name, counts and `can.clear_event` (an archived event is listed only while something of it is
  *   queued or failed).
@@ -96,6 +107,18 @@ final class MailRoutes
             'callback' => [self::class, 'batch'],
             'permission_callback' => $full,
             'args' => ['id' => $id, 'batch' => ['type' => 'integer', 'minimum' => 1, 'required' => true]],
+        ]);
+        Boundary::route(self::NAMESPACE, self::EVENT . '/mail/templates', [
+            'methods' => 'POST',
+            'callback' => [self::class, 'newUnassignedTemplate'],
+            'permission_callback' => $full,
+            'args' => ['id' => $id],
+        ]);
+        Boundary::route(self::NAMESPACE, self::EVENT . '/mail/points/(?P<mail>[a-z_]+)/template', [
+            'methods' => 'POST',
+            'callback' => [self::class, 'newTemplate'],
+            'permission_callback' => $full,
+            'args' => ['id' => $id, 'mail' => ['type' => 'string', 'required' => true]],
         ]);
         // The selection is the use case's own schema (codes, or a view with the grid's filters and search), so a
         // client learns the rule before a send.
@@ -155,7 +178,7 @@ final class MailRoutes
             'held' => MailHold::isHeld($event),
             'layout_html' => $mails->layoutHtml,
             'mails' => array_map(
-                static fn (array $mail): array => $mail + $switches[$mail['mail']],
+                static fn (array $mail): array => $mail + $switches[$mail['mail']] + self::point($mail, $bodies),
                 $mails->toArray()['mails']
             ),
             'bodies' => array_map(static fn (MailBodyInfo $body): array => [
@@ -164,6 +187,7 @@ final class MailRoutes
                 'status' => $body->status,
                 'used_by' => $body->usedBy?->value,
                 'modified' => self::time($body->modified),
+                'uses_frame' => $body->usesFrame,
                 'edit_url' => $body->editUrl,
             ], $bodies),
             'stats' => [
@@ -317,6 +341,73 @@ final class MailRoutes
     }
 
     /**
+     * What a sending point adds to its setting: the template it holds (with what the point's own row needs of it:
+     * its title, subject, last change and whether the levélkeret wraps it) and whether an act queues it. Why it
+     * cannot be switched on is the switch's own answer (`ActionMailSettings::switchesOf()`). [UNAPPROVED N1176]
+     *
+     * @param array<string, mixed> $mail the point's setting (`ActionMailSetting::toArray()`)
+     * @param list<MailBodyInfo> $bodies the event's templates
+     * @return array{template: ?array<string, mixed>, wired: bool}
+     */
+    private static function point(array $mail, array $bodies): array
+    {
+        $held = null;
+        foreach ($bodies as $body) {
+            if ($body->id === $mail['body_id']) {
+                $held = $body;
+            }
+        }
+
+        return [
+            'template' => $held === null ? null : [
+                'id' => $held->id,
+                'status' => $held->status,
+                'title' => $held->subject,
+                'subject' => $held->subject,
+                'modified' => self::time($held->modified),
+                'uses_frame' => $held->usesFrame,
+                'edit_url' => $held->editUrl,
+            ],
+            'wired' => ActionMail::from((string) $mail['mail'])->isWired(),
+        ];
+    }
+
+    /**
+     * `POST /events/{id}/mail/templates`: a new, empty draft template of the event, assigned to no point (the
+     * screen's unassigned templates); no point's template changes and no point switches off
+     * (`Api\MailTemplates::createDraft()`). Full access, like the other mail routes. [UNAPPROVED N1184]
+     *
+     * @param \WP_REST_Request<array<string, mixed>> $request
+     */
+    public static function newUnassignedTemplate(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $made = (new MailTemplates())->createDraft(
+            (int) $request->get_param('id'),
+            new UserActor(get_current_user_id())
+        );
+
+        return new \WP_REST_Response($made, 201);
+    }
+
+    /**
+     * `POST /events/{id}/mail/points/{mail}/template`: a new, empty draft template for the sending point,
+     * assigned to it, the point switched off (`Api\MailTemplates`). Full access, like the settings abilities.
+     * [UNAPPROVED N1177]
+     *
+     * @param \WP_REST_Request<array<string, mixed>> $request
+     */
+    public static function newTemplate(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $made = (new MailTemplates())->createFor(
+            (int) $request->get_param('id'),
+            (string) $request->get_param('mail'),
+            new UserActor(get_current_user_id())
+        );
+
+        return new \WP_REST_Response($made, 201);
+    }
+
+    /**
      * @param \WP_REST_Request<array<string, mixed>> $request
      * @throws NotFound
      */
@@ -348,7 +439,6 @@ final class MailRoutes
             'body_id' => $batch->bodyId,
             'subject' => $batch->subject,
             'body_gone' => $batch->bodyGone,
-            'layout' => $batch->layout,
             'created_at' => self::time($batch->createdAt),
             'created_by' => self::user($batch->createdBy),
             'queued' => $batch->queued,

@@ -28,15 +28,40 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         self::assertSame($event, $settings['event_id']);
         self::assertSame('{{content}}', $settings['layout_html']);
         self::assertSame(
-            ['registered', 'waitlisted', 'payment_recorded', 'confirmed', 'link_regenerated'],
+            ['registered', 'waitlisted', 'payment_recorded', 'confirmed'],
             array_column($settings['mails'], 'mail')
         );
         self::assertSame('Jelentkezés rögzítve', $settings['mails'][0]['label']);
         foreach ($settings['mails'] as $mail) {
             self::assertFalse($mail['enabled']);
             self::assertNull($mail['body_id']);
-            self::assertTrue($mail['layout']);
         }
+    }
+
+    /** L6 (owner 2026-11-27): the four action points that are left, and no link regeneration among them. */
+    public function testTheRemainingActionPointsAreTheFourAndNoLinkRegeneration(): void
+    {
+        $event = $this->create();
+
+        $mails = (new ActionMailSettings())->ofEvent($event)->toArray()['mails'];
+
+        self::assertSame(
+            [
+                ['registered', 'Jelentkezés rögzítve'],
+                ['waitlisted', 'Jelentkezés várólistára helyezve'],
+                ['payment_recorded', 'Befizetés rögzítve'],
+                ['confirmed', 'Jelentkezés véglegesítve'],
+            ],
+            array_map(
+                static fn (array $mail): array => [$mail['mail'], $mail['label']],
+                $mails
+            )
+        );
+        // No use case, route, CLI command or page regenerates a link, so its action point is gone: a request
+        // naming it is refused as unknown input, like any other key the catalogue does not hold.
+        self::assertNull(ActionMail::tryFrom('link_regenerated'));
+        $this->expectException(InvalidInput::class);
+        $this->updateMail(['event_id' => $event, 'mail' => 'link_regenerated', 'enabled' => false]);
     }
 
     public function testAMailIsSwitchedOnWithItsBodyAndAudited(): void
@@ -44,7 +69,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $event = $this->create();
         $body = $this->document($event, $this->paragraph('Szia'));
 
-        $settings = $this->switchOn($event, 'waitlisted', $body, false);
+        $settings = $this->switchOn($event, 'waitlisted', $body);
 
         self::assertSame(
             [
@@ -52,7 +77,6 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
                 'label' => 'Jelentkezés várólistára helyezve',
                 'enabled' => true,
                 'body_id' => $body,
-                'layout' => false,
             ],
             $settings['mails'][1]
         );
@@ -74,30 +98,41 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         self::assertFalse((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['enabled']);
     }
 
-    public function testTheBodyOfAMailThatIsOnIsNotRemoved(): void
+    public function testUnassigningTheBodyOfAMailThatIsOnSwitchesItOff(): void
     {
         $event = $this->create();
         $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')));
 
-        $this->expectException(RuleViolation::class);
-        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
+        $settings = $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
+
+        self::assertSame([false, null], [$settings['mails'][0]['enabled'], $settings['mails'][0]['body_id']]);
     }
 
-    public function testOnlyAPublishedBodyIsAssignedOrSwitchedOn(): void
+    public function testADraftBodyIsAssignedAndOnlyAPublishedOneSwitchesTheMailOn(): void
     {
         $event = $this->create();
         $draft = $this->document($event, $this->paragraph('Szia'));
         wp_update_post(['ID' => $draft, 'post_status' => 'draft']);
 
-        foreach ([['body_id' => $draft], ['body_id' => $draft, 'enabled' => true]] as $change) {
-            try {
-                $this->updateMail(['event_id' => $event, 'mail' => 'registered'] + $change);
-                self::fail('Expected a refusal.');
-            } catch (RuleViolation $e) {
-                self::assertSame('A művelet nem hajtható végre. Előbb tedd közzé a levélsablont.', $e->getMessage());
-            }
+        // A point that is off may hold a draft: the assignment is not refused, it switches the point off.
+        $settings = $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => $draft]);
+        self::assertSame([false, $draft], [$settings['mails'][0]['enabled'], $settings['mails'][0]['body_id']]);
+
+        // Only a published body switches it on.
+        try {
+            $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
+            self::fail('Expected a refusal.');
+        } catch (RuleViolation $e) {
+            self::assertSame('kalaka_point_template_unpublished', $e->errorCode());
+            self::assertSame(
+                'A művelet nem hajtható végre. A küldési pont csak akkor kapcsolható be, ha a sablonja elérhető.',
+                $e->getMessage()
+            );
         }
-        self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
+        self::assertSame([false, $draft], [
+            (new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['enabled'],
+            (new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id'],
+        ]);
 
         // A mail switched off keeps a body that is then unpublished, and is switched on again only once the
         // body is published again.
@@ -109,7 +144,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
     }
 
-    public function testALayoutOnlyEditOfAMailThatIsOnPassesWhateverItsBodysStatus(): void
+    public function testASaveThatChangesNothingOfAMailThatIsOnPassesWhateverItsBodysStatus(): void
     {
         global $wpdb;
         $event = $this->create();
@@ -119,11 +154,9 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $wpdb->update($wpdb->posts, ['post_status' => 'draft'], ['ID' => $body]);
         clean_post_cache($body);
 
-        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'layout' => false]);
         $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
 
         $mail = (new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0];
-        self::assertFalse($mail['layout']);
         self::assertTrue($mail['enabled']);
     }
 
@@ -157,7 +190,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         }
 
         // What needs no body facts passes.
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'layout' => false]);
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
         $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
         self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
     }
@@ -173,7 +206,6 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
             'version' => 1,
             'enabled' => 1,
             'body_id' => null,
-            'layout' => 1,
         ]);
 
         $log = $this->capturedErrorLog(function () use ($event): void {

@@ -6,7 +6,7 @@ namespace Kalaka\Foundation\Api\Decision;
 
 /**
  * A declared decision kind: its Hungarian label, its states, each with its Hungarian label, its base state
- * if it declares one [UNAPPROVED N7], and its marks, the icon and tone each state is shown with. [UNAPPROVED N1107]
+ * if it declares one, and its marks, the icon and tone each state is shown with.
  */
 final readonly class DecisionKind
 {

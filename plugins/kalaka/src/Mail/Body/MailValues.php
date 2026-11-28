@@ -175,13 +175,18 @@ final class MailValues
     }
 
     /**
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @param bool $passwordLink whether the body reads `account.password_link`: only then is a link made
      * @param list<int> $pages the pages whose link the body places (`pageLinks()`): only those links are made
      * @throws SystemFailure no such registration (`no_registration`) or event (`no_event`), a slot form that
      *         is not usable now, or a field of a type no longer contributed
      */
-    public function context(RegistrationKey $key, bool $passwordLink = false, array $pages = []): ValueContext
-    {
+    public function context(
+        RegistrationKey $key,
+        \DateTimeImmutable $now,
+        bool $passwordLink = false,
+        array $pages = []
+    ): ValueContext {
         $record = $this->read($key);
         $link = $this->links->url($key, home_url('/'));
         if ($record === null || $link === null) {
@@ -220,6 +225,7 @@ final class MailValues
             ...$pageLinks,
             ...$this->forms->participantValues($key->eventId, $record['values']),
             ...EventValues::of($event),
+            ...EventValues::now($now),
             self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record['values'][$email] ?? '')),
             self::RECIPIENT_NAME => self::text($name === null ? '' : ($record['values'][$name] ?? '')),
             self::CODE => self::text($key->code),

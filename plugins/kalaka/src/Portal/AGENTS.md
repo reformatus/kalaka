@@ -31,8 +31,9 @@ page, and the account area
 - Showing a registration writes nothing and evaluates nothing: `StatusRead`
   reads the module Apis and the clock only.
 - The participant blocks show only the participant payer's side: totals,
-  lines and the transfer amount. A balance below zero shows as an overpayment,
-  never as a negative amount to pay. Only the amount still due is bold, and
+  owed lines, money movements with their notes, and the transfer amount; the
+  money table is read for every status. A balance below zero shows as an
+  overpayment, never as a negative amount to pay. Only the amount still due is bold, and
   only while it is payable now (above zero, not held).
 - The transfer block renders nothing unless the registration is `registered`,
   its event is published, payment is not held, the participant's balance is
@@ -44,5 +45,21 @@ page, and the account area
 - The blocks have no look of their own: core preset classes and `portal.css`,
   which is structural only; the texts read correctly without either. Every
   text is the frozen spec's or approved.
+- The leave block `kalaka/leave` (`[kalaka_leave]`) is page content only and renders nothing unless there is
+  an active registration or a logged-in account, or while the site is closed (the transfer block's rule). It
+  is one form with one button that posts the page's own address as `return_url` to
+  `POST kalaka-portal/v1/leave`: one press, no confirmation step.
+- The leave route, in this order: the same-site check first (a post from another site gets the plain 403
+  page, never JSON); the `logged_in` cookie read and validated by the route itself, and its user set, before
+  `wp_logout()` (a REST request without a nonce has no user by then); `wp_logout()` for an account; the
+  active-registration cookie cleared; a 303 to a same-site `return_url`, else the home page, with no body.
+  No nonce (the registrant may be a guest), no state, no audit.
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
+- `kalaka_push_subscriptions` (the parked PWA scope) is the module's only
+  table: one row per registration and device, keyed by (event, code,
+  endpoint hash); `key_p256dh` and `key_auth` are secret columns. Nothing
+  writes it yet. A row is deleted on unsubscribe, on the registration's
+  withdrawal, when the event ends and when the push service rejects its
+  endpoint; there is no last-seen column. Portal's "never stores a secret"
+  above is about a registration's secret, not these keys.

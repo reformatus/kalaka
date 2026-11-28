@@ -63,7 +63,11 @@ export default function SumRow( { root, columns, order, sums, menuFor, narrowed,
 			const counts = !! ( column.members && column.members.length );
 			const menu = counts ? menuFor( column, parts ? parts.shown : null ) : null;
 			return (
-				<td key={ column.column } className={ 'kg-sumtd' + ( column.numeric ? ' is-num' : '' ) } title={ note }>
+				<td
+					key={ column.column }
+					className={ 'kg-sumtd' + ( column.numeric ? ' is-num' : '' ) }
+					title={ note }
+				>
 					{ parts && <span className="screen-reader-text">{ full }</span> }
 					{ menu ||
 						( parts && (

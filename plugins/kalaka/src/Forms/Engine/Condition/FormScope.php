@@ -15,8 +15,9 @@ use Kalaka\Foundation\Api\Module\Contributions;
 /**
  * In a form, a condition reads the answers of the fields that come before it in document order
  * (events-and-forms.md, "Values and conditions") and the host's keys (`FormHost::factTypes()`; in an
- * event form the event's, `EventValues`, S76): never a
- * later field, a field of its own branch or any other key.
+ * event form the event's, `EventValues`, S76, and an additional form's stored values): never a
+ * later field, a field of its own branch or any other key. A field of the form wins over a host key of the
+ * same name: the form's own answer is always read from its answers.
  */
 final readonly class FormScope implements ConditionScope
 {
@@ -33,7 +34,7 @@ final readonly class FormScope implements ConditionScope
 
     public function typeOf(string $key): ValueType
     {
-        if (isset($this->declared[$key])) {
+        if (!$this->isEarlier($key) && isset($this->declared[$key])) {
             return $this->declared[$key];
         }
         $type = $this->contributions->fieldTypes()[$this->field($key)->blockName] ?? null;
@@ -47,7 +48,7 @@ final readonly class FormScope implements ConditionScope
 
     public function choices(string $key): ?array
     {
-        if (isset($this->declared[$key])) {
+        if (!$this->isEarlier($key) && isset($this->declared[$key])) {
             return null;
         }
         $field = $this->field($key);
@@ -59,11 +60,22 @@ final readonly class FormScope implements ConditionScope
 
     public function isPath(string $key): bool
     {
-        if (isset($this->declared[$key])) {
+        if (!$this->isEarlier($key) && isset($this->declared[$key])) {
             return false;
         }
 
         return ($this->contributions->fieldTypes()[$this->field($key)->blockName] ?? null) instanceof PathFieldType;
+    }
+
+    private function isEarlier(string $key): bool
+    {
+        foreach ($this->fields as $field) {
+            if ($field->key === $key) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @throws SystemFailure problem `condition_key_not_earlier` */

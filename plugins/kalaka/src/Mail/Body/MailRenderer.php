@@ -16,7 +16,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 /**
  * Renders a mail for one registration at send time, from current data (mail.md, "Content" and "Sending"):
  * the mail's body rendered by `Values::render()` with the mail's context (conditions by the one evaluator),
- * then put in the event's layout in place of `{{content}}` when the mail uses it (a new event's layout is
+ * then put in the event's layout in place of `{{content}}` when its template uses the frame (a new event's layout is
  * exactly `{{content}}`). The
  * layout is raw HTML and is not rendered or escaped; the body's values are escaped by the render. It reads
  * WordPress posts, so it runs outside any use case. Its failures name a problem code and a key, never a value.
@@ -35,6 +35,7 @@ final class MailRenderer
 
     /**
      * @param string $mail the mail's key: an action mail's key
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @throws SystemFailure an unknown mail (`unknown_mail`), a body without a revision, a stored layout
      *         without its one placeholder (`layout`), or
      *         what `Values::render()` and the context throw
@@ -42,8 +43,12 @@ final class MailRenderer
      *         event (`MailPosts::published()`), or, checked against the mail's keys (`Values::check()`), an
      *         undeclared key, an invalid condition, a misplaced branch
      */
-    public function render(int $eventId, string $mail, RegistrationKey $registration): RenderedMail
-    {
+    public function render(
+        int $eventId,
+        string $mail,
+        RegistrationKey $registration,
+        \DateTimeImmutable $now
+    ): RenderedMail {
         $action = ActionMail::tryFrom($mail);
         if ($action === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
@@ -56,20 +61,24 @@ final class MailRenderer
             throw new BodyUnusable('no_body ' . $mail);
         }
 
-        return $this->renderBody($eventId, $setting->bodyId, $setting->layout, $registration);
+        return $this->renderBody($eventId, $setting->bodyId, $registration, $now);
     }
 
     /**
      * Renders one published body of the event for a registration, whether or not an action mail uses it: what
      * `render()` does once it has found the body, and what a manual mail (`Manual\MailBatch`) renders.
      *
-     * @param bool $wrapped whether the event's layout wraps the body
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @throws SystemFailure a body without a revision, a stored layout without its one placeholder (`layout`),
      *         or what `Values::render()` and the context throw
      * @throws BodyUnusable the body's own problem, as `render()`
      */
-    public function renderBody(int $eventId, int $bodyId, bool $wrapped, RegistrationKey $registration): RenderedMail
-    {
+    public function renderBody(
+        int $eventId,
+        int $bodyId,
+        RegistrationKey $registration,
+        \DateTimeImmutable $now
+    ): RenderedMail {
         $body = $this->posts->published($bodyId, $eventId);
         try {
             $types = $this->values->types($eventId, $body->content);
@@ -80,12 +89,14 @@ final class MailRenderer
         }
         $context = $this->values->context(
             $registration,
+            $now,
             MailValues::readsPasswordLink($body->content),
             MailValues::pageLinks($body->content)
         );
         $html = $this->renderer->render($body->content, $context);
         $version = 'b' . $body->revision;
-        $layout = $wrapped ? $this->layouts->of($eventId) : null;
+        // Whether the levélkeret wraps the mail is the template's own flag.
+        $layout = $body->usesFrame ? $this->layouts->of($eventId) : null;
         if ($layout !== null) {
             if (!MailLayout::isValid($layout->html)) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output

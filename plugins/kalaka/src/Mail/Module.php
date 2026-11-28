@@ -26,6 +26,7 @@ use Kalaka\Mail\Cli\MailCommand;
 use Kalaka\Mail\Cli\ManualMailBatchesCommand;
 use Kalaka\Mail\Cli\ManualMailCommand;
 use Kalaka\Mail\Manual\SendManualMail;
+use Kalaka\Mail\Pause\BudgetSetting;
 use Kalaka\Mail\Pause\PauseCause;
 use Kalaka\Mail\Pause\PauseMail;
 use Kalaka\Mail\Pause\PauseWarning;
@@ -90,7 +91,7 @@ SQL;
 
     /**
      * mail.md, "Configuration": one event's setting of one action mail (`mail` is the action's key); a missing
-     * row is the default (off, no body, wrapped by the layout). `body_id` is the body's `kalaka_mail` post, one
+     * row is the default (off, no body). `body_id` is the body's `kalaka_mail` post, one
      * to one (mail.md, "Words"): a body serves at most one action mail.
      */
     private const ACTION_MAILS = <<<'SQL'
@@ -100,7 +101,6 @@ CREATE TABLE {prefix}kalaka_action_mails (
   version int(10) unsigned NOT NULL,
   enabled tinyint(1) unsigned NOT NULL DEFAULT 0,
   body_id bigint(20) unsigned DEFAULT NULL,
-  layout tinyint(1) unsigned NOT NULL DEFAULT 1,
   PRIMARY KEY  (event_id,mail),
   UNIQUE KEY body_id (body_id)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
@@ -129,7 +129,6 @@ CREATE TABLE {prefix}kalaka_mail_batches (
   event_id bigint(20) unsigned NOT NULL,
   version int(10) unsigned NOT NULL,
   body_id bigint(20) unsigned NOT NULL,
-  layout tinyint(1) unsigned NOT NULL DEFAULT 1,
   request_key varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
   created_at datetime(6) NOT NULL,
   created_by bigint(20) unsigned DEFAULT NULL,
@@ -208,6 +207,8 @@ SQL;
         });
         add_action('init', [$this, 'register']);
         add_action('rest_api_init', [MailRoutes::class, 'register']);
+        // The hourly budget as a WordPress setting over the sender's state row. [UNAPPROVED N1188]
+        add_action('admin_init', [BudgetSetting::class, 'register']);
         $this->registerAbilities();
         if (defined('WP_CLI') && WP_CLI) {
             ActionMailCommand::register();
@@ -227,9 +228,8 @@ SQL;
     {
         Abilities::register(
             new UpdateActionMail(),
-            'Levél beállítása',
-            'Egy esemény valamelyik levelének be- vagy kikapcsolása, levélsablonjának kiválasztása '
-                . 'és annak beállítása, hogy a levélkeret körülvegye-e.',
+            'Küldési pont beállítása',
+            'Egy esemény valamelyik küldési pontjának be- vagy kikapcsolása és sablonjának kiválasztása.',
             UpdateActionMail::prepared(...)
         );
         Abilities::register(
@@ -249,7 +249,6 @@ SQL;
         );
         Abilities::register(
             new SetMailBudget(),
-            // [UNAPPROVED T903, T904]
             'Óránként küldhető levelek számának beállítása',
             'Annak beállítása, hogy óránként legfeljebb hány levelet küldhet a Kaláka.'
         );
@@ -357,6 +356,15 @@ SQL;
         register_post_meta(MailPosts::POST_TYPE, MailPosts::META_EVENT_ID, [
             'type' => 'integer',
             'single' => true,
+            'show_in_rest' => true,
+            'auth_callback' => static fn (bool $allowed, string $metaKey, int $postId, int $userId): bool
+                => user_can($userId, AdminAccess::FULL_ACCESS),
+        ]);
+        // Whether the levélkeret wraps the template: the template's own flag, true until set.
+        register_post_meta(MailPosts::POST_TYPE, MailPosts::META_USES_FRAME, [
+            'type' => 'boolean',
+            'single' => true,
+            'default' => true,
             'show_in_rest' => true,
             'auth_callback' => static fn (bool $allowed, string $metaKey, int $postId, int $userId): bool
                 => user_can($userId, AdminAccess::FULL_ACCESS),

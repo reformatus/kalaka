@@ -22,7 +22,7 @@ request.
 | [Money](money.md) | Ledger and payers, recording payments, confirmation, withdrawal, congregation share, sponsor and church support, money settings apply, materializer, payments, refunds |
 | [Mail](mail.md) | Kinds of mail, deliveries, the sender, configuration, content |
 | [Engineering](engineering.md) | Platform, repository layout, tooling, code style, tests and CI |
-| [Release plan](release-plan.md) | What each release contains, and what gives way first |
+| [Release plan](release-plan.md) | What each release contains |
 | [Deferred](deferred.md) | What is decided later, and when |
 
 ## Purpose
@@ -81,8 +81,11 @@ analyses serve only as background.
    differs, it is not supported, and we may simply avoid depending on things
    it lacks when that costs nothing.
 8. **Hungarian only.** The UI is Hungarian, written directly in the code with
-   no translation layer. Internationalization is far off and can be added
-   later. Code identifiers and comments are in English.
+   no translation layer. The one exception: a plugin's declared field names
+   and labels may be overridden in that plugin's own settings, kept in its one
+   names option ([Foundation](foundation.md#cross-cutting-rules)).
+   Internationalization is far off and can be added later. Code identifiers
+   and comments are in English.
 9. **Nothing reaches the UI unapproved.** UI text and behavior are approved by
    the owner when the UI is built ([Deferred](deferred.md#ui-text-approved-when-built)).
 

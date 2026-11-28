@@ -7,21 +7,22 @@
     "kalaka/text-field": "text",
     "kalaka/choice-field": "choice",
     "kalaka/consent-field": "text",
-    "kalaka/scale-field": "number"
+    "kalaka/scale-field": "number",
+    "kalaka/number-field": "number"
   },
   "pathFieldTypes": [],
   "eventTypes": {
     "event.name": "text",
-    "event.registration_opens": "date",
-    "event.registration_closes": "date",
+    "event.registration_opens": "datetime",
+    "event.registration_closes": "datetime",
     "event.start": "date",
     "event.end": "date",
     "account.logged_in": "choice"
   },
   "afterSubmitTypes": {
     "event.name": "text",
-    "event.registration_opens": "date",
-    "event.registration_closes": "date",
+    "event.registration_opens": "datetime",
+    "event.registration_closes": "datetime",
     "event.start": "date",
     "event.end": "date",
     "registration.code": "text",
