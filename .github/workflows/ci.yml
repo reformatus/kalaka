@@ -130,13 +130,54 @@ jobs:
       # The bundle playground-preview.yml publishes as the pull request's
       # Playground preview. Its name carries the pull request's head SHA, not
       # the merge commit, because the publish side checks it against the run.
+      # It carries every plugin the pull request builds, and the blueprint that
+      # installs them: the same setup as bin/playground-smoke.sh, core first,
+      # then the extensions, then the seed, which refuses in the production
+      # environment.
       - name: Stage the Playground preview bundle
         if: github.event_name == 'pull_request'
         run: |
+          set -euo pipefail
           version="$(tr -d '[:space:]' < VERSION)"
           mkdir -p preview/zips
-          cp "dist/kalaka-$version.zip" preview/zips/kalaka.zip
-          cp "dist/kalaka-support-$version.zip" preview/zips/kalaka-support.zip
+          slugs=()
+          for zip in dist/*-"$version".zip; do
+            slug="$(basename "$zip" "-$version.zip")"
+            cp "$zip" "preview/zips/$slug.zip"
+            [ "$slug" = kalaka ] || slugs+=("$slug")
+          done
+          [ -f preview/zips/kalaka.zip ] || { echo "No core zip kalaka-$version.zip." >&2; exit 1; }
+          # Plugins an extension names in its "Requires Plugins:" header that
+          # no zip here provides come from wordpress.org, installed after core
+          # and before the extensions, as bin/playground-smoke.sh does.
+          required=()
+          for slug in "${slugs[@]}"; do
+            line="$(unzip -p "preview/zips/$slug.zip" "$slug/$slug.php" 2> /dev/null | sed -n -E 's/^[[:space:]\/#@*]*Requires Plugins:[[:space:]]*//Ip' | head -n 1 || true)"
+            IFS=',' read -r -a names <<< "$line"
+            for name in "${names[@]}"; do
+              name="$(printf '%s' "$name" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+              [ -n "$name" ] || continue
+              [[ "$name" =~ ^[a-z0-9_-]+$ ]] || { echo "Unexpected plugin slug '$name' in $slug." >&2; exit 1; }
+              [ -f "preview/zips/$name.zip" ] && continue
+              [[ " ${required[*]} " == *" $name "* ]] || required+=("$name")
+            done
+          done
+          printf '%s\n' "${required[@]}" | jq -R 'select(length > 0)' | jq -s . > preview/required.json
+          printf '%s\n' kalaka "${slugs[@]}" | jq -R . | jq -s --slurpfile required preview/required.json '{
+            "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+            preferredVersions: { php: "8.3", wp: "latest" },
+            landingPage: "/wp-admin/",
+            login: true,
+            steps: (
+              [ { step: "defineWpConfigConsts", consts: { WP_ENVIRONMENT_TYPE: "development" } } ]
+              + (.[:1] | map({ step: "installPlugin", pluginData: { resource: "url", url: ("{{ARTIFACT_URL:" + . + "}}") }, options: { activate: true } }))
+              + ($required[0] | map({ step: "installPlugin", pluginData: { resource: "wordpress.org/plugins", slug: . }, options: { activate: true } }))
+              + (.[1:] | map({ step: "installPlugin", pluginData: { resource: "url", url: ("{{ARTIFACT_URL:" + . + "}}") }, options: { activate: true } }))
+              + [ { step: "wp-cli", command: "wp kalaka seed" } ]
+            )
+          }' > preview/blueprint.json
+          rm preview/required.json
+          cat preview/blueprint.json
       - if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v7
         with:

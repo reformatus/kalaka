@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Evaluation;
 
+use Kalaka\Foundation\Api\Actor\Side;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -18,13 +19,15 @@ use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\FeeComponentFailed;
+use Kalaka\Pricing\Api\FeeRefusal;
+use Kalaka\Pricing\Api\FeeRefused;
 use Kalaka\Pricing\Api\Materializer;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 
 /**
  * Brings the touched registrations' money, decisions and mail up to date with their facts, in that order, in
- * the outermost use case's transaction. foundation.md, "Evaluation". [UNAPPROVED N17]
+ * the outermost use case's transaction. foundation.md, "Evaluation".
  */
 final class Evaluation
 {
@@ -85,7 +88,8 @@ final class Evaluation
 
     /**
      * The money phase, first, so the later phases see the pass's money (money.md, "Materializer"). A failing
-     * fee component fails the use case as the rule `money/<id>`.
+     * fee component fails the use case as the rule `money/<id>`; one that refuses (`FeeRefusal`) refuses it
+     * with its text for the actor's side (`FeeRefused`, a 422).
      */
     private function materialize(RegistrationKey $key, Context $context): void
     {
@@ -95,7 +99,19 @@ final class Evaluation
         try {
             $this->money->materialize($key, $context);
         } catch (FeeComponentFailed $failed) {
-            $error = new SystemFailure(null, new RuleFailed('money/' . $failed->componentId, $failed));
+            $rule = new RuleFailed('money/' . $failed->componentId, $failed);
+            $refusal = $failed->getPrevious();
+            if ($refusal instanceof FeeRefusal) {
+                // The component's own refusal, which says why: the text for the actor's side.
+                $portal = $context->actor()->side() === Side::Portal;
+                if ($portal && $refusal->portalText === null) {
+                    $error = new SystemFailure(null, $rule);
+                    throw $error;
+                }
+                $error = new FeeRefused($portal ? (string) $refusal->portalText : $refusal->adminText, $rule);
+                throw $error;
+            }
+            $error = new SystemFailure(null, $rule);
             throw $error;
         }
     }
@@ -142,7 +158,7 @@ final class Evaluation
     /**
      * The mail phase, last: every `confirmed` record this pass wrote queues the event's confirmed mail, keyed
      * by that record, so a re-confirmation right after staff's unconfirm, a retry and a restore each mail
-     * (mail.md, "Five kinds of mail"). Nothing is queued while the event has the mail off. [UNAPPROVED N17, N18]
+     * (mail.md, "Five kinds of mail"). Nothing is queued while the event has the mail off.
      *
      * @param list<DecisionRecord> $written the decision records this pass wrote
      */

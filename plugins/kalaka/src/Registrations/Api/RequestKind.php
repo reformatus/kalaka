@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Api;
 
-/** What a request asks for: a support offer that needs approval, or the aid request. [UNAPPROVED N1] */
+/** What a request asks for: a support offer that needs approval, or the aid request. */
 enum RequestKind: string
 {
     case Offer = 'offer';

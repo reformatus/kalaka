@@ -25,6 +25,9 @@
     "set": {
       "type": "integer"
     },
+    "optionConditions": {
+      "type": "object"
+    },
     "min": {
       "type": "integer",
       "default": 1

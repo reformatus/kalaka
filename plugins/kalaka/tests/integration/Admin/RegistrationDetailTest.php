@@ -25,7 +25,7 @@ use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
-use Kalaka\Tests\Integration\Registrations\RecordingSeats;
+use Kalaka\Tests\Integration\Registrations\AnswerPool;
 use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /** S22 and S38: the detail read of one registration, through views and grants. */
@@ -37,14 +37,17 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
     private function decisions(): Decisions
     {
         $rules = new DecisionRules();
-        $rules->add(
-            new TestRule(
-                'confirmation',
-                ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
-                label: 'Visszaigazolás'
-            ),
-            true
+        $confirmation = new TestRule(
+            'confirmation',
+            ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
+            label: 'Visszaigazolás'
         );
+        $confirmation->marks = [
+            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+        ];
+        $rules->add($confirmation, true);
+        $rules->add(new TestRule('payment_hold', ['held' => 'Zárolva'], label: 'Fizetési zárolás'), true);
         $rules->add(new TestRule('sample_kind', ['held' => 'Zárolva'], label: 'Minta döntés'), true);
 
         return new Decisions(rules: $rules);
@@ -113,6 +116,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Visszaigazolás',
                         'state' => 'unconfirmed',
                         'state_label' => 'Nincs visszaigazolva',
+                        'marks' => [
+                            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                        ],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                     [
@@ -120,6 +127,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Minta döntés',
                         'state' => 'held',
                         'state_label' => 'Zárolva',
+                        'marks' => [],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                 ],
@@ -413,6 +421,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'label' => 'Visszaigazolás',
                     'state' => 'unconfirmed',
                     'state_label' => 'Nincs visszaigazolva',
+                    'marks' => [
+                        'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                        'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                    ],
                     'effective_at' => '2026-11-30T08:00:00Z',
                 ]],
                 'confirmed' => false,
@@ -866,6 +878,23 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         }
     }
 
+    /**
+     * `can.answer_request` holds only while the registration is registered, as the answer act refuses any other
+     * status; the grant alone is not enough.
+     *
+     * @dataProvider statuses
+     */
+    public function testAnswerRequestIsOfferedOnlyOnARegisteredRegistration(string $status): void
+    {
+        $this->addRegistration('00A0', $status);
+        $partner = $this->plainUser();
+        $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $registered = $status === 'registered';
+
+        self::assertSame($registered, $this->detail($partner)['can']['answer_request']);
+        self::assertSame($registered, $this->detail($this->admin->userId)['can']['answer_request']);
+    }
+
     /** D14: `registration.confirmed` is always there, for a holder without the money-view too. */
     public function testTheDetailAlwaysCarriesWhetherTheRegistrationIsConfirmed(): void
     {
@@ -956,8 +985,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
     }
 
-    /** T6, appended to T5a, T5b or T5c only while the event's confirmed mail is on (the ruling 2026-11-23, Q4). */
-    public function testTheMailNoteIsAppendedOnlyWhileTheConfirmedMailIsOn(): void
+    /** The warning is T5a, T5b or T5c only: the confirmed mail's sentence (T6) is not part of it (owner 2026-11-27). */
+    public function testTheWarningSaysNothingOfTheMailEvenWhileTheConfirmedMailIsOn(): void
     {
         $this->addRegistration('00A0');
         $this->addDecision('00A0', 'confirmation', 'confirmed');
@@ -971,7 +1000,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ['kalaka_confirm_manually', 'kalaka_view_money']
         );
         $warning = fn (int $user): ?string => $this->detail($user)['registration']['unconfirm_warning'];
-        $note = ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.';
+        $note = 'levél';
         $generic = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
         $nothingDue = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra '
             . 'visszaigazolt lesz.';
@@ -985,12 +1014,15 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
         ObjectCache::clear();
 
-        self::assertSame($generic . $note, $warning($blind), 'T5c and T6.');
-        self::assertSame($nothingDue . $note, $warning($seeing), 'T5b and T6.');
+        // The mail is on, and the warning still says nothing of it.
+        self::assertSame($generic, $warning($blind), 'T5c only.');
+        self::assertSame($nothingDue, $warning($seeing), 'T5b only.');
+        self::assertStringNotContainsString($note, (string) $warning($blind));
+        self::assertStringNotContainsString($note, (string) $warning($seeing));
 
         $wpdb->update(
             $wpdb->prefix . 'kalaka_action_mails',
@@ -998,7 +1030,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ['event_id' => $this->event, 'mail' => 'confirmed']
         );
         ObjectCache::clear();
-        self::assertSame($generic, $warning($blind), 'Off again: the note goes.');
+        self::assertSame($generic, $warning($blind), 'Off again: unchanged.');
     }
 
     public function testTheReconfirmsKeyTellsTheReasonToAMoneyViewHolderAndOnlyYesToOthers(): void
@@ -1074,9 +1106,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->addRegistration('00A0');
         $this->addValue('00A0', 'support', 'church');
         $this->addValue('00A0', 'aid_asked', '12000');
-        $read = fn (int $user, ?RecordingSeats $seats = null): array => (new RegistrationDetail(
-            requests: new Requests([new TestRequestSource()]),
-            seats: $seats ?? new RecordingSeats(),
+        $read = fn (int $user, ?AnswerPool $pool = null): array => (new RegistrationDetail(
+            requests: new Requests([new TestRequestSource(pool: $pool ?? new AnswerPool($this->event))]),
         ))->of(new UserActor($user), $this->event, '00A0');
 
         $partner = $this->plainUser();
@@ -1104,11 +1135,17 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'amount' => null,
                     'answered_at' => null,
                     'seat_full' => false,
+                    'aid' => null,
                 ],
             ],
         ];
         self::assertSame($expected, $read($this->admin->userId)['requests']);
-        self::assertSame($expected, $read($partner)['requests']);
+        // The partner holds the answer action but no money view: the requests come without a figure — no
+        // `amount` on an item and no `aid` context on the aid one ().
+        $blind = $expected;
+        $blind['items'][1]['amount'] = null;
+        unset($blind['items'][1]['aid']);
+        self::assertSame($blind, $read($partner)['requests']);
         self::assertTrue($read($partner)['can']['answer_request']);
         $without = $read($viewer);
         self::assertArrayNotHasKey('requests', $without);
@@ -1132,13 +1169,115 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 $request === 'aid' ? '9000' : 'refused'
             );
         }
-        $seats = new RecordingSeats();
-        $seats->full = true;
-        $items = $read($partner, $seats)['requests']['items'];
+        // A refused offer in a pool with no free place: the warning before a "yes".
+        $full = new AnswerPool($this->event, 0);
+        $items = $read($partner, $full)['requests']['items'];
         self::assertSame(['refused', 'approved'], array_column($items, 'state'));
-        self::assertSame([null, '9000.00000000'], array_column($items, 'amount'));
+        // The award is a money figure: the partner reads the states and the seat warning, never the amount.
+        self::assertSame([null, null], array_column($items, 'amount'));
         self::assertSame(['2026-12-04T09:00:00Z', '2026-12-04T09:00:00Z'], array_column($items, 'answered_at'));
         self::assertSame([true, false], array_column($items, 'seat_full'));
         self::assertSame([false, false], array_column($read($partner)['requests']['items'], 'seat_full'));
+        // A holder with the money view reads the award.
+        $money = $this->plainUser();
+        $this->grant($money, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER, 'kalaka_view_money']);
+        self::assertSame(
+            [null, '9000.00000000'],
+            array_column($read($money, $full)['requests']['items'], 'amount')
+        );
+    }
+
+    /**
+     * N655: the requests agree with the grid column. A request is answerable only while the registration is
+     * registered: on a waitlisted, withdrawn or removed one an unanswered request reads `inactive`, not
+     * `awaiting`, and `can.answer_request` is false; the requests and their answers still show.
+     *
+     * @return iterable<string, array{string, string, bool}>
+     */
+    public static function requestStatuses(): iterable
+    {
+        yield 'registered' => ['registered', 'awaiting', true];
+        yield 'waitlisted' => ['waitlisted', 'inactive', false];
+        yield 'withdrawn' => ['withdrawn', 'inactive', false];
+        yield 'removed' => ['removed', 'inactive', false];
+    }
+
+    /** @dataProvider requestStatuses */
+    public function testTheRequestsAgreeWithTheAwaitsColumn(string $status, string $state, bool $answerable): void
+    {
+        $this->addRegistration('00A0', $status);
+        $this->addValue('00A0', 'support', 'church');
+        $this->addValue('00A0', 'aid_asked', '12000');
+        $read = fn (int $user): array => (new RegistrationDetail(
+            requests: new Requests([new TestRequestSource()]),
+        ))->of(new UserActor($user), $this->event, '00A0');
+
+        $holder = $this->plainUser();
+        $this->grant($holder, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $without = $this->plainUser();
+        $this->grant($without, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        foreach ([$this->admin->userId, $holder] as $user) {
+            $detail = $read($user);
+            self::assertSame([$state, $state], array_column($detail['requests']['items'], 'state'));
+            self::assertSame($answerable, $detail['can']['answer_request']);
+        }
+        self::assertFalse($read($without)['can']['answer_request']);
+    }
+
+    public function testTheAidItemCarriesTheFullPriceWhatTheyCanPayAndTheAidAskedNothingOnAnOffer(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addValue('00A0', 'support', 'church');
+        $this->addValue('00A0', 'aid_asked', '12000');
+        $read = fn (int $price): RegistrationDetail => new RegistrationDetail(
+            requests: new Requests([
+                new TestRequestSource(fullPrice: $price, pool: new AnswerPool($this->event)),
+            ]),
+        );
+
+        $items = fn (int $price): array => $read($price)
+            ->of(new UserActor($this->admin->userId), $this->event, '00A0')['requests']['items'];
+
+        // Nothing stated: the full price and no amount they can pay, so nothing asked is known.
+        $aid = $items(30000)[1]['aid'];
+        self::assertSame(
+            ['full_price' => '30000.00000000', 'can_pay' => null, 'asked' => null, 'max_award' => '30000.00000000'],
+            $aid
+        );
+        self::assertArrayNotHasKey('aid', $items(30000)[0], 'an offer carries no aid context');
+
+        $this->addValue('00A0', 'aid_can_pay', '18000');
+        self::assertSame(
+            [
+                'full_price' => '30000.00000000',
+                'can_pay' => '18000.00000000',
+                'asked' => '12000.00000000',
+                'max_award' => '30000.00000000',
+            ],
+            $items(30000)[1]['aid']
+        );
+        // A holder of the answer action without the money fields reads the request with no aid context at all
+        // with the money view they read the same figures as full access does.
+        $partner = $this->plainUser();
+        $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $asPartner = $read(30000)->of(new UserActor($partner), $this->event, '00A0');
+        self::assertFalse($asPartner['can']['view_money']);
+        self::assertArrayNotHasKey('aid', $asPartner['requests']['items'][1]);
+        $seeing = $this->plainUser();
+        $this->grant($seeing, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER, 'kalaka_view_money']);
+        $asSeeing = $read(30000)->of(new UserActor($seeing), $this->event, '00A0');
+        self::assertTrue($asSeeing['can']['view_money']);
+        self::assertSame('12000.00000000', $asSeeing['requests']['items'][1]['aid']['asked']);
+        // They can pay more than the price: nothing asked, never below zero.
+        self::assertSame(
+            [
+                'full_price' => '10000.00000000',
+                'can_pay' => '18000.00000000',
+                'asked' => '0.00000000',
+                'max_award' => '10000.00000000',
+            ],
+            $items(10000)[1]['aid']
+        );
     }
 }

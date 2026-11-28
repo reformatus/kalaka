@@ -19,12 +19,19 @@ final class DecisionsTest extends WP_UnitTestCase
     {
         $rules = new DecisionRules();
         $rules->add(new TestRule('later', ['x' => 'Iksz'], label: 'Későbbi'), false);
-        $rules->add(new TestRule('first', ['b' => 'Bé', 'a' => 'Á'], label: 'Első'), true);
+        $first = new TestRule('first', ['b' => 'Bé', 'a' => 'Á'], label: 'Első');
+        $first->marks = ['a' => ['icon' => 'yes-alt', 'tone' => 'ok']];
+        $rules->add($first, true);
         $decisions = new Decisions(rules: $rules);
 
         self::assertEquals(
             [
-                new DecisionKind('first', 'Első', ['b' => 'Bé', 'a' => 'Á']),
+                new DecisionKind(
+                    'first',
+                    'Első',
+                    ['b' => 'Bé', 'a' => 'Á'],
+                    marks: ['a' => ['icon' => 'yes-alt', 'tone' => 'ok']]
+                ),
                 new DecisionKind('later', 'Későbbi', ['x' => 'Iksz']),
             ],
             $decisions->kinds()

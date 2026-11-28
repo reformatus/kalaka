@@ -12,31 +12,47 @@ use Kalaka\Foundation\Api\Actor\Actor;
  * never imports Events, Registrations, ParticipantFields or Admin; it asks here (deptrac: the
  * `Forms Engine` layer). Like `BlockHost`, it lets the engine work without knowing the module behind it.
  *
- * The eight ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
+ * The nine ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
  * access refusals (`refusals()`, `window()`), the scope a field key must be unique in (`keyProblem()`),
- * the values the form opens with (`prefill()`), the options of the set a request field names
- * (`requestOptions()`), what a submit does (`submitToken()`, `submit()`), what the after-submit section
- * reads (`afterSubmitTypes()`), and whether the form needs an account (`accountStep()`).
+ * the values the form opens with (`prefill()`), the person's draft (`draft()`, `saveDraft()`,
+ * `resolveDraftClaim()`), the options of the set a request field names (`requestOptions()`), what a submit
+ * does (`submitToken()`, `submit()`), what the after-submit section reads (`afterSubmitTypes()`), whether
+ * the form needs an account (`accountStep()`), and the texts it shows where a form leaves a label empty
+ * (`labelFallbacks()`).
  */
 interface FormHost
 {
     /**
      * The keys besides its answers that a form's conditions may read, and their types: the parse checks
-     * every condition against them.
+     * every condition against them. Asked for the form, so a host may declare keys that only some forms have.
      *
      * @return array<string, ValueType>
      */
-    public function factTypes(): array;
+    public function factTypes(Form $form): array;
 
     /**
-     * The values of `factTypes()` for the form; null when what the form belongs to is gone (the form's
-     * page then shows it unavailable, and its routes answer `NotFound`).
+     * Of the keys that the conditions of any revision of the form read and `factTypes()` does not declare, the
+     * ones that were valid once and are gone now (e.g. a custom point staff removed), with their types. A
+     * revision that reads one still parses, and the key reads as empty (none), so the condition is unknown and
+     * its branch does not hold. Asked only when a definition is read, never when it is saved.
+     *
+     * @param list<string> $keys
+     * @return array<string, ValueType>
      */
-    public function facts(Form $form): ?ValueContext;
+    public function goneTypes(Form $form, array $keys): array;
 
     /**
-     * What keeps the form from being used now, in the order the page shows them (the first one). Pure:
-     * the caller passes the moment, the person's roles and whether the form's password was given.
+     * The values of `factTypes()` for the form, as of `$now` (the request's moment, the one the page's refusals
+     * read); null when what the form belongs to is gone (the form's page then shows it unavailable, and its
+     * routes answer `NotFound`).
+     */
+    public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext;
+
+    /**
+     * What keeps the form from being used now, in the order the page shows them (the first one). It reads the
+     * request's active registration (an additional form acts on it) and the logged-in user, and nothing else
+     * from the request: no other cookie or request state; the caller passes the moment, the person's roles and
+     * whether the form's password was given.
      *
      * @param list<string> $roles
      * @return list<AccessRefusal>
@@ -70,7 +86,41 @@ interface FormHost
     public function prefill(Form $form): array;
 
     /**
-     * The options and the choice window of the set a request field names (`RequestFieldType`), for the
+     * The person's draft the form opens with (S74), read when the page renders, outside any transaction:
+     * its answers are laid over `prefill()`'s. An empty `FormDraft` when there is none.
+     */
+    public function draft(Form $form): FormDraft;
+
+    /**
+     * Keeps the answers as the person's draft of the form (S74, the autosave), as a use case: a logged-in
+     * person's draft, or a guest's guest draft under the claim token of the request's cookie, which the host
+     * sets (owner ruling 2026-11-26). Any other actor is refused.
+     *
+     * @param int $version the form version the answers were given against
+     * @param int $claims the draft's claim count the page opened with (`FormDraft::$claims`)
+     * @throws \Kalaka\Foundation\Api\Error\VersionConflict when a claim changed the draft since
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function saveDraft(
+        Form $form,
+        int $version,
+        AnswerSet $answers,
+        int $page,
+        int $claims,
+        Actor $actor
+    ): void;
+
+    /**
+     * Settles a link's answers against the person's own draft with the person's choice (S74); for a guest, the
+     * handoff that waits against their own guest draft (N1106). Safe to repeat: the same choice again answers as
+     * the first did; a claim that cannot be applied is refused.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void;
+
+    /**
+     * The options of the set a request field names (`RequestFieldType`), for the
      * form: null when the form's event has no such set in request mode (the form is then unusable). Read
      * when the definition is parsed, outside any transaction.
      */
@@ -110,4 +160,24 @@ interface FormHost
      * Reads no current user: the form page, its re-fetch and the account block ask it for anyone.
      */
     public function accountStep(Form $form): ?AccountStep;
+
+    /**
+     * The participant field keys the host's current state requires a registration form to hold, required and
+     * outside any condition (`Engine\SlotRules::requiredFieldProblem()`); none for another placement. A form
+     * being served that lacks one is closed, like one without the account block.
+     *
+     * @return list<string>
+     */
+    public function slotRequiredKeys(Form $form): array;
+
+    /**
+     * The participant fields' own texts by field key, which a form shows where it leaves a label empty
+     * (events-and-forms.md, "Fields"): `title` for a field block's empty question title, and each option's label by
+     * its value (retired options included, so a stored value still reads) for a choice option's empty label. Asked
+     * only when a form's field block has an empty label, and read when the definition is parsed or the blocks are
+     * rendered, outside any transaction. A key the host has no field for is left out.
+     *
+     * @return array<string, array{title: string, options: array<string, string>}>
+     */
+    public function labelFallbacks(Form $form): array;
 }

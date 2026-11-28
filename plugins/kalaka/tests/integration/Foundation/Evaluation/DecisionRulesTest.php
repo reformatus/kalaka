@@ -41,6 +41,39 @@ final class DecisionRulesTest extends WP_UnitTestCase
         }
     }
 
+    /** @dataProvider invalidMarks */
+    public function testARuleWhoseMarksBreakTheFormIsRefusedAndNotRegistered(array $marks): void
+    {
+        $rule = new TestRule('fine', ['on' => 'Be', 'off' => 'Ki']);
+        $rule->marks = $marks;
+        $rules = new DecisionRules();
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            $rules->add($rule, false);
+        } finally {
+            self::assertSame([], $rules->extension());
+        }
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function invalidMarks(): iterable
+    {
+        yield 'a mark of an undeclared state' => [['maybe' => ['icon' => 'yes-alt', 'tone' => 'ok']]];
+        yield 'a mark with an empty icon' => [['on' => ['icon' => ' ', 'tone' => 'ok']]];
+    }
+
+    public function testMarksOnDeclaredStatesAreAccepted(): void
+    {
+        $rule = new TestRule('fine', ['on' => 'Be', 'off' => 'Ki']);
+        $rule->marks = ['on' => ['icon' => 'yes-alt', 'tone' => 'ok'], 'off' => ['icon' => 'marker', 'tone' => '']];
+        $rules = new DecisionRules();
+
+        $rules->add($rule, false);
+
+        self::assertSame([$rule], $rules->extension());
+    }
+
     public function testTheLongestAllowedKindAndStateAreAccepted(): void
     {
         $rules = new DecisionRules();

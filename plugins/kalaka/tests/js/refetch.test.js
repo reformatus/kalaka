@@ -96,6 +96,63 @@ describe('the page as the server rendered it', () => {
 		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 		expect(branchOf('supporter').hidden).toBe(false);
 	});
+
+	/** The page as the server rendered it for prefilled (or a draft's) answers, `opened` in its context. */
+	const prefilled = (opened, ticks) =>
+		form(
+			ticks(
+				radios('fee', ['basic', 'extra_support']) +
+					radios('fee_reason', ['community_pays', 'needs_help'])
+			) +
+				checkboxes('modules', ['ifi_a', 'pro_a']) +
+				text('note'),
+			{ triggers: ['fee', 'fee_reason', 'modules'], opened }
+		);
+	const tick = (markup, key, value) =>
+		markup.replace(
+			`name="${key}" value="${value}"`,
+			`name="${key}" value="${value}" checked`
+		);
+
+	test('is not re-fetched when the script starts with the answers the page opened with', async () => {
+		document.body.innerHTML = '';
+		const markup = tick(
+			tick(
+				prefilled(
+					{ fee: 'extra_support', modules: ['pro_a', 'ifi_a'] },
+					(fields) => tick(fields, 'fee', 'extra_support')
+				),
+				'modules[]',
+				'ifi_a'
+			),
+			'modules[]',
+			'pro_a'
+		);
+
+		await load(markup);
+
+		expect(globalThis.fetch).not.toHaveBeenCalled();
+	});
+
+	test('is re-fetched once when the browser restored another answer of a trigger', async () => {
+		document.body.innerHTML = '';
+		const markup = prefilled({ fee: 'extra_support' }, (fields) =>
+			tick(fields, 'fee', 'basic')
+		);
+
+		await load(markup);
+		await settle();
+
+		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+	});
+
+	test('is re-fetched once when the browser cleared an answer of a trigger the page opened with', async () => {
+		document.body.innerHTML = '';
+		await load(prefilled({ fee_reason: 'needs_help' }, (fields) => fields));
+		await settle();
+
+		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe('a change of a trigger', () => {
@@ -476,5 +533,53 @@ describe('rapid changes of triggers', () => {
 		expect(globalThis.fetch.mock.calls[1][0]).not.toBe(AVAILABILITY_URL);
 		expect(sentBody(1).token).toBeDefined();
 		expect(state.most).toBe(1);
+	});
+});
+
+describe('a field that stops showing after a re-fetch (N2)', () => {
+	const hideable = form(radios('fee', ['on', 'off']) + text('note'), {
+		triggers: ['fee'],
+	});
+	const slot = () =>
+		document.querySelector(
+			'[data-kalaka-field="note"] .kalaka-field__error'
+		);
+	const control = () => document.querySelector('[name="note"]');
+	const answer = (noteShows) =>
+		respond(200, {
+			availability: {
+				fields: { fee: true, note: noteShows },
+				chains: [],
+				options: {},
+				triggers: ['fee'],
+			},
+			parts: {},
+		});
+
+	test('loses its message, so a stale one never comes back when it shows again', async () => {
+		globalThis.fetch.mockResolvedValueOnce(
+			respond(400, {
+				code: 'kalaka_invalid_answers',
+				message: 'Néhány válasz hiányzik.',
+				data: { status: 400, fields: { note: 'Hiba' } },
+			})
+		);
+		await load(hideable);
+		submit(root());
+		await settle();
+		expect(slot().textContent).toBe('Hiba');
+
+		globalThis.fetch.mockResolvedValueOnce(answer(false));
+		choose(root(), 'fee', 'off');
+		await settle();
+		expect(control().disabled).toBe(true);
+		expect(slot().textContent).toBe('');
+		expect(slot().hidden).toBe(true);
+
+		globalThis.fetch.mockResolvedValueOnce(answer(true));
+		choose(root(), 'fee', 'on');
+		await settle();
+		expect(control().disabled).toBe(false);
+		expect(slot().textContent).toBe('');
 	});
 });

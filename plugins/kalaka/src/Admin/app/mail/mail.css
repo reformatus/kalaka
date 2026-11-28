@@ -1,0 +1,165 @@
+/* The mail pages (prototype, unapproved look): WordPress's own components and spacing; only layout. */
+.km-page {
+	margin-top: 8px;
+}
+
+.km-tabs .components-tab-panel__tabs {
+	flex-wrap: wrap;
+}
+
+.km-mails {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+	gap: 16px;
+	margin: 16px 0;
+}
+
+.km-mail .components-base-control,
+.km-mail .components-toggle-control,
+.km-layout .components-base-control {
+	margin-bottom: 16px;
+}
+
+/* The „Mentés” row under the body select: its room is always there (the cards stay one height) and it has its own
+   spacing. [UNAPPROVED N274] */
+.km-mail .km-choose {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	min-height: 32px;
+	margin-bottom: 16px;
+}
+
+.km-mail .components-select-control {
+	margin-bottom: 8px;
+}
+
+.km-code textarea {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.km-section {
+	margin: 16px 0;
+}
+
+.km-toolbar {
+	margin-bottom: 12px;
+}
+
+.km-h3 {
+	font-size: 1em;
+	margin: 12px 0 4px;
+}
+
+/* A switch the read does not allow: reachable and described, but plainly off-limits. [UNAPPROVED N273] */
+.km-standing .components-form-toggle {
+	opacity: 0.4;
+}
+
+.km-h2 {
+	font-size: 1.1em;
+	margin: 16px 0 8px;
+}
+
+.km-dl {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	gap: 4px 16px;
+	margin: 0 0 16px;
+}
+
+.km-dl dt {
+	font-weight: 600;
+}
+
+.km-dl dd {
+	margin: 0;
+	min-width: 0;
+}
+
+.km-budget {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.km-stored {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 12px;
+}
+
+.km-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.km-err,
+.km-fail {
+	color: #cc1818;
+}
+
+.km-empty {
+	margin: 12px 0;
+}
+
+/* The lists scroll sideways inside their own box at narrow widths; the page itself never does. */
+.km-table {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+/* The „Események” table's clear button: its long label wraps instead of pushing the column past the box, so the
+   table fits the width (no sideways scroll, no clipped button) at 1440 and below. */
+.km-table .components-button {
+	white-space: normal;
+}
+
+/* Bottom right, as the approved grid's snackbars (`.kg-snacks`). */
+.km-snacks {
+	position: fixed;
+	left: auto;
+	right: 12px;
+	bottom: 12px;
+	z-index: 9996;
+	width: min(400px, calc(100vw - 24px));
+}
+
+/* Core's list is absolutely placed and would hang below the empty box, off the screen (as `.kg-snacks`). */
+.km-snacks .components-snackbar-list {
+	position: static;
+}
+
+@media (max-width: 600px) {
+	.km-snacks {
+		left: 12px;
+		right: 12px;
+		z-index: 100001;
+	}
+}
+
+.km-code-text {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.km-members {
+	list-style: disc;
+	padding-left: 20px;
+	margin: 0 0 16px;
+}
+
+.km-h2 + .km-members {
+	max-height: 20em;
+	overflow: auto;
+}
+
+/* The disclosure button in a heading keeps the heading's size. */
+.km-h2 .components-button.is-link {
+	font-size: inherit;
+	font-weight: inherit;
+}

@@ -6,13 +6,17 @@ title: Mail
 
 ## Words
 
-- A **mail** is one configured message: its trigger settings plus its
-  **body**, one to one. There are no "templates".
+- A **mail** is one configured message (a **sending point** on the screen): its
+  trigger settings plus its **template**, one to one. The template is a
+  `kalaka_mail` post of the event; the screen calls it a sablon. A template
+  that is not published may be held, but only a published one lets the point
+  send. [UNAPPROVED R320]
 - A **delivery** is one row in the send log: one mail to one registration (or
   address) on one occurrence: pending, sending, sent or failed. A pending
-  delivery may carry the error of an earlier attempt. **Nothing reads the deliveries
-  table except the sender:** no decision, condition or view depends on
-  whether a mail was sent.
+  delivery may carry the error of an earlier attempt. **Only the sender
+  decides on the deliveries table:** no decision, condition or view depends on
+  whether a mail was sent. Staff reads of it, such as the counts and the
+  listing of failed deliveries (`wp kalaka mail failed`), only show it.
 
 ## Five kinds of mail
 
@@ -24,7 +28,7 @@ record, the check-in act, and so on.
 
 | Kind | Caused by | Decided by |
 |---|---|---|
-| **Action** | an act on one registration: registered (admission from the waitlist sends this mail too), waitlisted, payment recorded, confirmed, answered, link regenerated, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation's mail step ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so every `confirmed` record mails once, a re-confirmation right after staff's unconfirm included; "answered" by the answering act, keyed by the answer record, so every answer mails, a changed one included; every check-in route calls the same check-in use case |
+| **Action** | an act on one registration: registered (admission from the waitlist sends this mail too), waitlisted, payment recorded, confirmed, answered, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation's mail step ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so every `confirmed` record mails once, a re-confirmation right after staff's unconfirm included; "answered" by the answering act, keyed by the answer record, so every answer mails, a changed one included; every check-in route calls the same check-in use case |
 | **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
 | **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
 | **Manual** | staff send a chosen mail to chosen registrations, now or scheduled | the staff use case; keyed by the send batch |
@@ -45,7 +49,9 @@ record, the check-in act, and so on.
   that account's own address, no when that account is verified, and none for
   a guest, another recipient or an event without accounts. While an event's
   account mode is mandatory or optional, its "registered" mail must contain the key and cannot be switched
-  off. WordPress keeps one such link per account, so each new one replaces
+  off, and a change of an event's account mode to one with accounts is refused
+  unless that mail is on and carries it
+  ([Events](events-and-forms.md#forms-and-the-registration-slot)). WordPress keeps one such link per account, so each new one replaces
   the last.
 - **Scheduled mails are defined freely by admins** at a date reference
   ([Events](events-and-forms.md#date-references)): a fixed date and time, a
@@ -54,7 +60,7 @@ record, the check-in act, and so on.
 - **Reminders are defined in code** by their module or plugin (e.g. an
   upcoming late fee). Admins configure the time base and the repeat interval;
   repeating is supported from the start.
-- **An event-wide layout** wraps mails, optional per mail. There is no
+- **An event-wide layout** wraps mails, optional per mail template. There is no
   site-wide layout.
 
 ### Late registrants and activation
@@ -99,7 +105,10 @@ activated.**
   came through; a field with no value for that registration reads as none,
   so a mail naming a field only one form holds still renders for everyone.
   A key that is not a participant field of the event stays an error. Actions and
-  reminders add their own blocks (e.g. a payment table).
+  reminders add their own blocks (e.g. a payment table). Besides
+  `registration.link`, a body may place a **page link** `page_<ID>.link`: the
+  registrant's own secret link to that published page, declared only while the
+  page is published.
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
 - **The body's title is the subject,** as plain text. Mail is sent as HTML
@@ -109,7 +118,7 @@ activated.**
   placeholder; a layout without exactly one is refused. A new event's layout
   is exactly `{{content}}`, so mail works with no setup. The rendered body
   replaces `{{content}}`; everything but the outer design belongs in each
-  mail's body.
+  mail's body. Typed into a body, `{{content}}` is an unknown placeholder.
 
 ## Sending
 
