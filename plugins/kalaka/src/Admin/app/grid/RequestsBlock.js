@@ -3,7 +3,7 @@
  * request of the registration with its state, and with `can.answer_request` the button that opens the answer
  * dialog. It shows only what the read carries: the block shows when the read carries requests (only holders of the
  * answer ability get them), only the button needs `can.answer_request`, an inactive request shows its label
- * with „–” as its state, and nothing shows while the last read failed. [UNAPPROVED N1236]
+ * with „–” as its state, and nothing shows while the last read failed.
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';

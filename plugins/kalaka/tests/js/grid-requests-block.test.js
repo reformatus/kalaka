@@ -1,7 +1,7 @@
 /**
  * The requests block of the detail panel: when it shows, the state word of each request and the button that
  * only `can.answer_request` gives. Real RequestsBlock with small stand-ins for wp-components and the dialog.
- * [UNAPPROVED N7] [UNAPPROVED N1236]
+ * [UNAPPROVED N7]
  */
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';

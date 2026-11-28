@@ -15,7 +15,7 @@ export const itemsOf = ( read ) => ( ( read && read.requests && read.requests.it
 /**
  * The state line of a request: „Válaszra vár”, „Jóváhagyva”, „Elutasítva”, or the award of a granted aid. An inactive
  * request (its registration is not registered, N655) shows „–” (not applicable), as the grid's awaits column does:
- * never „Válaszra vár” and never „Nem” (owner rulings 6.2/6.3). [UNAPPROVED N1236]
+ * never „Válaszra vár” and never „Nem” (owner rulings 6.2/6.3).
  */
 export function stateText( item, currency ) {
 	if ( item.state === 'inactive' ) {

@@ -55,7 +55,7 @@ describe( 'a dimmed row', () => {
 	} );
 } );
 
-describe( 'the awaits cell (owner rulings 6.2/6.3) [UNAPPROVED N1236] [UNAPPROVED T1225]', () => {
+describe( 'the awaits cell (owner rulings 6.2/6.3)', () => {
 	const awaits = { column: 'awaits_answer', type: 'consent', options: { 1: 'Igen', 0: 'Nem' }, na: '–' };
 	const cell = ( value ) => html( awaits, { values: { status: 'waitlisted', awaits_answer: value } } );
 

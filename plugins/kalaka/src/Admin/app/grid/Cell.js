@@ -28,7 +28,7 @@ export default function Cell( { column, item } ) {
 	const tone = isInactive( item ) ? ' kg-inactive' : '';
 	const value = item.values[ column.column ];
 	if ( column.na && ( value === null || value === undefined || value === '' ) ) {
-		// No value is N/A: „–” with spoken text, never „Nem”. [UNAPPROVED N1236]
+		// No value is N/A: „–” with spoken text, never „Nem”.
 		return (
 			<span className={ tone.trim() || undefined }>
 				<NotApplicable text={ text } />
