@@ -10,7 +10,9 @@
  * Every answer stays in the browser while the page is open (owner ruling 5): what was typed in a hidden
  * branch stays in its disabled control, and a ticked option that stops being offered is remembered and
  * ticked again when it is offered again. Only the fields that show, with their offered options, are sent.
- * Nothing is kept across a reload.
+ * Nothing is kept across a reload. At start-up it re-fetches only when the browser holds an answer of a
+ * trigger other than the one the page opened with (`opened` in the page's context), as one the browser
+ * restored.
  *
  * A multi-page form ((#167, MP-4, MP-9, MP-11)) renders every page hidden; the script shows the
  * current one. Tovább re-fetches with the current page, which answers with that page's errors; with none
@@ -101,6 +103,12 @@ const OWN_CODE = /^kalaka_/;
 const SESSION_ENDED = 'kalaka_session_ended';
 
 /**
+ * The refusal of a draft save from before a claim changed the draft (`VersionConflict`): the page's answers are
+ * older than the draft. Another 409 (an edited form, `kalaka_form_outdated`) does not end the autosave.
+ */
+const VERSION_CONFLICT = 'kalaka_version_conflict';
+
+/**
  * The refusal of a send over the rate limit (S14, `RateLimited`): too many sends from this person or
  * address in a short time. It shows its own message, or its code while the message is empty; the answers
  * stay, and a later send may go through.
@@ -118,6 +126,12 @@ const NONCE = /^[0-9a-f]{10}$/;
 
 /** How long a request runs before the spinner shows. */
 export const SPINNER_DELAY = 2000;
+
+/** How long the answers rest before the autosave keeps them (S74). */
+export const DRAFT_DELAY = 3000;
+
+/** How long the claim notice's live region waits for its text, so a screen reader announces it (S74). */
+export const CLAIM_NOTICE_DELAY = 300;
 
 function plain(data) {
 	return JSON.parse(JSON.stringify(data));
@@ -480,11 +494,13 @@ function showButtons(form) {
 
 /**
  * Shows a page and hides the others. With `move`, the form's top scrolls into view and the focus moves to
- * the page's title, or to the form when the page has none.
+ * the page's title, or to the form when the page has none. Answers that wait for the autosave are saved at
+ * once; a move with no changed answer saves nothing (the draft's page is stored but never read).
  */
 function showPage(form, number, move = true) {
 	const started = forms.get(form);
 	started.page = number;
+	saveDraft(form);
 	if (started.refusedTo !== number) {
 		started.refusedTo = null;
 	}
@@ -734,6 +750,191 @@ function applyAccount(form, account) {
 	}
 }
 
+/**
+ * The autosave (S74): while the page has a draft route (a registration form), the answers that show are
+ * kept as the person's draft, or a guest's guest draft, once they rest for `DRAFT_DELAY`, at once on a page
+ * move when answers changed and wait (a move alone saves nothing: the stored page is not read), and when the
+ * page is left (`keepalive`). A guest's page with no guest draft yet (`draftStart`) saves the first answer
+ * change at once, which gives the guest the draft cookie (owner ruling 2026-11-26); until that save is
+ * answered no other goes out, so that it is the cookie's draft the next ones update. It shows nothing: a
+ * failed save is tried again with the next change. A send takes what waits: the submit deletes the draft.
+ * Each save carries the draft's claim count the page opened with (`draftClaims`).
+ *
+ * The autosave stops once the person's choice on a link's answers is sent (`resolveDraftClaim()`; for good
+ * once the route has answered ok, and it starts again when the choice failed), and for good once the server
+ * refuses a save as from before a claim (`kalaka_version_conflict`): the page's answers are then older than
+ * the draft, and nothing waiting or sent when the page is left may bring them back.
+ */
+function draftChanged(form) {
+	const started = forms.get(form);
+	if (!started?.draftUrl || started.draftStopped) {
+		return;
+	}
+	started.draftDirty = true;
+	clearTimeout(started.draftTimer);
+	if (started.draftStart) {
+		started.draftStart = false;
+		started.draftIssuing = true;
+		saveDraft(form, false, true);
+
+		return;
+	}
+	started.draftTimer = setTimeout(() => saveDraft(form), DRAFT_DELAY);
+}
+
+function stopDraft(form) {
+	const started = forms.get(form);
+	if (started === undefined) {
+		return;
+	}
+	started.draftStopped = true;
+	started.draftDirty = false;
+	clearTimeout(started.draftTimer);
+	started.draftTimer = null;
+}
+
+function saveDraft(form, keepalive = false, issuing = false) {
+	const started = forms.get(form);
+	if (!started?.draftUrl || started.draftStopped) {
+		return;
+	}
+	clearTimeout(started.draftTimer);
+	started.draftTimer = null;
+	if (!issuing && started.draftIssuing && !keepalive) {
+		// The save that gives the cookie is on its way: the answers wait for it (`draftSettled()`).
+		return;
+	}
+	if (!started.draftDirty || started.sending || started.done) {
+		if (issuing) {
+			draftSettled(form);
+		}
+		return;
+	}
+	started.draftDirty = false;
+	const headers = { 'Content-Type': 'application/json' };
+	if (started.nonce) {
+		headers['X-WP-Nonce'] = started.nonce;
+	}
+	try {
+		const sent = fetch(started.draftUrl, {
+			method: 'POST',
+			keepalive,
+			headers,
+			body: JSON.stringify({
+				version: started.version,
+				answers: answersOf(form),
+				page: started.page,
+				claims: started.draftClaims ?? 0,
+			}),
+		})
+			.then(async (response) => {
+				if (response.ok) {
+					return;
+				}
+				let body = null;
+				try {
+					body = await response.json();
+				} catch {
+					body = null;
+				}
+				if (body?.code === VERSION_CONFLICT) {
+					stopDraft(form);
+				} else {
+					started.draftDirty = true;
+				}
+			})
+			.catch(() => {
+				started.draftDirty = true;
+			});
+		if (issuing) {
+			sent.finally(() => draftSettled(form));
+		}
+	} catch {
+		started.draftDirty = true;
+		if (issuing) {
+			draftSettled(form);
+		}
+	}
+}
+
+/** The save that gives a guest the cookie was answered (or failed): what changed meanwhile goes after the rest. */
+function draftSettled(form) {
+	const started = forms.get(form);
+	if (started === undefined) {
+		return;
+	}
+	started.draftIssuing = false;
+	if (started.draftDirty && !started.draftStopped && !started.draftTimer) {
+		started.draftTimer = setTimeout(() => saveDraft(form), DRAFT_DELAY);
+	}
+}
+
+/**
+ * Sends the person's choice on a link's answers that differ from their draft (S74: `merge`, `keep_draft` or
+ * `keep_link`) to the page's claim route, after stopping the autosave: no save waiting, due or sent when
+ * the page is left goes after it. What the page does with the answer is the popup's (UX).
+ *
+ * @return {Promise<{ok: boolean, body: *}>} The route's answer.
+ */
+function resolveDraftClaim(form, choice) {
+	const started = form ? forms.get(form) : undefined;
+	if (!started?.draftClaimUrl) {
+		return Promise.resolve({ ok: false, body: null });
+	}
+	stopDraft(form);
+
+	return post(started.draftClaimUrl, { choice }, started.nonce).then((answer) => {
+		if (!answer.ok) {
+			// The choice did not reach the draft: the autosave goes on, so the typing is not lost.
+			restartDraft(form);
+		}
+
+		return answer;
+	});
+}
+
+/** Starts the autosave again after `stopDraft()`; what the page holds is saved once it rests. */
+function restartDraft(form) {
+	const started = forms.get(form);
+	if (started === undefined) {
+		return;
+	}
+	started.draftStopped = false;
+	started.draftDirty = true;
+	clearTimeout(started.draftTimer);
+	started.draftTimer = setTimeout(() => saveDraft(form), DRAFT_DELAY);
+}
+
+/**
+ * The one-line notice on the load after the person's choice on a link's answers (S74, N12): above the form,
+ * in a live region that exists before its text, so the text is announced. The server sends it on that one
+ * load only.
+ */
+function showClaimNotice(form, text) {
+	if (typeof text !== 'string' || text === '') {
+		return;
+	}
+	const notice = document.createElement('p');
+	notice.className = 'kalaka-claim-notice';
+	notice.setAttribute('role', 'status');
+	notice.setAttribute('data-kalaka-claim-notice', '');
+	form.before(notice);
+	setTimeout(() => {
+		notice.textContent = text;
+	}, CLAIM_NOTICE_DELAY);
+}
+
+/** The page's form whose link's answers wait for the person's choice (it has a claim route), or null. */
+function claimingForm() {
+	for (const form of document.querySelectorAll('form')) {
+		if (forms.get(form)?.draftClaimUrl) {
+			return form;
+		}
+	}
+
+	return null;
+}
+
 /** The message of a refusal: Kaláka's own (a `kalaka_` code) as it comes, anything else the failure text. */
 function refusalMessage(body, failure) {
 	return typeof body?.code === 'string' &&
@@ -832,6 +1033,54 @@ async function run(form) {
 	reflect(form);
 
 	return applied;
+}
+
+/**
+ * An answer in one shape to compare: none for no answer, an empty text, an unticked box or no option; the
+ * options sorted; anything else as text. Null for a shape it does not know, which never compares equal.
+ */
+function comparable(value) {
+	if (
+		value === undefined ||
+		value === null ||
+		value === '' ||
+		value === false ||
+		(Array.isArray(value) && value.length === 0)
+	) {
+		return '';
+	}
+	if (Array.isArray(value)) {
+		return value.every((option) => typeof option === 'string')
+			? JSON.stringify([...value].sort())
+			: null;
+	}
+	if (value === true || typeof value === 'string') {
+		return JSON.stringify(value);
+	}
+
+	return null;
+}
+
+/**
+ * Whether the browser holds, for a trigger, an answer other than the one the page opened with (`opened`
+ * in the page's context): one it restored, from its cache of the page or by autofill.
+ */
+function restoredOther(started, answers) {
+	const opened =
+		started.opened !== null &&
+		typeof started.opened === 'object' &&
+		!Array.isArray(started.opened)
+			? started.opened
+			: {};
+
+	return (started.triggers ?? []).some((key) => {
+		const held = comparable(answers[key]);
+		const given = comparable(
+			Object.hasOwn(opened, key) ? opened[key] : undefined
+		);
+
+		return held === null || given === null || held !== given;
+	});
 }
 
 function isTrigger(started, key) {
@@ -1155,6 +1404,13 @@ async function toTerminal(form) {
 
 async function send(form) {
 	const started = forms.get(form);
+	if (started !== undefined) {
+		// What waits for the autosave goes with the send, which deletes the draft (S74): nothing is
+		// saved after it but a change made after a send that failed.
+		clearTimeout(started.draftTimer);
+		started.draftTimer = null;
+		started.draftDirty = false;
+	}
 	if (
 		started === undefined ||
 		started.sending ||
@@ -1299,12 +1555,14 @@ async function send(form) {
 
 store('kalaka/form', {
 	actions: {
-		// A field's message clears on the first edit of that field.
+		// A field's message clears on the first edit of that field, and typing alone arms the draft autosave:
+		// a text field's `change` fires only when the person leaves it (the answers are read at save time).
 		edited(event) {
 			const form = getElement().ref;
 			const wrapper = event?.target?.closest?.('[data-kalaka-field]');
 			if (wrapper !== null && wrapper !== undefined && form.contains(wrapper)) {
 				clearFieldMessage(wrapper);
+				draftChanged(form);
 			}
 		},
 		update(event) {
@@ -1322,6 +1580,7 @@ store('kalaka/form', {
 			if (isChoice(event.target)) {
 				remember(form, key);
 			}
+			draftChanged(form);
 
 			return isTrigger(started, key) ? refetch(form) : undefined;
 		},
@@ -1358,6 +1617,18 @@ store('kalaka/form', {
 				}
 			}
 		}),
+		// S74: the person's choice on a link's answers, for the popup UX builds. Bound to an element inside the
+		// form, it sends that element's `value`. Called from a script (a modal outside the form), it takes the
+		// choice and, optionally, the form; without one, the page's form that has a claim route. Nothing sends
+		// a choice by itself: only this action does.
+		resolveDraftClaim(choice, form) {
+			if (typeof choice === 'string') {
+				return resolveDraftClaim(form ?? claimingForm(), choice);
+			}
+			const element = getElement().ref;
+
+			return resolveDraftClaim(element.closest('form'), element.value);
+		},
 	},
 	callbacks: {
 		start() {
@@ -1387,6 +1658,9 @@ store('kalaka/form', {
 				refreshing: null,
 				wantAccount: false,
 				retry: null,
+				draftDirty: false,
+				draftTimer: null,
+				draftStopped: false,
 			};
 			forms.set(form, started);
 			if (started.account) {
@@ -1407,9 +1681,13 @@ store('kalaka/form', {
 				window.addEventListener('focus', wake);
 				document.addEventListener('visibilitychange', wake);
 			}
+			if (started.draftUrl) {
+				window.addEventListener('pagehide', () => saveDraft(form, true));
+			}
 			for (const button of buttonsOf(form)) {
 				button.disabled = false;
 			}
+			showClaimNotice(form, started.draftClaimNoticeText);
 			// The ticks the browser restored are remembered like ticks made here.
 			for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
 				remember(form, wrapper.getAttribute('data-kalaka-field'));
@@ -1422,14 +1700,9 @@ store('kalaka/form', {
 				showPage(form, 0, false);
 			}
 			reflect(form);
-			// The page renders for its prefilled answers; a browser that restored answers of triggers needs a re-fetch.
-			const answers = answersOf(form);
-			const answered = (value) =>
-				value !== undefined &&
-				value !== '' &&
-				value !== false &&
-				!(Array.isArray(value) && value.length === 0);
-			if ((started.triggers ?? []).some((key) => answered(answers[key]))) {
+			// The page renders for the answers it opened with; a browser that restored others of a trigger needs
+			// a re-fetch.
+			if (restoredOther(started, answersOf(form))) {
 				refetch(form);
 			}
 		},

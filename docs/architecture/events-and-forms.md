@@ -136,8 +136,25 @@ flowchart TB
 
 ## Prefill from a link
 
-- **There is no public prefill:** no URL argument other than the link token
-  affects a form.
+- **Public prefill comes as a guest draft.** A request to a page that
+  places one registration form may carry answers as `kalaka[<field key>]`
+  (the quiz's POST body, or a static GET link). They are untrusted: each is
+  first cleaned by its field type's prefill rules, the rules a stored value
+  opens with, so its bad parts are dropped and the rest kept, and then
+  checked alone with its field's type. An unknown key, or an answer that
+  cleans to nothing or that the type does not accept, is dropped, silently.
+  What is left is kept as a guest
+  draft ([Submissions and values](registrations-and-identity.md#submissions-and-values))
+  under a claim token in a cookie, in every account mode, and the request is answered with a 303 to
+  the page without them. The answers wait in a guest draft and a cookie of their
+  own, never touching the draft the browser already holds; the page the 303
+  leads to settles them against it: they become the browser's draft, or, when
+  that draft holds a guest's typing the link would change, the guest chooses
+  (merge, keep the draft, keep the link; the
+  popup of [Submissions and values](registrations-and-identity.md#submissions-and-values)).
+  The form then opens with them, as editable values.
+  A link-only field never takes public prefill. Nothing of the request is
+  logged.
 - **Forms start from the active registration**
   ([Registrations](registrations-and-identity.md#access)): an additional
   form is prefilled from its current field values, as editable values; a
@@ -195,7 +212,9 @@ flowchart TB
 - **Our own implementation on WordPress's building blocks; no form plugin.**
 - Forms are **block documents** (`kalaka_form` posts) built from our own
   field blocks.
-- The public page uses WordPress's **Interactivity API**.
+- The public page uses WordPress's **Interactivity API**. The one exception
+  is the draft-claim popup: a `@wordpress/components` Modal, loaded only on
+  a page with a pending claim ([Engineering](engineering.md#wordpress-surfaces)).
 - **Accounts:** in the event's mandatory and optional account mode, every
   registration form holds the account block, which the save check requires;
   where it sits is the author's choice. Logged out, it says what an account
@@ -220,15 +239,20 @@ flowchart TB
   that shows; there is no progress indicator.
 - **Answers stay in the browser while the page is open:** a hidden answer
   is kept and only the answers of what shows are sent; a ticked option that
-  stops being offered is ticked again when it returns. Nothing is kept
-  across a reload.
+  stops being offered is ticked again when it returns. A reload keeps the
+  answers, a guest's own typing and what a link or the quiz handed over in
+  their guest draft, a logged-in person's in their draft, which the
+  autosave keeps
+  ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **While the server is asked** (a re-fetch, a page check, a submit) the
   form is dimmed and its fields take no input; after 2 seconds a spinner in
   the look of WordPress's own shows over it.
 - **One request in flight per form:** changes made while a request runs
   coalesce into one follow-up with the latest answers. A click on Next or
   Send during a request is queued, not lost; Back is ignored while the form
-  is busy.
+  is busy. The autosave of a person's or a guest's draft is apart: it runs
+  beside these requests, never dims the form, and sends nothing once a send
+  has started.
 - **The server validates against the same form definition:** only declared
   fields that show are accepted, and a hidden field only with a value from a
   link or a prefill.
@@ -256,7 +280,9 @@ flowchart TB
   no request. A terminal page holds no fields and has a condition: it shows
   its content and cannot be sent, and the server refuses a submit while one
   shows. The contact email and the display name never sit on a conditional
-  page. Answers are not kept across a reload.
+  page. A reload keeps the answers, a guest's in their guest draft and a
+  logged-in person's in their draft
+  ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **After a successful submit** the form is replaced by its **after-submit
   section**, part of the form document and edited with it (the thank-you
   message): one block per form, at the top level outside any branch or
