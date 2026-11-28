@@ -45,7 +45,7 @@ final class SenderManualTest extends MailBodyTestCase
     private function batch(int $event, int $body, array $codes): int
     {
         $result = (new ManualMails())->send(
-            ['event_id' => $event, 'body_id' => $body, 'codes' => $codes],
+            ['event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => $codes]],
             new CliActor(null),
             $this->runner
         );

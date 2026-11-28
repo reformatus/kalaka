@@ -11,24 +11,26 @@ use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Mail\Api\Deliveries;
 use Kalaka\Mail\Api\MailStats;
+use Kalaka\Mail\Api\TroubledDelivery;
 use Kalaka\Mail\ClearEventMail;
 use Kalaka\Mail\ClearMailQueue;
-use Kalaka\Mail\Delivery;
 use Kalaka\Mail\DeliveryQuery;
 use Kalaka\Mail\EventMailNotHeld;
 use Kalaka\Mail\Pause\MailStateQuery;
 use Kalaka\Mail\Pause\PauseMail;
 use Kalaka\Mail\Pause\ResumeMail;
 use Kalaka\Mail\Pause\ResumeNeedsPerson;
+use Kalaka\Mail\Pause\SetMailBudget;
 
 /**
- * `wp kalaka mail status|pause|resume|clear-queue|clear-event|failed`: the mail engine from the command line
- * (mail.md, "Pausing", "Failures"), through the use cases `PauseMail`, `ResumeMail`, `ClearMailQueue` and
- * `ClearEventMail`, never through SQL. It runs as the command line without a user (full access), or, with
- * WP-CLI's `--user`, checked as that user; `status` and `failed` read for full access only. Only a person
- * resumes sending: `ResumeMail` refuses an actor that is no person, and `resume` adds the hint to give
- * `--user`. The screen for the same is S41's.
+ * `wp kalaka mail status|pause|resume|budget|clear-queue|clear-event|failed`: the mail engine from the command
+ * line (mail.md, "Pausing", "Failures"), through the use cases `PauseMail`, `ResumeMail`, `SetMailBudget`,
+ * `ClearMailQueue` and `ClearEventMail`, never through SQL. It runs as the command line without a user (full
+ * access), or, with WP-CLI's `--user`, checked as that user; `status` and `failed` read for full access only.
+ * Only a person resumes sending: `ResumeMail` refuses an actor that is no person, and `resume` adds the hint to
+ * give `--user`. The screen for the same is S41's.
  */
 final class MailCommand
 {
@@ -45,6 +47,7 @@ final class MailCommand
         private readonly MailStateQuery $state = new MailStateQuery(),
         private readonly DeliveryQuery $deliveries = new DeliveryQuery(),
         private readonly Events $events = new Events(),
+        private readonly Deliveries $troubled = new Deliveries(),
         private readonly ?\Closure $print = null,
         private readonly ?\Closure $confirm = null,
     ) {
@@ -150,6 +153,31 @@ final class MailCommand
     }
 
     /**
+     * Sets the hourly budget: how many mails the sender may send in an hour, from 1 to 2000. The next run
+     * uses it. Nothing changes when it already is that value.
+     *
+     * ## OPTIONS
+     *
+     * <n>
+     * : The hourly budget, a whole number from 1 to 2000.
+     *
+     * @param list<string> $args
+     * @param array<string, mixed> $assocArgs
+     */
+    public function budget(array $args, array $assocArgs): void
+    {
+        Boundary::cli(function () use ($args): void {
+            // The raw argument goes to the use case, whose one typed refusal answers every wrong value.
+            $given = $args[0] ?? '';
+            $changed = Runner::current()->run(new SetMailBudget(), ['hourly_budget' => $given], CliActor::current());
+            $budget = (int) $given;
+            \WP_CLI::success($changed === true
+                ? 'The hourly budget is ' . $budget . '.'
+                : 'The hourly budget already was ' . $budget . '; nothing changed.');
+        });
+    }
+
+    /**
      * Deletes every pending delivery of the site, those that carry an error included. Sending, sent and
      * failed deliveries stay. Asks first.
      *
@@ -240,15 +268,15 @@ final class MailCommand
             CliInput::fullAccess();
             $eventId = CliInput::existingEventId($args);
             $format = CliInput::format($assocArgs);
-            $rows = array_map(static fn (Delivery $delivery): array => [
-                'code' => $delivery->registration->code,
+            $rows = array_map(static fn (TroubledDelivery $delivery): array => [
+                'code' => $delivery->code,
                 'mail' => $delivery->mail,
                 'kind' => $delivery->kind->value,
-                'status' => $delivery->status->value,
+                'status' => $delivery->status,
                 'attempts' => $delivery->attempts,
-                'attempted_at_utc' => $delivery->claimedAt === null ? '' : self::utc($delivery->claimedAt),
+                'attempted_at_utc' => $delivery->lastAttemptAt === null ? '' : self::utc($delivery->lastAttemptAt),
                 'error' => $delivery->error ?? '',
-            ], $this->deliveries->troubled($eventId));
+            ], $this->troubled->troubled($eventId));
             $this->show($format, $rows, self::FAILED_FIELDS);
         });
     }
