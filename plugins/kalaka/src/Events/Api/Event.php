@@ -61,6 +61,15 @@ final readonly class Event
     }
 
     /**
+     * Whether registration has closed: `$now` is at or after the closing instant. False for an event with no closing
+     * instant. The participant's own withdrawal ends here (N661).
+     */
+    public function registrationHasClosed(\DateTimeImmutable $now): bool
+    {
+        return $this->registrationCloses !== null && $now >= $this->registrationCloses;
+    }
+
+    /**
      * Payment due, the core date type (money.md, "Core money scope"; events-and-forms.md, "Date
      * references"): N days after the later of the moment the registration last became `registered` and its
      * last answer to a request; the day ends at midnight in the site time zone. The instant returned is that

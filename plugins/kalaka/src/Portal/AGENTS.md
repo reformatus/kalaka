@@ -105,6 +105,24 @@ page, and the account area
   No nonce (the registrant may be a guest), no state, no audit.
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
+- The participant's own withdrawal (`POST kalaka-portal/v1/withdraw`, `Rest\WithdrawRoute`; `Api\Withdrawal`)
+  acts only for the active registration and only with that registration's own `code`; anything else (no active
+  registration, another code) is `Api\WithdrawStale` (`kalaka_withdraw_stale`), also in a preview; a status that
+  cannot withdraw is `Api\WithdrawUnavailable` (`kalaka_withdraw_unavailable`; a preview answers `allowed: false`). It is open to whoever holds the active registration (the secret link and the
+  signed cookie), and a real withdrawal carries its page's nonce (`Api\Withdrawal::nonceField()`, the field
+  `kalaka_withdraw_nonce`), an HMAC of the action, the nonce tick and that registration's own code under
+  `wp_salt('nonce')`, alive for two nonce ticks like WordPress's, so it holds for a guest too, whose logged-out
+  WordPress nonce every guest shares; a missing or stale one is `Api\WithdrawBadNonce` (`kalaka_withdraw_bad_nonce`,
+  known to the flash cookie). `LoadState::requireOpen()` comes first, every answer is
+  `no-store`, and a plain form post is answered with a 303 to the same-site return address (else the referrer, else
+  home), clean, with a refusal's code in the flash cookie `WithdrawRefusalCookie` that the next page request reads
+  once (`WithdrawRefusalState`, read through `StatusRead`; it becomes one portal flash cookie with the card
+  payment's when both exist). A plain form post is never a preview. The act, its rule and its audit are
+  Registrations'; Portal adds no rule and shows no seat, no other payer's money and no reason. `can.withdraw`
+  (`Api\RegistrationCan`) is decided in `StatusRead` from `StatusAct::Withdraw`'s allowed statuses, `LoadState` and
+  the event's registration close (the participant may withdraw only until it closes; after that the use case refuses
+  as `Registrations\Api\WithdrawClosed`, `kalaka_withdraw_closed`, also known to the flash cookie), never in the page;
+  `can.withdrawUnavailable` is `registration_closed` when only the close makes `withdraw` false, else null. [UNAPPROVED N660, N662, N664-N666]
 - `kalaka_push_subscriptions` (the parked PWA scope) is the module's only
   table: one row per registration and device, keyed by (event, code,
   endpoint hash); `key_p256dh` and `key_auth` are secret columns. Nothing

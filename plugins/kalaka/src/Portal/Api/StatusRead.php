@@ -11,6 +11,7 @@ use Kalaka\Events\Api\Phase;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
@@ -23,12 +24,14 @@ use Kalaka\Payments\Api\PaymentProviders;
 use Kalaka\Payments\Api\PaymentsInFlight;
 use Kalaka\Portal\CardRefusalState;
 use Kalaka\Portal\LineLabels;
+use Kalaka\Portal\WithdrawRefusalState;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationRead;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\StatusAct;
 
 /**
  * The read behind the participant blocks: one registration's status, phase, confirmation, money and
@@ -50,6 +53,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * Whether the registration is confirmed comes from Pricing's `Confirmations`. Whether a request awaits an answer
  * is computed (`RegistrationFacts::awaitsAnswer`), never read from a stored hold: it replaces the old payment
  * hold.
+ *
+ * The read also says what the registrant may do now (`can`): the card payment's rule and the participant's own
+ * withdrawal's, the latter ending when registration closes (N661).
  */
 final class StatusRead
 {
@@ -74,18 +80,22 @@ final class StatusRead
     {
         $key = ActiveRegistration::current();
 
-        // The one-shot refusal of a card payment form post is shown by the page that follows it, never by a mail.
-        return $key === null ? null : $this->read($key, CardRefusalState::code());
+        // The one-shot refusals of a card payment or a withdrawal form post are shown by the page that follows
+        // it, never by a mail.
+        return $key === null ? null : $this->read($key, CardRefusalState::code(), WithdrawRefusalState::code());
     }
 
     /** The registration's view, or null when it or its event does not exist. */
     public function of(RegistrationKey $key): ?RegistrationStatusView
     {
-        return $this->read($key, null);
+        return $this->read($key, null, null);
     }
 
-    private function read(RegistrationKey $key, ?string $cardRefusal): ?RegistrationStatusView
-    {
+    private function read(
+        RegistrationKey $key,
+        ?string $cardRefusal,
+        ?string $withdrawRefusal,
+    ): ?RegistrationStatusView {
         $registration = $this->registrations->find($key);
         $event = $registration === null ? null : $this->events->find($key->eventId);
         if ($registration === null || $event === null) {
@@ -115,6 +125,7 @@ final class StatusRead
             $transfer = $this->transfer($key, $event, $availability, $payment, $balance);
             [$can, $card, $amounts] = $this->card($key, $event, $availability, $payment, $balance);
         }
+        $can = $this->withdrawCan($registration->status, $event, $can);
 
         return new RegistrationStatusView(
             $key,
@@ -131,6 +142,24 @@ final class StatusRead
             $card,
             $cardRefusal,
             $amounts,
+            $withdrawRefusal,
+        );
+    }
+
+    /**
+     * What the registrant may withdraw now, beside the card payment's `can` of the read above. The participant's
+     * own withdrawal ends when registration closes (N661), so `withdraw` is false then and
+     * `withdrawUnavailable` says why.
+     */
+    private function withdrawCan(RegistrationStatus $status, Event $event, RegistrationCan $can): RegistrationCan
+    {
+        $allowed = LoadState::current()->isOpen() && StatusAct::Withdraw->allowedFrom($status);
+        $closed = $allowed && $event->registrationHasClosed(Runner::current()->clock()->now());
+
+        return new RegistrationCan(
+            $can->payCard,
+            $allowed && !$closed,
+            $closed ? RegistrationCan::WITHDRAW_REGISTRATION_CLOSED : null
         );
     }
 
