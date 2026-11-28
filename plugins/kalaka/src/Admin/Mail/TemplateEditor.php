@@ -8,7 +8,7 @@ namespace Kalaka\Admin\Mail;
  * The mail templates (`kalaka_mail` posts) in WordPress's own screens: they leave the native post list, and the
  * editor (`post.php`) is kept, with core's „Közzététel” wording overridden and its back link on the event's „Levelek”
  * page. The post type has no menu item (`show_in_menu` is false). The type and the event meta are named here as
- * strings: they belong to the Mail module, whose internals Admin does not reach. [UNAPPROVED N928, N930]
+ * strings: they belong to the Mail module, whose internals Admin does not reach.
  */
 final class TemplateEditor
 {
@@ -34,7 +34,7 @@ final class TemplateEditor
         $event = $found ? (int) $m[1] : null;
         // The editor's „Lomtárba” (and its restore and delete) come with `ids`, the posts moved, and a `post.php`
         // referer, which has no `page`: the event is then the post's own `kalaka_event_id`, so the admin lands back
-        // on that event's „Levelek” page, not the site-wide „Levelezés”. [UNAPPROVED N930]
+        // on that event's „Levelek” page, not the site-wide „Levelezés”.
         if ($event === null) {
             // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read
             $ids = isset($_GET['ids']) ? sanitize_text_field(wp_unslash($_GET['ids'])) : '';
@@ -93,7 +93,7 @@ final class TemplateEditor
 				showTooltip: true,
 				tooltipPosition: 'bottom',
 				// A real core icon: `wp.icons` (the `@wordpress/icons` global) does not exist in core, so the button
-				// was rendering empty. A dashicon slug renders through the Button's own `Icon`. [UNAPPROVED N928]
+				// was rendering empty. A dashicon slug renders through the Button's own `Icon`.
 				icon: 'arrow-left-alt2'
 			} ) );
 		}

@@ -49,7 +49,7 @@ final class Texts
 
     /**
      * The back button's label when the template has no event (it lands on the site's „Levelezés” page). Proposed in
-     * the lektor's style; marked for the lektor's next pass. [UNAPPROVED T918]
+     * the lektor's style; marked for the lektor's next pass.
      */
     public const EDITOR_BACK_SITE = 'Vissza a Levelezés oldalra';
 }
