@@ -13,9 +13,15 @@ parameters:
         - plugins/kalaka-ranking/src
         - plugins/kalaka-ranking/kalaka-ranking.php
         - plugins/kalaka-ranking/uninstall.php
+        - plugins/kalaka-woocommerce/src
+        - plugins/kalaka-woocommerce/kalaka-woocommerce.php
+        - plugins/kalaka-woocommerce/uninstall.php
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - plugins/kalaka-support/vendor/autoload.php
         - plugins/kalaka-divi4/vendor/autoload.php
         - plugins/kalaka-ranking/vendor/autoload.php
+        - plugins/kalaka-woocommerce/vendor/autoload.php
         - phpstan-bootstrap.php

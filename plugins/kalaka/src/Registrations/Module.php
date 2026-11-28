@@ -96,6 +96,25 @@ CREATE TABLE {prefix}kalaka_answers (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * foundation.md, "Facts, decisions and computed values", the seat rule: one row per seat held, by event,
+     * registration and pool (`event` is never a pool here: the event's seats are its `registered` statuses).
+     * `pool` is `utf8mb4_nopad_bin`, compared exactly; `act` is the registration's own act that took the seat.
+     * `KEY pool` serves the count of a pool. A freed seat has no row.
+     */
+    private const SEATS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_seats (
+  event_id bigint(20) unsigned NOT NULL,
+  code varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  pool varchar(160) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  version int(10) unsigned NOT NULL,
+  taken_at datetime(6) NOT NULL,
+  act varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  PRIMARY KEY  (event_id,code,pool),
+  KEY pool (event_id,pool)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'registrations';
@@ -108,8 +127,9 @@ SQL;
 
     public function schema(): Schema
     {
-        // 6, not 5: slice A (#229) takes 5 for its seats. Renumber to the next free version when the stacks meet.
-        return new Schema(6, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::ANSWERS]);
+        // 7: the two stacks meet — #232 takes 6 for its answers, #228 5 for the seats; 4 is #194's
+        // drafts. The union needs the next free version.
+        return new Schema(7, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::SEATS, self::ANSWERS]);
     }
 
     /**

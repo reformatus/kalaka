@@ -17,7 +17,7 @@ use Kalaka\Registrations\Api\Registrations;
 
 /**
  * The shared body of setting the manual confirmation flag and of unconfirming (money.md, "Confirmation"): one
- * registration and a required reason, which the audit entry carries. Setting a set flag or unconfirming a
+ * registration and an optional reason, which the audit entry carries. Setting a set flag or unconfirming a
  * registration that is not confirmed writes nothing and succeeds; unconfirming a confirmed one is a new act
  * every time. Carried by
  * `kalaka_confirm_manually` inside its grant's view, or full access. Setting the flag is for a `registered`
@@ -51,9 +51,9 @@ abstract class ManualConfirmationChange implements AdminUseCase
             'properties' => [
                 'event_id' => ['type' => 'integer', 'minimum' => 1],
                 'code' => ['type' => 'string', 'pattern' => '^[0-9]{2}[AKBEGJTZFLRSXI][0-9]{1,13}$'],
-                'reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 500],
+                'reason' => ['type' => 'string', 'maxLength' => 500],
             ],
-            'required' => ['event_id', 'code', 'reason'],
+            'required' => ['event_id', 'code'],
             'additionalProperties' => false,
         ];
     }
@@ -80,8 +80,8 @@ abstract class ManualConfirmationChange implements AdminUseCase
     public function execute(array $input, Context $context): array
     {
         $key = new RegistrationKey((int) $input['event_id'], (string) $input['code']);
-        $reason = trim((string) $input['reason']);
-        if ($reason === '' || mb_strlen($reason, 'UTF-8') > 500) {
+        $reason = trim((string) ($input['reason'] ?? ''));
+        if (mb_strlen($reason, 'UTF-8') > 500) {
             throw new InvalidInput();
         }
         if (!$this->registrations->lock($key, $context)) {

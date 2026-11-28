@@ -67,8 +67,7 @@ final class FullAccessCommand
 
     private static function run(UseCase $useCase, \WP_User $user): void
     {
-        $current = get_current_user_id();
-        Runner::current()->run($useCase, ['user_id' => $user->ID], new CliActor($current > 0 ? $current : null));
+        Runner::current()->run($useCase, ['user_id' => $user->ID], CliActor::current());
     }
 
     /** @throws CommandFailure when no user matches */

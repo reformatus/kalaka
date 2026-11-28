@@ -17,4 +17,12 @@ final class RegistrationStatusTest extends TestCase
             array_map(static fn (RegistrationStatus $status): string => $status->word(), RegistrationStatus::cases())
         );
     }
+
+    public function testOnlyAWaitlistedRegistrantSeesNoDetails(): void
+    {
+        self::assertTrue(RegistrationStatus::Registered->showsDetails());
+        self::assertFalse(RegistrationStatus::Waitlisted->showsDetails());
+        self::assertTrue(RegistrationStatus::Withdrawn->showsDetails());
+        self::assertTrue(RegistrationStatus::Removed->showsDetails());
+    }
 }

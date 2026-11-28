@@ -85,8 +85,8 @@ flowchart LR
   registrations with capacity and waitlist, a fixed price per registration
   with full payment, the ledger, mail, status pages and administration.
   Payments through WooCommerce, deposits, the price ladder, late fees,
-  financial aid, sponsor support, programs, lodging, check-in, buffet wallet
-  and donations are separate extension plugins.
+  financial aid, sponsor support, programs, lodging, check-in and the buffet
+  wallet are separate extension plugins; extra charges and the donation are core.
 - **Built on WordPress itself:** its admin components, REST API,
   permissions, block editor (for forms, field definitions and mails) and interactive
   front end, rather than third-party form or admin plugins.

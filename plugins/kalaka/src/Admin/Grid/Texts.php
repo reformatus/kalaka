@@ -21,8 +21,8 @@ final class Texts
     // [UNAPPROVED T1] The column label only: „Sorszám” was too long for the column (owner's walk, topic 6a G5).
     public const SERIAL = 'Szám';
     /** The first submission's time and the moment the registration became registered. [UNAPPROVED T18, T19] lektored */
-    public const SUBMITTED_AT = 'Jelentkezés ideje';
-    public const REGISTERED_AT = 'Rögzítés ideje';
+    public const SUBMITTED_AT = 'Beküldés ideje';
+    public const REGISTERED_AT = 'Rögzítetté vált';
     /** The title of the awaits-an-answer column: the panel's „Válaszra vár” (reused from #232 T4). */
     public const AWAITS_ANSWER = 'Válaszra vár';
 

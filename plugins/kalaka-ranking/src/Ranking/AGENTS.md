@@ -39,9 +39,13 @@ It holds the ranking field type now and the ranking proposer later (S77).
 - The `set` attribute decides where the options come from, block by block
   (S44-1, the owner's ruling 2026-11-18). A block with a `set` holds no
   options of its own: core fills `options` from the set
-  (`Forms\Api\RequestFieldType`), and offers only the options whose
-  eligibility condition holds; the field it declares is the set's one request
-  field, and outside the set's choice window it does not show and writes
+  (`Forms\Api\RequestFieldType`), and offers only the options whose condition
+  holds. The conditions are the block's own `optionConditions` (option key →
+  condition, in the one condition format, authored as JSON, no editor
+  control); the set holds none. A key whose option is gone is ignored when
+  the form is read, and refused on save (`unknown_option`). A block with no
+  `set` ignores `optionConditions`. The field it declares is the set's one
+  request field, and outside the set's choice window it does not show and writes
   nothing. A block with no `set` (also every block saved before sets
   existed) holds its own `options`, every one offered; the type is an
   `OptionsFieldType` there, so core derives a missing option key on save and
