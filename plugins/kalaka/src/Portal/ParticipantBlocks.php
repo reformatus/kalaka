@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Portal;
 
 use Kalaka\Events\Api\Events;
-use Kalaka\Forms\Api\ElementRole;
-use Kalaka\Forms\Api\FieldMarkup;
 use Kalaka\Forms\Api\FormCaching;
+use Kalaka\Forms\Api\ThemeStyle;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Money\Money;
@@ -45,6 +44,12 @@ final class ParticipantBlocks
 
     /** The handle of `portal.css`, named by both blocks' `style`. */
     public const STYLE = 'kalaka-portal';
+
+    /**
+     * The handle of the withdrawal's Modal script (R370, `Blocks/status/view.js`), which `Portal\Module` registers
+     * and `enqueueDialog()` enqueues only where a withdraw button shows. No `block.json` names it.
+     */
+    public const DIALOG_SCRIPT = 'kalaka-portal-withdraw';
 
     /** While the site is closed it shows the closed site's text, like a form. */
     public static function status(): string
@@ -133,16 +138,20 @@ final class ParticipantBlocks
         $asked = isset($_GET['kalaka_withdraw']) ? sanitize_key(wp_unslash($_GET['kalaka_withdraw'])) : '';
         $confirming = $canWithdraw && $asked === 'confirm';
         $paid = null;
-        $owedAfter = null;
+        $retained = null;
+        $surplus = null;
         $previewFailed = false;
-        if ($confirming) {
+        // The Modal opens with no request, so the preview is taken whenever the button shows (N1333).
+        if ($canWithdraw) {
             try {
                 $preview = (new Withdrawal())->run(ActiveRegistration::current(), $view->key->code, true);
                 $currency = (new Events())->find($view->key->eventId)?->currency;
-                $amounts = is_string($preview['paid'] ?? null) && is_string($preview['owed_after'] ?? null);
+                $amounts = is_string($preview['paid'] ?? null) && is_string($preview['retained'] ?? null)
+                    && is_string($preview['surplus'] ?? null);
                 if ($amounts && $currency !== null) {
                     $paid = Money::of($preview['paid'], $currency);
-                    $owedAfter = Money::of($preview['owed_after'], $currency);
+                    $retained = Money::of($preview['retained'], $currency);
+                    $surplus = Money::of($preview['surplus'], $currency);
                 } else {
                     $previewFailed = $view->status === RegistrationStatus::Registered;
                 }
@@ -153,10 +162,8 @@ final class ParticipantBlocks
                 $previewFailed = $view->status === RegistrationStatus::Registered;
             }
         }
-        $buttonClass = '';
-        $attribute = FieldMarkup::classAttribute(ElementRole::SubmitButton, 'wp-element-button');
-        if (preg_match('/class="([^"]*)"/', $attribute, $found) === 1) {
-            $buttonClass = html_entity_decode($found[1]);
+        if ($canWithdraw) {
+            self::enqueueDialog();
         }
         $returnUrl = get_permalink();
 
@@ -165,16 +172,31 @@ final class ParticipantBlocks
             WithdrawRoute::url(),
             $returnUrl !== false ? $returnUrl : home_url('/'),
             $view->key->code,
-            $buttonClass,
-            null, // the adapter's error colour: `ThemeStyle::errorColor()` once #252 is on main (not in Forms\Api here)
+            ThemeStyle::buttonClass(),
+            ThemeStyle::errorColor(),
             $confirming,
             $view->withdrawRefusal,
             $paid,
-            $owedAfter,
+            $retained,
+            $surplus,
             $previewFailed,
-            $view->can->withdrawUnavailable,
+            $view->status === RegistrationStatus::Waitlisted,
             Withdrawal::nonceValue($view->key->code),
         );
+    }
+
+    /**
+     * The script that opens the withdrawal's confirmation in a WordPress Modal (R370), and core's component styles
+     * it needs on the page, for the block and the shortcode alike and only while the withdraw button shows;
+     * without `build/` it is not registered and the no-script way is the only way (N1334).
+     */
+    private static function enqueueDialog(): void
+    {
+        if (!wp_script_is(self::DIALOG_SCRIPT, 'registered')) {
+            return;
+        }
+        wp_enqueue_script(self::DIALOG_SCRIPT);
+        wp_enqueue_style('wp-components');
     }
 
     /**

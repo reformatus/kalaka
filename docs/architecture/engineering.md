@@ -100,13 +100,16 @@ title: Engineering
   schema-checked input, permission checks and REST access come from
   WordPress. Admin table data stays on our own REST API.
 - **Block editor** for forms, field definitions and mail bodies; the
-  **Interactivity API** for public forms. The one exception is the
-  draft-claim popup: a `@wordpress/components` Modal, loaded only on a page
-  with a pending claim (owner ruling 2026-11-17).
+  **Interactivity API** for public forms. The exceptions are two
+  `@wordpress/components` Modals: the draft-claim popup, loaded only on a page
+  with a pending claim (owner ruling 2026-11-17), and the registrant's
+  withdrawal confirmation on the status block, loaded only where it shows a
+  withdraw button (owner ruling 2026-11-28).
 - **Participant pages follow the site's theme, with only a neutral base
-  of their own**, except the draft-claim popup, which keeps WordPress's
-  Modal look. Kaláka content is authored only in the block editor (forms,
-  field definitions, mails, participant pages); a page builder only places a
+  of their own**, except the draft-claim popup and the withdrawal
+  confirmation, which keep WordPress's Modal look. Kaláka content is authored
+  only in the block editor (forms, field definitions, mails, participant
+  pages); a page builder only places a
   form or a participant block, through its shortcode
   ([Forms](events-and-forms.md#forms-implementation)). Kaláka adds logic and
   dynamic data through its own blocks, and a block and its shortcode render
@@ -246,8 +249,8 @@ src/Registrations/
   JavaScript stays readable.
 - **`@wordpress/scripts`** scans `src/` for `block.json` (with
   `--webpack-copy-php`); blocks are registered from `build/`. The root
-  `webpack.config.js` adds the two scripts no `block.json` names, the
-  admin app and the draft-claim popup.
+  `webpack.config.js` adds the scripts no `block.json` names: the
+  admin app, the draft-claim popup and the withdrawal dialog.
 - **The admin app** lives in `src/Admin/app/`, with its own entry in a small
   custom webpack config. If it grows large it can move to a top-level
   `client/admin/`.
