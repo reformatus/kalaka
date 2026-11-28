@@ -369,6 +369,9 @@ final class GridModel
                 'labels' => array_map(static fn (string $m): string => $labels[$m] ?? $m, $chosen),
             ]];
         }
+        if ($column === 'awaits_answer') {
+            return [AggregateKind::Yes, [], ['kind' => 'count', 'member' => Texts::YES]];
+        }
         if (!str_starts_with($column, 'field:')) {
             return null;
         }
@@ -487,6 +490,18 @@ final class GridModel
             return $meta + [
                 'label' => $column === 'registered_at' ? Texts::REGISTERED_AT : Texts::SUBMITTED_AT,
                 'type' => 'time',
+            ];
+        }
+        if ($column === 'awaits_answer') {
+            // A core-derived yes/no column: shown, filtered and counted as a consent field is
+            // (stored '1' / '0'), but with three values: no value is N/A (the registration is not `registered`),
+            // shown as `na` („–”), different from „Nem”; there is no „Nincs válasz” and no N/A filter option.
+            // The label is a placeholder: the column's title is UX's. [UNAPPROVED N690, T1120]
+            return $meta + [
+                'label' => $column,
+                'type' => 'consent',
+                'options' => ['1' => Texts::YES, '0' => Texts::NO],
+                'na' => Texts::NOT_APPLICABLE,
             ];
         }
         if ($column === 'status') {

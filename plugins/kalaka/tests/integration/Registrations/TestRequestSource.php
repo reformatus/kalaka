@@ -8,6 +8,9 @@ use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\Answer;
+use Kalaka\Registrations\Api\AwaitingRule;
+use Kalaka\Registrations\Api\FieldTest;
+use Kalaka\Registrations\Api\FieldTestKind;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
@@ -18,7 +21,7 @@ use Kalaka\Registrations\Api\SeatPool;
 
 /**
  * A test source of requests, standing for the offers and aid of slice B0: the field `support` holding `church`
- * is the offer `offer:church`; the field `aid_asked`, a positive amount, is the aid request `aid`. The answers go
+ * is the offer `offer:church`; the field `aid_asked`, filled, is the aid request `aid`. The answers go
  * to `support_answer` (`approved` or `refused`) and `aid_award` (the amount), the source's own fields.
  */
 final class TestRequestSource implements RequestSource
@@ -50,7 +53,7 @@ final class TestRequestSource implements RequestSource
         if (($values['support'] ?? '') === 'church') {
             $requests[] = new Request(self::OFFER, RequestKind::Offer, 'Egyházi támogatás');
         }
-        if ((float) ($values['aid_asked'] ?? '0') > 0) {
+        if (($values['aid_asked'] ?? '') !== '') {
             $requests[] = new Request(self::AID, RequestKind::Aid, 'Támogatási kérelem');
         }
 
@@ -62,6 +65,24 @@ final class TestRequestSource implements RequestSource
         return $request->kind === RequestKind::Offer
             ? in_array($values['support_answer'] ?? '', ['approved', 'refused'], true)
             : ($values['aid_award'] ?? '') !== '';
+    }
+
+    /**
+     * The church offer: `support` holds `church` and `support_answer` is neither `approved` nor `refused`; the aid
+     * request: `aid_asked` is filled and `aid_award` is empty. Exactly `requestsOf()` and `isAnswered()`.
+     */
+    public function awaitingRule(int $eventId): ?AwaitingRule
+    {
+        return new AwaitingRule([
+            [
+                new FieldTest('support', FieldTestKind::OneOf, ['church']),
+                new FieldTest('support_answer', FieldTestKind::NoneOf, ['approved', 'refused']),
+            ],
+            [
+                new FieldTest('aid_asked', FieldTestKind::Filled),
+                new FieldTest('aid_award', FieldTestKind::Empty),
+            ],
+        ]);
     }
 
     public function seatPool(Request $request): ?SeatPool

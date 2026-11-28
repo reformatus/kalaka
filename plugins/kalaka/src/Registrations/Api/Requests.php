@@ -12,15 +12,15 @@ use Kalaka\Registrations\FieldValue\FieldValueRepository;
  * The reads behind "answer a request" (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions
  * and computed values"): a registration's requests with their latest answers, and the computed "awaits an
  * answer". Nothing is stored for the latter: a registration awaits an answer while it has a request its source
- * says is not answered, read from the source's own answer field, whatever the answer says ("no", or an award of
- * 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record the act (who, when, the note, the
- * mail's key) and decide nothing else. A withdrawn or removed registration awaits nothing; a waitlisted one
- * does (the fact stays computed, but nothing shows it while the registration is inactive, and the request is
- * answerable only once it is `registered`).
+ * says is not answered, read from the source's own answer field (its `AwaitingRule`, the one definition), whatever
+ * the answer says ("no", or an award of 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record
+ * the act (who, when, the note, the mail's key) and decide nothing else. Only a `registered` registration awaits
+ * an answer: a waitlisted, withdrawn or removed one awaits nothing, and a waitlisted one awaits again by itself
+ * at admission, when its request becomes answerable. [UNAPPROVED N690]
  *
  * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
  * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field
- * values).
+ * values); the grid asks in SQL instead (`awaitingCondition()`).
  */
 final class Requests
 {
@@ -79,53 +79,110 @@ final class Requests
     }
 
     /**
-     * Whether the registration has a request its source says is not answered (from its answer field); false for a
-     * withdrawn or removed registration.
+     * Whether the registration awaits an answer, in three values: null (N/A) unless it is `registered`; otherwise
+     * true when some source's `AwaitingRule` holds over its field values, evaluated in PHP with
+     * `AwaitingRule::matches()`, else false. N/A is not "no": a waitlisted, withdrawn or removed registration has
+     * no request state at all (owner 2026-11-27, walkthrough 6.2 b, 6.3, 6.6). The rule is the one definition
+     * `awaitingCondition()` compiles to SQL, with the same `registered` gate, so the fact, the grid column and the
+     * detail panel mean one thing; the panel's `states()` read the sources' `requestsOf()` and `isAnswered()`,
+     * which the rule must mean exactly. A waitlisted registration awaits nothing and awaits again by itself at
+     * admission. One statement (the field values, which hold every answer); none with no source or for a
+     * registration that is not registered. [UNAPPROVED N690]
      */
-    public function awaits(RegistrationKey $registration, RegistrationStatus $status): bool
+    public function awaits(RegistrationKey $registration, RegistrationStatus $status): ?bool
     {
-        return $this->awaitsOf($registration->eventId, [$registration->code => $status])[$registration->code];
-    }
-
-    /**
-     * "Awaits an answer" for several of one event's registrations at once, by the one rule of `awaits()`: the
-     * cost is fixed whatever the count: with no source, or when every registration is withdrawn or removed, no
-     * statement; otherwise one, the field values, which hold every answer. (Shapes) grid rows carry
-     * awaits_answer: bool, PHP-computed per page; not filterable, sortable or summable (alt: a
-     * per-request-source SQL predicate seam, after opening).
-     *
-     * @param array<string, RegistrationStatus> $statusByCode the registrations' codes with their statuses
-     * @return array<string, bool> by code, every given code
-     */
-    public function awaitsOf(int $eventId, array $statusByCode): array
-    {
-        $awaits = array_fill_keys(array_map('strval', array_keys($statusByCode)), false);
-        $sources = $this->sources ?? Contributions::current()->requestSources();
-        $live = [];
-        foreach ($statusByCode as $code => $status) {
-            if ($status !== RegistrationStatus::Withdrawn && $status !== RegistrationStatus::Removed) {
-                $live[] = (string) $code;
-            }
+        if ($status !== RegistrationStatus::Registered) {
+            return null;
         }
-        if ($sources === [] || $live === []) {
-            return $awaits;
+        $sources = $this->sources ?? Contributions::current()->requestSources();
+        if ($sources === []) {
+            return false;
         }
 
         $values = [];
-        foreach ($this->values->forRegistrations($eventId, $live) as $value) {
-            $values[$value->registration->code][$value->fieldKey] = $value->value;
+        foreach ($this->values->forRegistration($registration) as $value) {
+            $values[$value->fieldKey] = $value->value;
         }
-        foreach ($live as $code) {
-            $key = new RegistrationKey($eventId, $code);
-            foreach ($this->requestsOf($key, $values[$code] ?? [], $sources) as [$request, $source]) {
-                if (!$source->isAnswered($request, $values[$code] ?? [])) {
-                    $awaits[$code] = true;
-                    break;
-                }
+        foreach ($sources as $source) {
+            if ($source->awaitingRule($registration->eventId)?->matches($values) === true) {
+                return true;
             }
         }
 
-        return $awaits;
+        return false;
+    }
+
+    /**
+     * "Awaits an answer" as an expression on the registration row `r`, for the admin grid's column (filter, sort and
+     * count in SQL, over the whole view, never one page), in three values: for a `registered` registration 1 when
+     * some source's `AwaitingRule` holds (`RequestSource::awaitingRule()`) and 0 otherwise (0 with no rule); NULL
+     * (N/A) for every other status, so a waitlisted registration is neither yes nor no (it waits until admission).
+     * SQL's NULL does the rest: `NOT` of it is NULL, so a filter on "no" never matches it, and a sum skips it.
+     * Core alone writes the SQL:
+     * each test is an `EXISTS` or `NOT EXISTS` over the field values table, every value a placeholder argument.
+     * The rule is the one `awaits()` evaluates in PHP, for a `registered` registration. No statement is run.
+     * (Access) any view may list the column; it tells that something awaits, not what.
+     * (Shapes) a core-derived grid column over the sources' declarative rules.
+     *
+     * @param string $fieldValues the participant field values table
+     * @return array{0: literal-string, 1: list<string|int>} the condition and its placeholder arguments
+     */
+    public function awaitingCondition(int $eventId, string $fieldValues): array
+    {
+        $sources = $this->sources ?? Contributions::current()->requestSources();
+        /** @var list<literal-string> $parts */
+        $parts = [];
+        $args = [];
+        foreach ($sources as $source) {
+            $rule = $source->awaitingRule($eventId);
+            if ($rule === null) {
+                continue;
+            }
+            $groups = [];
+            foreach ($rule->groups as $group) {
+                $tests = [];
+                foreach ($group as $test) {
+                    [$sql, $testArgs] = self::compile($test, $fieldValues);
+                    $tests[] = $sql;
+                    array_push($args, ...$testArgs);
+                }
+                $groups[] = '(' . implode(' AND ', $tests) . ')';
+            }
+            $parts[] = '(' . implode(' OR ', $groups) . ')';
+        }
+        if ($parts === []) {
+            return ["CASE WHEN r.status = 'registered' THEN 0 END", []];
+        }
+
+        return ["CASE WHEN r.status = 'registered' THEN (" . implode(' OR ', $parts) . ') END', $args];
+    }
+
+    /**
+     * One field test as an `EXISTS` or `NOT EXISTS` over the field values table, in MariaDB 10.3 SQL. The value is
+     * compared byte for byte (`BINARY`, no collation, no trailing-space padding) and "filled" is a length above zero,
+     * so the SQL means what `FieldTest::matches()` means: case, accents and spaces all count.
+     *
+     * @return array{0: literal-string, 1: list<string>}
+     */
+    private static function compile(FieldTest $test, string $fieldValues): array
+    {
+        $exists = 'EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
+            . ' AND f.field_key = %s AND ';
+        $base = [$fieldValues, $test->key];
+        $in = implode(', ', array_fill(0, count($test->values), '%s'));
+
+        return match ($test->kind) {
+            FieldTestKind::Filled => [$exists . 'LENGTH(f.value) > 0)', $base],
+            FieldTestKind::Empty => ['NOT ' . $exists . 'LENGTH(f.value) > 0)', $base],
+            FieldTestKind::OneOf => [
+                $exists . 'BINARY f.value IN (' . $in . '))',
+                [...$base, ...$test->values],
+            ],
+            FieldTestKind::NoneOf => [
+                'NOT ' . $exists . 'BINARY f.value IN (' . $in . '))',
+                [...$base, ...$test->values],
+            ],
+        };
     }
 
     /**
