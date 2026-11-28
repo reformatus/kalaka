@@ -20,9 +20,8 @@ title: Engineering
   10.3 database, and the hosting account switches to PHP 8.3; the version
   applies to all seven sites on the account, so they are checked first. IVK's
   host is not ours to choose, so its limits are fixed for now.
-- **What follows:** any SQL feature, PHP function or WordPress API newer than
-  these minimums needs a fallback or waits; the minimums move only when both
-  hosts can.
+- **What follows:** no SQL feature, PHP function or WordPress API newer than
+  these minimums is used.
 - **SQLite (WordPress Playground) is never built for.** It is used only for
   Playground previews; anything that fails on SQLite is tested on MariaDB
   only. Known differences: SQLite stores `DECIMAL` as a float, lacks
@@ -95,8 +94,7 @@ title: Engineering
   totals, schemas). The admin screens use WordPress's admin components
   (DataViews, DataForm); admin tables read our own REST routes, which follow
   core's paging conventions, without core-data entities.
-- **A page that changes majorly is rendered in PHP** (owner ruling
-  2026-11-26): the server renders the page, and only its dynamic parts
+- **A page that changes majorly is rendered in PHP:** the server renders the page, and only its dynamic parts
   re-render in the browser (on a save, for example). Existing pages are not
   reworked for this before launch. The event's mail page („Levelek”) was
   rebuilt this way; the grid, its detail panel and the site's mail page

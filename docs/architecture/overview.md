@@ -34,12 +34,10 @@ of edge cases live in the code and in each module's `AGENTS.md`, which name
 the sections they implement.
 
 - **A rule stated here is binding,** whether or not the code has reached it
-  yet. Code that disagrees with a page is a bug in one of the two, and the
-  owner decides which.
+  yet. Where a page and the code disagree, the owner decides which is right
+  ([`AGENTS.md`](../../AGENTS.md)).
 - **"Not built yet"** marks a rule that is decided but has no code on `main`.
   It stays here because this page is its only record.
-- **"Owner ruling"** marks a rule the owner decided against a reasonable
-  alternative. Changing one is a question for the owner, not a refactoring.
 
 ## Purpose
 
@@ -64,8 +62,7 @@ analyses serve only as background.
   more possible later. One organization-agnostic codebase, one WordPress
   install per organization; no shared people or data, only the plugin code.
   Both deployments must work at the same time, and deployment should be
-  automated. Nothing organization-specific may be hard-coded in core: it is
-  configuration or an extension.
+  automated.
 - **The event is the top-level unit.** There is no grouping layer above
   events; seasons are grouped by dates, labels and filters.
 - **WordPress + WooCommerce.** Payments already run online through
