@@ -22,15 +22,14 @@ enum ActionMail: string
     /**
      * Whether an act on this line queues this mail: the one declared list of the points that work (owner
      * 2026-11-27, walkthrough 8.5; the screen shows only those as usable). A point that is not wired can be set
-     * up and switched on, but nothing sends it yet. A point whose producer another slice brings is not here: the
-     * "payment recorded" mail is queued by the payment-recorded mail's own slice (#233). The PR that adds a
-     * producer adds its point here.
+     * up and switched on, but nothing sends it yet. Every point is wired now: the "payment recorded" mail is
+     * queued by the recording acts (`ActionMails::lineRecorded()`, #233). The PR that adds a producer adds its
+     * point here.
      */
     public function isWired(): bool
     {
         return match ($this) {
-            self::Registered, self::Waitlisted, self::Confirmed, self::Answered => true,
-            self::PaymentRecorded => false,
+            self::Registered, self::Waitlisted, self::PaymentRecorded, self::Confirmed, self::Answered => true,
         };
     }
 

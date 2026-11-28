@@ -7,10 +7,11 @@ title: Mail
 ## Words
 
 - A **mail** is one configured message (a **sending point** on the screen): its
-  trigger settings plus its **template**, one to one. The template is a
-  `kalaka_mail` post of the event; the screen calls it a sablon. A template
-  that is not published may be held, but only a published one lets the point
-  send. [UNAPPROVED R320]
+  trigger settings plus at most one **template**. The template is a
+  `kalaka_mail` post of the event; the screen calls it a sablon. A point holds
+  at most one template and a template serves at most one point; an event may
+  also hold templates no point uses. A template that is not published may be
+  held, but only a published one lets the point send. [UNAPPROVED R320]
 - A **delivery** is one row in the send log: one mail to one registration (or
   address) on one occurrence: pending, sending, sent or failed. A pending
   delivery may carry the error of an earlier attempt. **Only the sender
@@ -40,7 +41,7 @@ record, the check-in act, and so on.
   another mail; anything the new trigger does not support is imported but
   flagged as a validation error.
 - **Action mails are defined in code.** Per event each one is switched on or
-  off and has its own body.
+  off and has its own template.
 - **The set-password link**
   ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form))
   has no mail of its own. A body places it, as the key
@@ -112,7 +113,11 @@ activated.**
   registrant's own secret link to that published page, declared only while the
   page is published. The money table and the
   transfer block are such blocks: they render through the status page's read at
-  send time, so the mail and the page agree, in a look of their own.
+  send time, so the mail and the page agree, in a look of their own. The same two
+  can be typed by hand: a paragraph or an HTML block that holds only
+  `{{money_table}}` or `{{transfer_details}}` is the money table or the transfer
+  block. They are not values: typed anywhere else in a body they are unknown
+  placeholders.
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
 - **The body's title is the subject,** as plain text. Mail is sent as HTML
