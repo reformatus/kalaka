@@ -50,7 +50,7 @@ deptrac:
     - name: Forms Api
       collectors:
         - type: classLike
-          value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit)$'
+          value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit|FieldEditing)$'
     # The form engine (Forms\Engine) and its contract: every other Forms\Api type, at its FQCN.
     - name: Forms Engine
       collectors:
@@ -64,7 +64,7 @@ deptrac:
               value: '^Kalaka\\Forms\\Api\\'
           must_not:
             - type: classLike
-              value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit)$'
+              value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit|FieldEditing)$'
     - name: ParticipantFields
       collectors:
         - type: classLike

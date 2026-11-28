@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Admin\FieldEdit;
 
 use Kalaka\Admin\Api\Access;
+use Kalaka\Assignments\Api\AssignmentSets;
+use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -33,8 +35,9 @@ use Kalaka\Registrations\Api\RegistrationKey;
  */
 final class EditFieldValue implements AdminUseCase, PreviewableUseCase
 {
+    /** @param PreparedEdit|null $edit null only for the ability's registration (schema and name): a run needs it */
     public function __construct(
-        private readonly PreparedEdit $edit,
+        private readonly ?PreparedEdit $edit = null,
         private readonly FieldCorrections $corrections = new FieldCorrections(),
         private readonly Access $access = new Access(),
     ) {
@@ -43,6 +46,20 @@ final class EditFieldValue implements AdminUseCase, PreviewableUseCase
     public static function name(): string
     {
         return 'kalaka/edit-field-value';
+    }
+
+    /**
+     * The ability's `$prepare`: the use case for one call, made from its input before the run, as the field type
+     * turns the value into its stored form outside any transaction. The input is the ability's own schema.
+     *
+     * @param array<string, mixed> $input
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException the refusals of `FieldEditInput::prepare()`
+     */
+    public static function prepared(array $input): self
+    {
+        $actor = new UserActor(get_current_user_id());
+
+        return new self((new FieldEditInput())->prepare($input, $actor));
     }
 
     /**
@@ -89,14 +106,19 @@ final class EditFieldValue implements AdminUseCase, PreviewableUseCase
     }
 
     /**
-     * @return array{changed: bool, over_limit: list<string>} `over_limit`: the fields whose pool was full when the
-     *     seat was taken (with `preview`, would be); `changed`: whether the value differs (with `preview`, would)
+     * @return array{changed: bool, over_limit: list<string>, warnings?: list<string>} `over_limit`: the fields whose
+     *     pool was full when the seat was taken (with `preview`, would be); `changed`: whether the value differs
+     *     (with `preview`, would); `warnings` (a preview only): the approved "full" text when a pool would go over
      */
     public function execute(array $input, Context $context): array
     {
         $key = new RegistrationKey((int) $input['event_id'], (string) $input['code']);
         $field = (string) $input['field'];
         $edit = $this->edit;
+        if ($edit === null) {
+            $error = new SystemFailure(null, new \LogicException('The edit was not prepared.'));
+            throw $error;
+        }
         if ($edit->eventId !== $key->eventId || $edit->field->key !== $field) {
             $error = new SystemFailure(null, new \LogicException('The prepared value is for another field.'));
             throw $error;
@@ -125,12 +147,17 @@ final class EditFieldValue implements AdminUseCase, PreviewableUseCase
             is_string($expected) ? $expected : null
         );
         if ($unchanged) {
-            return ['changed' => false, 'over_limit' => []];
+            return $this->isPreview($input)
+                ? ['changed' => false, 'over_limit' => [], 'warnings' => []]
+                : ['changed' => false, 'over_limit' => []];
         }
         if ($this->isPreview($input)) {
+            $over = $this->corrections->wouldOverfill($plan, $key, $status, $context);
+
             return [
                 'changed' => true,
-                'over_limit' => $this->corrections->wouldOverfill($plan, $key, $status, $context),
+                'over_limit' => $over,
+                'warnings' => $over === [] ? [] : [AssignmentSets::FULL_WARNING],
             ];
         }
 

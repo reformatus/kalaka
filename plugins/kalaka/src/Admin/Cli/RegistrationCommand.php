@@ -115,8 +115,8 @@ final class RegistrationCommand
 
                 return;
             }
-            if (($preview['over_limit'] ?? []) !== []) {
-                \WP_CLI::warning(AssignmentSets::FULL_WARNING);
+            foreach ((array) ($preview['warnings'] ?? []) as $warning) {
+                \WP_CLI::warning((string) $warning);
             }
             \WP_CLI::confirm('Set ' . $args[2] . ' of ' . $args[1] . '?', $assoc);
 

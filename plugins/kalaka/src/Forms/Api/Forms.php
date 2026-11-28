@@ -388,11 +388,12 @@ final class Forms
     /**
      * The block attributes a field type reads a stored answer with, from the participant field: its own
      * settings (the number field's bounds, decimals and affixes), the label, the options, and for a choice
-     * whether it is multiple, which its stored form shows (a JSON list).
+     * whether it is multiple, which its stored form shows (a JSON list). The one rule for a field's attributes
+     * outside a form: a hand edit's `FieldEditing` builds on it.
      *
      * @return array<string, mixed>
      */
-    private static function attributesOf(ParticipantField $field, string $answer): array
+    public static function attributesOf(ParticipantField $field, string $answer): array
     {
         $attributes = $field->settings;
         $attributes['label'] = $field->title;
