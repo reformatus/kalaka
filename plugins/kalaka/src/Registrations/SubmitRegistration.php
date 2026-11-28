@@ -9,12 +9,14 @@ use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Foundation\Api\UseCase\PublicUseCase;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
@@ -22,6 +24,10 @@ use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Registrations\Account\AccountOutcome;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Api\SubmitTokenReused;
@@ -60,6 +66,12 @@ final class SubmitRegistration implements PublicUseCase
      *     stored value's key must be a participant field of the event with that type
      * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
      * @param AccountOutcome|null $account the owner account; null for none
+     * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
+     *     until the token's repeat rule has been applied under the lock, then thrown
+     * @param string|null $fingerprint of the answers as sent (`fingerprint()`); null (not given) never matches an
+     *     earlier submit's, so a repeat is refused
+     * @param list<SeatClaim> $seatClaims the limited choices of the answers, each a pool whose seat a
+     *     `registered` submit takes (a waitlisted one may claim no limited pool)
      */
     public function __construct(
         private readonly Form $form,
@@ -76,9 +88,12 @@ final class SubmitRegistration implements PublicUseCase
         private readonly RegistrationRepository $registrations = new RegistrationRepository(),
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
-        private readonly RegistrationCount $count = new RegistrationCount(),
+        private readonly Seats $seats = new Seats(),
         private readonly ActionMails $mails = new ActionMails(),
         private readonly ?AccountOutcome $account = null,
+        private readonly ?\Throwable $walkFailure = null,
+        private readonly ?string $fingerprint = null,
+        private readonly array $seatClaims = [],
     ) {
     }
 
@@ -119,12 +134,16 @@ final class SubmitRegistration implements PublicUseCase
 
         $event = $this->capacity->lockForRegistration($context, $eventId);
 
-        $fingerprint = self::fingerprint($this->form->id, $this->answers->stored());
+        $fingerprint = $this->fingerprint;
         $earlier = $this->submissions->withToken($eventId, $token);
         if ($earlier !== null) {
             // N6: a repeat must carry the same answers; its answer names the registration to nothing but the
             // after-submit content (N13).
-            if ($earlier->answersHash === null || !hash_equals($earlier->answersHash, $fingerprint)) {
+            if (
+                $fingerprint === null
+                || $earlier->answersHash === null
+                || !hash_equals($earlier->answersHash, $fingerprint)
+            ) {
                 $error = new SubmitTokenReused();
                 throw $error;
             }
@@ -143,6 +162,10 @@ final class SubmitRegistration implements PublicUseCase
             $error = new VersionConflict();
             throw $error;
         }
+        // The answers' walk failed before the transaction: said now, after the repeat rule had its say.
+        if ($this->walkFailure !== null) {
+            throw $this->walkFailure;
+        }
 
         $refusals = $this->forms->refusals(
             $this->form,
@@ -157,20 +180,25 @@ final class SubmitRegistration implements PublicUseCase
             throw new FormRefused($refusals);
         }
 
-        $values = $this->declaredValues();
+        $values = self::declared($this->answers->stored(), $this->fieldTypes, $this->participantFields);
 
         if ($event->capacity === null) {
             $error = new SystemFailure(null, new \LogicException('A published event without a capacity.'));
             throw $error;
         }
-        $status = RegistrationStatus::Registered;
-        if ($event->isFull) {
-            $status = RegistrationStatus::Waitlisted;
-        } elseif ($this->count->registered($eventId) >= $event->capacity) {
-            // The first counted registration that does not fit sets the latch, before any lower lock.
-            $this->capacity->markFull($context, $eventId);
-            $status = RegistrationStatus::Waitlisted;
+        // The one "goes to the waitlist" read, latch-aware, under the event lock: the form side reads the same.
+        $goesToWaitlist = $this->seats->left($this->seats->eventPool($eventId)) === 0;
+        $status = $goesToWaitlist ? RegistrationStatus::Waitlisted : RegistrationStatus::Registered;
+        if ($goesToWaitlist) {
+            $this->refuseLimitedClaims();
+            if (!$event->isFull) {
+                // The first counted registration that does not fit sets the latch, before any lower lock.
+                $this->capacity->markFull($context, $eventId);
+            }
         }
+
+        // The pool rows come before the registration row in the lock order; a full pool refuses the submit.
+        $claims = $status === RegistrationStatus::Registered ? $this->lockedClaims($context) : [];
 
         $now = $context->now();
         $key = new RegistrationKey($eventId, $this->codes->generate($eventId));
@@ -195,6 +223,15 @@ final class SubmitRegistration implements PublicUseCase
         foreach ($values as $fieldKey => $value) {
             $this->values->upsert(new FieldValue($key, $fieldKey, $value), $context);
         }
+        foreach ($claims as $claim) {
+            try {
+                $this->seats->take($claim->pool, $key, SeatAct::Submit, $context);
+            } catch (SeatsFull) {
+                // A pool whose row sits after the registration's in the lock order: the run rolls back.
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a field key and a fixed text
+                throw new InvalidAnswers([$claim->fieldKey => SeatsFull::TEXT]);
+            }
+        }
         $this->mails->due(
             $context,
             $status === RegistrationStatus::Registered ? ActionMail::Registered : ActionMail::Waitlisted,
@@ -206,6 +243,55 @@ final class SubmitRegistration implements PublicUseCase
     }
 
     /**
+     * A submit that lands on the waitlist may choose nothing limited (owner ruling 2026-11-25, O4/A3): for it
+     * everything limited acts as full, so any claim on a pool with a limit refuses the submit on that choice, with
+     * the same refusal and text as a full pool (`SeatsFull::TEXT`), before anything is written.
+     * Unlimited pools are not refused.
+     *
+     * @throws InvalidAnswers
+     */
+    private function refuseLimitedClaims(): void
+    {
+        $refused = [];
+        foreach ($this->seatClaims as $claim) {
+            if ($claim->pool->limit() !== null) {
+                $refused[$claim->fieldKey] = SeatsFull::TEXT;
+            }
+        }
+        if ($refused !== []) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- field keys and a fixed text
+            throw new InvalidAnswers($refused);
+        }
+    }
+
+    /**
+     * Orders the submit's seat claims as their pool rows may be locked (`Seats::inLockOrder()`: by level, table
+     * and key as the runner's lock guard compares them), locks the pool rows that sit before the registration row
+     * in the lock order (quota rows), and refuses the submit when one of them is full: the form comes back with
+     * the message on that choice and nothing is saved. The other pools are locked and checked by `Seats::take()`
+     * once the registration row is in, in the same order.
+     *
+     * @return list<SeatClaim>
+     * @throws InvalidAnswers
+     */
+    private function lockedClaims(Context $context): array
+    {
+        $claims = $this->seats->inLockOrder($this->seatClaims);
+        foreach ($claims as $claim) {
+            if ($claim->pool->lockLevel()->value >= LockLevel::Registration->value) {
+                continue;
+            }
+            $left = $this->seats->lock($claim->pool, $context);
+            if ($left !== null && $left < 1) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a field key and a fixed text
+                throw new InvalidAnswers([$claim->fieldKey => SeatsFull::TEXT]);
+            }
+        }
+
+        return $claims;
+    }
+
+    /**
      * The stored answers, checked against the event's participant fields (#169, as read before the
      * transaction), before anything is written:
      * every key must be an active participant field of the event, of the type the form gives it, and never
@@ -213,18 +299,24 @@ final class SubmitRegistration implements PublicUseCase
      * means the form and the event's list disagree (a declaration that has not caught up): a
      * `SystemFailure`, never a partial write.
      *
+     * The additional form's submit (`SubmitAdditionalForm`) checks its answers the same way.
+     *
+     * @param array<string, string> $stored field key → the value to store
+     * @param array<string, string> $fieldTypes field key → the field block's name, of the form's definition
+     * @param list<ParticipantField> $participantFields
      * @return array<string, string> field key → the value to store
      * @throws SystemFailure
      */
-    private function declaredValues(): array
+    public static function declared(array $stored, array $fieldTypes, array $participantFields): array
     {
         $declared = [];
-        foreach ($this->participantFields as $field) {
+        foreach ($participantFields as $field) {
             $declared[$field->key] = $field;
         }
-        foreach (array_keys($this->answers->stored()) as $fieldKey) {
+        foreach (array_keys($stored) as $fieldKey) {
+            $fieldKey = (string) $fieldKey;
             $field = $declared[$fieldKey] ?? null;
-            $type = $this->fieldTypes[$fieldKey] ?? null;
+            $type = $fieldTypes[$fieldKey] ?? null;
             if ($field === null || ($type !== null && $field->type !== $type)) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
                 throw new SystemFailure('undeclared_field_key ' . $fieldKey);
@@ -236,18 +328,20 @@ final class SubmitRegistration implements PublicUseCase
             }
         }
 
-        return $this->answers->stored();
+        return $stored;
     }
 
     /**
-     * The fingerprint of a submit's answers (N6): SHA-256 of the form ID and the stored answers, sorted by
-     * key, as JSON. Two submits with the same answers have the same fingerprint whatever their order.
+     * The fingerprint of a submit's answers (N6): SHA-256 of the form ID and the answers as sent, sorted by
+     * key, as JSON. Two submits with the same answers have the same fingerprint whatever their order. It is
+     * over what was sent, not what the walk kept, so a resend is a repeat even when a value the form's
+     * conditions read (the places left) has changed since and the walk keeps other answers now (CF2).
      *
-     * @param array<string, string> $stored
+     * @param array<array-key, mixed> $sent
      */
-    public static function fingerprint(int $formId, array $stored): string
+    public static function fingerprint(int $formId, array $sent): string
     {
-        ksort($stored, SORT_STRING);
+        $stored = self::sorted($sent);
         try {
             $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR;
             // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- wp_json_encode() would repair invalid UTF-8
@@ -258,5 +352,18 @@ final class SubmitRegistration implements PublicUseCase
         }
 
         return hash('sha256', $json);
+    }
+
+    /**
+     * @param array<array-key, mixed> $value
+     * @return array<array-key, mixed>
+     */
+    private static function sorted(array $value): array
+    {
+        if (!array_is_list($value)) {
+            ksort($value, SORT_STRING);
+        }
+
+        return array_map(static fn (mixed $item): mixed => is_array($item) ? self::sorted($item) : $item, $value);
     }
 }

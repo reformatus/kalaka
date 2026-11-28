@@ -26,9 +26,14 @@ final class ActionMailComposer implements MailComposer
         return $this->values->recipient($delivery->registration);
     }
 
-    public function compose(Delivery $delivery, string $to): MailMessage
+    public function compose(Delivery $delivery, string $to, \DateTimeImmutable $now): MailMessage
     {
-        $mail = $this->renderer->render($delivery->registration->eventId, $delivery->mail, $delivery->registration);
+        $mail = $this->renderer->render(
+            $delivery->registration->eventId,
+            $delivery->mail,
+            $delivery->registration,
+            $now
+        );
 
         return new MailMessage($mail->subject, $mail->html, ['Content-Type: text/html; charset=UTF-8'], $mail->version);
     }

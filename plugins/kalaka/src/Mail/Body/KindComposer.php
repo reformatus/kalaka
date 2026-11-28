@@ -27,10 +27,10 @@ final class KindComposer implements MailComposer
         return $this->action->recipient($delivery);
     }
 
-    public function compose(Delivery $delivery, string $to): MailMessage
+    public function compose(Delivery $delivery, string $to, \DateTimeImmutable $now): MailMessage
     {
         return $delivery->kind === MailKind::Manual
-            ? $this->manual->compose($delivery)
-            : $this->action->compose($delivery, $to);
+            ? $this->manual->compose($delivery, $now)
+            : $this->action->compose($delivery, $to, $now);
     }
 }

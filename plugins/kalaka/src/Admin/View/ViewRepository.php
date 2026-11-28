@@ -8,7 +8,8 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
 
 /**
- * The only writer of `kalaka_views`.
+ * The only writer of `kalaka_views`, the event's master row included (S37): `master_event` is the event of a
+ * master row and null on every other row, written with `master`.
  *
  * @extends EntityRepository<int, View>
  */
@@ -43,6 +44,9 @@ final class ViewRepository extends EntityRepository
             'name' => $entity->name,
             'filter' => $entity->shape->filterJson(),
             'columns' => $entity->shape->columnsJson(),
+            'counts' => $entity->shape->countsJson(),
+            'master' => $entity->master ? 1 : 0,
+            'master_event' => $entity->master ? $entity->eventId : null,
         ];
     }
 

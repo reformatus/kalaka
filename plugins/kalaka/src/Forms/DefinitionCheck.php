@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\EventValues;
+use Kalaka\Forms\Engine\Condition\ConditionKeys;
 use Kalaka\Forms\Engine\DefinitionParser;
 use Kalaka\Forms\Engine\FormPosts;
+use Kalaka\Forms\Engine\SlotRules;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
@@ -309,15 +313,47 @@ final class DefinitionCheck
         if ($problem !== null || !$published || $placement === null) {
             return $problem;
         }
+        // CF2: a custom point the event does not have is refused on save (a point removed later only reads as empty).
+        $point = self::unknownPoint($content, $eventId);
+        if ($point !== null) {
+            return ['unknown_point', $point];
+        }
+
         try {
             $form = new Form($formId, $eventId ?? 0, $placement, null, false, 0);
-            $definition = (new DefinitionParser())->parse($form, 0, $content, $contributions, new EventFormHost());
+            $parser = new DefinitionParser();
+            $definition = $parser->parse($form, 0, $content, $contributions, new EventFormHost(), true);
         } catch (SystemFailure $e) {
             return self::split($e);
         }
 
         // S15 (owner ruling 2026-11-18): a registration form of an event with accounts holds the account block.
-        return AccountBlock::problem($definition, $placement, $eventId);
+        $account = AccountBlock::problem($definition, $placement, $eventId);
+        if ($account !== null || $eventId === null) {
+            return $account;
+        }
+
+        // An extension's requirement (the owner's ruling 2026-11-19): a registration form of an event with a
+        // price ladder holds `price_tier`, required.
+        $required = (new EventFormHost())->slotRequiredKeys(new Form($formId, $eventId, $placement, null, false, 0));
+
+        return (new SlotRules())->requiredFieldProblem($definition, $required);
+    }
+
+    /** The first `event.points.<id>` the content reads that the event has no custom point for; null for none. */
+    private static function unknownPoint(string $content, ?int $eventId): ?string
+    {
+        $keys = array_values(array_filter(
+            ConditionKeys::in(parse_blocks($content)),
+            static fn (string $key): bool => EventValues::isPointKey($key)
+        ));
+        $event = $keys === [] || $eventId === null ? null : (new Events())->find($eventId);
+        if ($event === null) {
+            return null;
+        }
+        $known = array_keys(EventValues::volatileTypes($event));
+
+        return array_values(array_diff($keys, $known))[0] ?? null;
     }
 
     /** The placement being saved, else the stored one, else null. */

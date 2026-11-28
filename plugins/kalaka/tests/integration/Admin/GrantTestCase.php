@@ -41,6 +41,23 @@ abstract class GrantTestCase extends AdminTestCase
     }
 
     /** A view of the event without a parameter: the registered ones. */
+    /**
+     * Stores the event's master row with these counted members, as nothing in the UI does any more: the
+     * master view's counting is read from it and copied with the views, never written by a use case.
+     *
+     * @param array<string, list<string>> $counts
+     */
+    protected function seedMaster(int $event, array $counts): int
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_views', [
+            'event_id' => $event, 'version' => 1, 'name' => '', 'filter' => '[]', 'columns' => '[]',
+            'counts' => (string) wp_json_encode($counts), 'master' => 1, 'master_event' => $event,
+        ]);
+
+        return (int) $wpdb->insert_id;
+    }
+
     protected function plainView(int $event): int
     {
         return $this->saveView($event, [['column' => 'status', 'in' => ['registered']]]);

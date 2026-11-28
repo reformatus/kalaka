@@ -256,20 +256,28 @@ final class AccountModesTest extends AccountsTestCase
     /** Off mode, or an additional form: the block renders nothing, logged in or not, and the context has none. */
     public function testTheBlockRendersNothingInOffModeOrOnAnAdditionalForm(): void
     {
-        $forms = [
-            $this->openForm('off'),
-            $this->openForm('mandatory', 'additional', self::ACCOUNT_BLOCK . $this->field('text', 'megjegyzes')),
-        ];
+        $off = $this->openForm('off');
+        $additional = $this->openForm(
+            'mandatory',
+            'additional',
+            self::ACCOUNT_BLOCK . $this->field('text', 'megjegyzes')
+        );
         foreach ([0, $this->verifiedUser()] as $user) {
             wp_set_current_user($user);
-            foreach ($forms as $form) {
-                $view = (new FormPage(new EventFormHost()))->open($form);
-                self::assertNull($view->refusal);
-                self::assertNull($view->context['account']);
-                $html = do_shortcode('[kalaka_form id="' . $form . '"]');
-                self::assertStringNotContainsString('data-kalaka-account', $html);
-                self::assertStringNotContainsString('Bejelentkezve:', $html);
-            }
+            $view = (new FormPage(new EventFormHost()))->open($off);
+            self::assertNull($view->refusal);
+            self::assertNull($view->context['account']);
+            $html = do_shortcode('[kalaka_form id="' . $off . '"]');
+            self::assertStringNotContainsString('data-kalaka-account', $html);
+            self::assertStringNotContainsString('Bejelentkezve:', $html);
+
+            // Without its registration's link an additional form is refused (S60); the block still shows nothing.
+            $view = (new FormPage(new EventFormHost()))->open($additional);
+            self::assertSame(FormPageView::NO_ACTIVE_REGISTRATION, $view->refusal);
+            self::assertSame([], $view->context);
+            $html = do_shortcode('[kalaka_form id="' . $additional . '"]');
+            self::assertStringNotContainsString('data-kalaka-account', $html);
+            self::assertStringNotContainsString('Bejelentkezve:', $html);
         }
     }
 

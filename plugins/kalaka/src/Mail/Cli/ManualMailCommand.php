@@ -142,8 +142,6 @@ final class ManualMailCommand
 
             return;
         }
-        // WP-CLI's helper, not in the stubs for the static analysis.
-        // @phpstan-ignore staticMethod.notFound
         \WP_CLI::confirm($question, $assocArgs);
     }
 
