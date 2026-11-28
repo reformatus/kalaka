@@ -2,6 +2,7 @@
  * A cell of the grid as shown (S37), and whether its row is inactive. Pure markup: no DataViews, so Jest renders it.
  */
 import { cellText } from './format';
+import { markOf } from './confirmation';
 
 const STATUS_ICON = {
 	registered: [ 'dashicons-yes-alt', 'kg-ok' ],
@@ -35,9 +36,11 @@ export default function Cell( { column, item } ) {
 		);
 	}
 	if ( column.type === 'decision' ) {
+		// Every decision kind declares its own marks on the server (owner Q51 (b)); a kind with none has no mark.
+		const [ icon, color ] = markOf( column.marks, item.values[ column.column ] );
 		return (
 			<span className={ `kg-mark${ tone }` } title={ text }>
-				<span className="dashicons dashicons-marker" aria-hidden="true" />
+				{ icon && <span className={ `dashicons ${ icon } ${ color }`.trim() } aria-hidden="true" /> }
 				<span className="screen-reader-text">{ text }</span>
 			</span>
 		);

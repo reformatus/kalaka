@@ -2,7 +2,7 @@
  * The „Jelentkezők” page (S37): the view tabs, one toolbar row with DataViews' own search and filter button, the
  * filters (the view's own condition as DataViews' locked chip, then the viewer's chips with DataViews' own
  * add-filter), our one „Visszaállítás” (search, filters, sort and counting) and „Táblázat másolása"; then DataViews
- * (compact) with the sum row in its header. Every column has a filter in its header menu; the sums and the
+ * (compact) with the sum row in its header. Every column has a filter in its column menu; the sums and the
  * copy follow the filters and the search. Kód carries the default order and the reset returns to it. The title
  * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). A countable sum
  * cell's number opens its counting menu (owner, 2026-11-27); the counting is the viewer's own for the session,
@@ -15,7 +15,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, SelectControl, SnackbarList, Tooltip } from '@wordpress/components';
 import { DataViews } from '@wordpress/dataviews/wp';
-import { cellText, fmt, plainText, tableHtml } from './format';
+import { cellText, codeName, fmt, plainText, tableHtml } from './format';
 import Cell from './Cell';
 import {
 	conditionField,
@@ -30,9 +30,12 @@ import { writeClipboard } from './clipboard';
 import * as api from './api';
 import { countsDiffer, countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
+import BulkSlot from './BulkSlot';
+import { selectionBody } from './selection';
 import SumRow from './SumRow';
 import { labelRowCheckboxes } from './selectionLabels';
 import ColumnMenu from './ColumnMenu';
+import useStickyColumns, { stickyCount } from './sticky';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import DetailPanel from './DetailPanel';
 import { manualMailAction } from '../mail/bulk';
@@ -109,6 +112,8 @@ export default function Page( { config } ) {
 	const narrow = narrowOf( v, tab.columns );
 	const narrowKey = JSON.stringify( narrow );
 	const narrowed = isNarrowed( narrow );
+	// A search says „találat”, a filter alone „szűrt”, neither the tab's own total.
+	const searched = narrow.search !== '';
 	const [ said, setSaid ] = useState( '' );
 	const [ loadError, setLoadError ] = useState( false );
 	const loadedKey = useRef( null );
@@ -154,6 +159,10 @@ export default function Page( { config } ) {
 		tab.columns.find( ( c ) => c.type !== 'serial' ) ||
 		tab.columns[ 0 ] || { column: null }
 	).column;
+	// The registration's name, when the view lists the name column: shown beside the code wherever the grid names a
+	// row (the open button, the row's checkbox). Without it the code stands alone.
+	const nameColumn = tab.columns.find( ( c ) => c.name );
+	const nameOf = ( row ) => ( nameColumn ? row.values[ nameColumn.column ] || null : null );
 	const closePanel = () => {
 		const key = openRef.current;
 		setOpen( null );
@@ -339,7 +348,9 @@ export default function Page( { config } ) {
 			id: column.column,
 			label: column.label,
 			header: (
-				<span className={ filtered.has( column.column ) ? 'kg-hd is-filtered' : 'kg-hd' }>{ column.label }</span>
+				<span className={ filtered.has( column.column ) ? 'kg-hd is-filtered' : 'kg-hd' } data-column={ column.column }>
+					{ column.label }
+				</span>
 			),
 			getValue: ( { item } ) => cellText( column, item ),
 			render: ( { item } ) =>
@@ -353,7 +364,7 @@ export default function Page( { config } ) {
 							setOpen( item.key );
 							setAgain( ( n ) => n + 1 );
 						} }
-						aria-label={ fmt( PANEL.openRow, cellText( column, item ) || item.key ) }
+						aria-label={ fmt( PANEL.openRow, codeName( item.key, nameOf( item ) ) ) }
 					>
 						<Cell column={ column } item={ item } />
 					</button>
@@ -386,6 +397,7 @@ export default function Page( { config } ) {
 		}
 	};
 
+	const selectedRows = data.rows.filter( ( row ) => selection.includes( row.key ) );
 	const [ busy, setBusy ] = useState( false );
 	const copy = async () => {
 		if ( busy ) {
@@ -393,7 +405,9 @@ export default function Page( { config } ) {
 		}
 		setBusy( true );
 		try {
-			const rows = await api.fetchAll( config, tab, sort, desc, narrow );
+			// Ticked rows when there are any, else every row the filters and search leave, all pages, in the grid's order.
+			// Nothing is said while it pages (the button is busy), and a failure halfway copies nothing and says the existing error.
+			const rows = selectedRows.length ? selectedRows : await api.fetchAll( config, tab, sort, desc, narrow );
 			await writeClipboard( plainText( tab.columns, rows ), tableHtml( tab.columns, rows ) );
 			say( fmt( GRID.copied, rows.length ), 'success' );
 		} catch {
@@ -475,19 +489,23 @@ export default function Page( { config } ) {
 				: [],
 		[ tab.manualMail, config.event, config.rest ]
 	);
-	// Each row's selection checkbox is named with the registration's code (DataViews says „(no title)”).
-	const rowKeys = data.rows.map( ( row ) => row.key ).join( '\u0000' );
+	// Each row's selection checkbox is named with the registration's code and name (DataViews says „(no title)”).
+	const rowNames = data.rows.map( ( row ) => codeName( row.key, nameOf( row ) ) ).join( '\u0000' );
 	useLayoutEffect( () => {
 		if ( ! host || actions.length === 0 ) {
 			return undefined;
 		}
-		const keys = rowKeys === '' ? [] : rowKeys.split( '\u0000' );
-		const run = () => labelRowCheckboxes( host, keys, ( key ) => fmt( GRIDACTION.selectRow, key ) );
+		const names = rowNames === '' ? [] : rowNames.split( '\u0000' );
+		const run = () => labelRowCheckboxes( host, names, ( text ) => fmt( GRIDACTION.selectRow, text ) );
 		run();
 		const observer = new window.MutationObserver( run );
 		observer.observe( host, { childList: true, subtree: true } );
 		return () => observer.disconnect();
-	}, [ host, actions.length, rowKeys ] );
+	}, [ host, actions.length, rowNames ] );
+
+	// The start columns that stay while the table scrolls sideways: the checkbox, Kód and the name, and the actions
+	// column at the end, as many as fit a quarter of the visible width, in that order.
+	useStickyColumns( host, stickyCount( tab.columns, v.fields, actions.length > 0 ), actions.length > 0 );
 
 	const copyButton = (
 		<Button
@@ -525,8 +543,13 @@ export default function Page( { config } ) {
 				menuFor={ menuFor }
 				narrowed={ narrowed }
 				framed={ actions.length > 0 }
+				selected={ selectedRows.length }
 			/>
-			<div ref={ setHost } className="kg-dv" onClick={ onHostClick }>
+			<div
+				ref={ setHost }
+				className="kg-dv"
+				onClick={ onHostClick }
+			>
 				<DataViews
 					key={ tab.key }
 					data={ data.rows }
@@ -565,11 +588,30 @@ export default function Page( { config } ) {
 						) }
 						<span className="kg-spacer" />
 						<div className="kg-bulkbar-actions">
-							{ narrowed ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }
+							{ /* The right-aligned bar: a separator, one prefix by state, then the buttons, which say what they act on: the
+							   ticked rows („X kiválasztva:”), else every row of the tab („X összesen:”), of the filter alone („X szűrt:”), or of
+							   the search („X találat:”, with or without a filter). Hidden while the first read of a tab is on its way (the
+							   count would read 0). Replaces the manual mail dialog's old scope line. */ }
+							{ ( ! loading || data.total > 0 ) && (
+								<>
+									<span className="kg-bulkbar-sep" role="separator" aria-orientation="vertical" />
+									<span className="kg-bulkbar-prefix">
+										{ selectedRows.length > 0
+											? fmt( GRID.prefixSelected, selectedRows.length )
+											: fmt( searched ? GRID.prefixFound : narrowed ? GRID.prefixFiltered : GRID.prefixTotal, data.total ) }
+									</span>
+								</>
+							) }
+							<BulkSlot
+								actions={ actions }
+								rows={ selectedRows }
+								selectionOf={ ( items ) => selectionBody( items, tab, narrow ) }
+								total={ data.total }
+							/>
+							{ narrowed && selectedRows.length === 0 ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }
 						</div>
 					</div>
 					<DataViews.Layout />
-					<DataViews.BulkActionToolbar />
 					<div className="kg-dv-foot">
 						{ perPage }
 						<DataViews.Pagination />

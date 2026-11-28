@@ -1,8 +1,21 @@
 /**
  * The manual confirmation's pure logic (S20): the buttons of the confirmation row, the warning before the unconfirm,
- * the snackbar after a save, and the dialog's one check. No WordPress imports, so Jest runs it as it is.
+ * the snackbar after a save, and the dialog's one check; and the icon a decision kind's state declares, which the
+ * grid's cell draws. No WordPress imports, so Jest runs it as it is.
  */
 import { CONFIRM } from './texts';
+
+/**
+ * The icon class and tone class of a state, from the kind's `marks` map as the server declares it (owner Q51 (b),
+ * 2026-11-26; N1107). A state with no entry has no mark: the grid draws exactly what the server declares.
+ */
+export const markOf = ( marks, state ) => {
+	const mark = marks && marks[ state ];
+	if ( ! mark || ! mark.icon ) {
+		return [ '', '' ];
+	}
+	return [ 'dashicons-' + mark.icon, mark.tone ? 'kg-' + mark.tone : '' ];
+};
 
 /** The longest reason the server takes (`kalaka/set-manual-confirmation` and `kalaka/unconfirm`), in characters. */
 export const REASON_MAX = 500;

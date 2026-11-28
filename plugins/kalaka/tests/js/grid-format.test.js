@@ -1,4 +1,4 @@
-import { cellText, fmt, plainText, sumParts, tableHtml } from '../../src/Admin/app/grid/format';
+import { cellText, codeName, fmt, plainText, sumParts, tableHtml } from '../../src/Admin/app/grid/format';
 
 const TEXT = ' style="mso-number-format:\'\\@\'" sdnum="1038;0;@"';
 
@@ -142,5 +142,14 @@ describe( 'the copy', () => {
 		expect( tableHtml( columns, [] ) ).toBe(
 			'<table><tr>' + columns.map( ( c ) => '<th' + TEXT + '>' + c.label + '</th>' ).join( '' ) + '</tr></table>'
 		);
+	} );
+} );
+
+describe( 'a registration as the screens name it', () => {
+	test( 'the code with the name beside it, or the code alone when there is no name', () => {
+		expect( codeName( '00A1', 'Kiss Anna' ) ).toBe( '00A1 · Kiss Anna' );
+		expect( codeName( '00A1', null ) ).toBe( '00A1' );
+		expect( codeName( '00A1', undefined ) ).toBe( '00A1' );
+		expect( codeName( '00A1', '' ) ).toBe( '00A1' );
 	} );
 } );

@@ -1,19 +1,20 @@
 /**
  * One event's failed deliveries, on the „Levelezés” page (the owner's ruling: the queue lists live there only): the event's deliveries that need a look (failed, pending with the error of an
- * earlier attempt, stuck in „sending”), by registration code only: Mail reads no registration values and the
- * read has no code-list narrowing, so no name is shown (Backend's N549; ViewQuery has no code-list filter). The error
+ * earlier attempt, stuck in „sending”), by registration code and, when the read gives one, the name (the viewer's
+ * held view decides: `name` is null without name access). The error
  * is shown as the server stored it. The one follow-up is a manual mail to that code, the same dialog as the grid's.
  * Only a failed delivery offers the follow-up: a mail that still waits (with the error of an earlier attempt) or is
  * stuck in „sending” may yet go out, so a second copy would be a duplicate.
  */
 import { Fragment, useMemo, useRef, useState } from '@wordpress/element';
 import { Button } from '@wordpress/components';
+import CodeName from './CodeName';
 import ListTable from './ListTable';
 import ManualMailDialog from './ManualMailDialog';
 import { pageKeys } from './manual';
 import useRead from './useRead';
 import { deliveryStatus, moment } from './format';
-import { fmt } from '../grid/format';
+import { codeName, fmt } from '../grid/format';
 import { COMMON, TROUBLED } from './texts';
 
 export default function Troubled( { config, version } ) {
@@ -22,7 +23,14 @@ export default function Troubled( { config, version } ) {
 	const keys = useRef( pageKeys( config.event ) );
 	const fields = useMemo(
 		() => [
-			{ id: 'code', label: TROUBLED.code, getValue: ( { item } ) => item.code, enableHiding: false },
+			{
+				id: 'code',
+				label: TROUBLED.code,
+				getValue: ( { item } ) => codeName( item.code, item.name ),
+				// The troubled list's code column shows the code in its code mark (name beside it, when the row has one), as the batch members and the dialog's lists do.
+				render: ( { item } ) => <CodeName code={ item.code } name={ item.name } />,
+				enableHiding: false,
+			},
 			{
 				id: 'mail',
 				label: TROUBLED.mail,
@@ -60,7 +68,7 @@ export default function Troubled( { config, version } ) {
 				getValue: () => '',
 				render: ( { item } ) =>
 					item.status === 'failed' ? (
-						<Button variant="secondary" size="compact" onClick={ () => setSending( item.code ) } aria-label={ fmt( TROUBLED.sendFor, item.code ) }>
+						<Button variant="secondary" size="compact" onClick={ () => setSending( item.code ) } aria-label={ fmt( TROUBLED.sendFor, codeName( item.code, item.name ) ) }>
 							{ TROUBLED.send }
 						</Button>
 					) : null,
@@ -93,7 +101,7 @@ export default function Troubled( { config, version } ) {
 			{ sending && (
 				<ManualMailDialog
 					config={ config }
-					codes={ [ sending ] }
+					selection={ { codes: [ sending ] } }
 					keys={ keys.current }
 					onClose={ () => setSending( null ) }
 					onSent={ () => read.reload() }

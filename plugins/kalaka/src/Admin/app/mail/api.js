@@ -40,25 +40,28 @@ export const createBody = ( event, title ) =>
 	} );
 
 /**
- * Who a send to the codes (as a `{ codes }` selection) would reach, and the bodies it may use: `{ queue, skipped, unknown, count, names, bodies }`. A read
- * that writes nothing; a POST because 1000 codes do not fit in a query string.
+ * Who a send to the selection would reach, and the bodies it may use: `{ queue, skipped, unknown, count, names, bodies }`,
+ * with `count` the number of registrations the selection resolved to. A read that writes nothing; a POST because the
+ * codes do not fit in a query string. The selection is `{ codes }` or the grid's view with its filters and search
+ * (`grid/selection.js`).
  */
-export const previewManual = ( path, codes ) =>
+export const previewManual = ( path, selection ) =>
 	apiFetch( {
 		path,
 		method: 'POST',
-		data: { selection: { codes } },
+		data: { selection },
 	} );
 
 /**
- * Sends a body to the codes: `{ batch_id, queued, skipped, repeat, paused, held }`. The request key makes a repeat
- * (a retry, a double click) return the first batch and queue nothing.
+ * Sends a body to the selection: `{ batch_id, queued, skipped, repeat, paused, held }`. The server resolves the
+ * selection again at send time (the alternative, freezing the preview's codes, is not built). The request key makes a repeat (a retry, a double click) return the first batch and
+ * queue nothing.
  */
-export const sendManual = ( event, bodyId, codes, layout, requestKey ) =>
+export const sendManual = ( event, bodyId, selection, layout, requestKey ) =>
 	runAbility( 'kalaka/send-manual-mail', {
 		event_id: event,
 		body_id: bodyId,
-		selection: { codes },
+		selection,
 		layout,
 		request_key: requestKey,
 	} );

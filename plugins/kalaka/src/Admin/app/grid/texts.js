@@ -9,9 +9,6 @@ export const GRID = {
 	copied: '%d sor a vágólapra másolva.',
 	copyFail: 'A másolás nem sikerült.',
 	perPage: 'Oldalanként',
-	more: 'Több',
-	moreLabel: 'További nézetek',
-	tabsLabel: 'Nézetek',
 	toolbar: 'Műveletek',
 	// The one reset (search, filters, sort and counting): DataViews' own, already approved „Visszaállítás”
 	// (`Translations::OVERRIDES`), so no new string.
@@ -25,6 +22,12 @@ export const GRID = {
 	unanswered: 'Nincs válasz',
 	// A failed table load, in the table's place.
 	loadFail: 'A táblázat betöltése nem sikerült.',
+	// The action bar's prefix before the buttons: what they act on. It never changes the buttons' own labels.
+	// The two narrowed states: a filter alone, and a search (with or without a filter).
+	prefixTotal: '%d összesen:',
+	prefixFiltered: '%d szűrt:',
+	prefixFound: '%d találat:',
+	prefixSelected: '%d kiválasztva:',
 	found: '%d jelentkező',
 	none: 'Nincs jelentkező',
 };
@@ -36,6 +39,8 @@ export const SUM = {
 	count: '%1$s: %2$d',
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
+	// The ticked count under the select-all checkbox, for screen readers (the cell shows the number only).
+	selected: '%d kiválasztva',
 	// The number in a sum cell opens the counting menu; its counting group and its screen-reader name.
 	counting: 'Számolás',
 	open: 'Összesítés: %s',

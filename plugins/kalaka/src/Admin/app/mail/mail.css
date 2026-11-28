@@ -1,8 +1,4 @@
 /* The mail pages (prototype, unapproved look): WordPress's own components and spacing; only layout. */
-.kalaka-mail-wrap {
-	max-width: 1200px;
-}
-
 .km-page {
 	margin-top: 8px;
 }
@@ -118,6 +114,12 @@
 	overflow-x: auto;
 }
 
+/* The „Események” table's clear button: its long label wraps instead of pushing the column past the box, so the
+   table fits the width (no sideways scroll, no clipped button) at 1440 and below. */
+.km-table .components-button {
+	white-space: normal;
+}
+
 /* Bottom right, as the approved grid's snackbars (`.kg-snacks`). */
 .km-snacks {
 	position: fixed;
@@ -154,4 +156,10 @@
 .km-h2 + .km-members {
 	max-height: 20em;
 	overflow: auto;
+}
+
+/* The disclosure button in a heading keeps the heading's size. */
+.km-h2 .components-button.is-link {
+	font-size: inherit;
+	font-weight: inherit;
 }

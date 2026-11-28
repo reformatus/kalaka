@@ -112,3 +112,68 @@ test( 'a tab that does not carry it has no action at all', async () => {
 	await flush();
 	expect( globalThis.lastDataViews.actions ).toEqual( [] );
 } );
+
+describe( 'the action bar\'s count prefix', () => {
+	const prefix = () => host.querySelector( '.kg-bulkbar-prefix' );
+	const load = async ( total ) => {
+		api.fetchPage.mockResolvedValue( { rows: [ { key: 'K1', values: { state: 'a' } }, { key: 'K2', values: { state: 'b' } } ], total } );
+		await act( async () => root.render( createElement( Page, { config } ) ) );
+		await flush();
+	};
+
+	test( 'nothing ticked and no filter or search: all the rows of the tab', async () => {
+		await load( 7 );
+		expect( prefix().textContent ).toBe( '7 összesen:' );
+		expect( host.querySelector( '.kg-bulkbar-sep' ) ).not.toBeNull();
+	} );
+
+	test( 'nothing ticked and a search on: the rows it leaves', async () => {
+		await load( 7 );
+		api.fetchPage.mockResolvedValue( { rows: [ { key: 'K1', values: { state: 'a' } } ], total: 3 } );
+		await act( async () => globalThis.lastDataViews.onChangeView( { ...globalThis.lastDataViews.view, search: 'kov' } ) );
+		await flush();
+		expect( prefix().textContent ).toBe( '3 találat:' );
+	} );
+
+	test( 'the four states tell a search from a filter: none, search, filter, both, ticked', async () => {
+		await load( 7 );
+		expect( prefix().textContent ).toBe( '7 összesen:' );
+		// A search on its own.
+		await act( async () => globalThis.lastDataViews.onChangeView( { ...globalThis.lastDataViews.view, search: 'kov' } ) );
+		await flush();
+		expect( prefix().textContent ).toBe( '7 találat:' );
+		// A filter alone.
+		await act( async () =>
+			globalThis.lastDataViews.onChangeView( {
+				...globalThis.lastDataViews.view,
+				search: '',
+				filters: [ { field: 'state', operator: 'is', value: 'a' } ],
+			} )
+		);
+		await flush();
+		expect( prefix().textContent ).toBe( '7 szűrt:' );
+		// Both: the search wins.
+		await act( async () => globalThis.lastDataViews.onChangeView( { ...globalThis.lastDataViews.view, search: 'kov' } ) );
+		await flush();
+		expect( prefix().textContent ).toBe( '7 találat:' );
+		// Ticked rows beat every count.
+		await act( async () => globalThis.lastDataViews.onChangeSelection( [ 'K1' ] ) );
+		expect( prefix().textContent ).toBe( '1 kiválasztva:' );
+	} );
+
+	test( 'rows ticked: how many are ticked', async () => {
+		await load( 7 );
+		await act( async () => globalThis.lastDataViews.onChangeSelection( [ 'K1', 'K2' ] ) );
+		expect( prefix().textContent ).toBe( '2 kiválasztva:' );
+		await act( async () => globalThis.lastDataViews.onChangeSelection( [] ) );
+		expect( prefix().textContent ).toBe( '7 összesen:' );
+	} );
+
+	test( 'the buttons\' labels do not follow the state', async () => {
+		await load( 7 );
+		const before = Array.from( host.querySelectorAll( '.kg-bulkbar-actions button' ) ).map( ( b ) => b.textContent );
+		await act( async () => globalThis.lastDataViews.onChangeSelection( [ 'K1' ] ) );
+		const after = Array.from( host.querySelectorAll( '.kg-bulkbar-actions button' ) ).map( ( b ) => b.textContent );
+		expect( after ).toEqual( before );
+	} );
+} );
