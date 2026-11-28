@@ -9,9 +9,17 @@ import ListTable from './ListTable';
 import useRead from './useRead';
 import { batchSubject, moment, outcomeWord } from './format';
 import { fmt } from '../grid/format';
+import CodeName from './CodeName';
 import { BATCHES, COMMON, WHO } from './texts';
 
-function Members( { config, id, onClose } ) {
+/**
+ * A batch's card: its subject and its members. The member list can be hidden: the heading is a disclosure button with
+ * one label, „Jelentkezők”, that never changes with the state (it says which by `aria-expanded`); the list starts shown.
+ */
+export function Members( { config, id, onClose } ) {
+	const [ shown, setShown ] = useState( true );
+	// A per-instance id: two cards open at once must not share an aria-controls target.
+	const listId = useMemo( () => 'km-batch-members-' + Math.random().toString( 36 ).slice( 2 ), [] );
 	const read = useRead( config.rest, `/events/${ config.event }/mail/batches/${ id }` );
 	return (
 		<Modal title={ fmt( BATCHES.open, id ) } onRequestClose={ onClose } size="medium">
@@ -22,11 +30,15 @@ function Members( { config, id, onClose } ) {
 					<p>
 						<strong>{ batchSubject( read.data ) }</strong>
 					</p>
-					<h2 className="km-h2">{ BATCHES.members }</h2>
-					<ul className="km-members">
+					<h2 className="km-h2">
+						<Button variant="link" type="button" aria-expanded={ shown } aria-controls={ listId } onClick={ () => setShown( ! shown ) }>
+							{ BATCHES.members }
+						</Button>
+					</h2>
+					<ul className="km-members" id={ listId } hidden={ ! shown }>
 						{ ( read.data.members || [] ).map( ( member ) => (
 							<li key={ member.code }>
-								<span className="km-code-text">{ member.code }</span>{ ' – ' }
+								<CodeName code={ member.code } name={ member.name } />{ ' – ' }
 								{ outcomeWord( member.outcome ) }
 							</li>
 						) ) }

@@ -54,7 +54,7 @@ final class GridModel
      * @return list<array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>, empty?: true
+     *     states?: array<string, string>, empty?: true, name?: true
      * }>
      */
     public function columns(HeldView $view, array $fields): array
@@ -183,7 +183,7 @@ final class GridModel
      * @return list<array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>, empty?: true
+     *     states?: array<string, string>, empty?: true, name?: true
      * }>
      */
     public function describe(array $columns, array $fields, int $eventId): array
@@ -468,7 +468,7 @@ final class GridModel
      * @return array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>, empty?: true
+     *     states?: array<string, string>, empty?: true, name?: true
      * }
      */
     private function meta(string $column, array $fields, int $eventId): array
@@ -536,6 +536,11 @@ final class GridModel
         // existed).
         if ($type === 'choice' || $type === 'consent') {
             $meta['empty'] = true;
+        }
+        // The display name field's column says so, so the app can show the name beside the code (and keep both
+        // columns at the start of the table) without guessing which text column it is.
+        if ($field->type === self::NAME_TYPE) {
+            $meta['name'] = true;
         }
 
         return $meta;

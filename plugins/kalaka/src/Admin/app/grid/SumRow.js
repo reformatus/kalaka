@@ -11,12 +11,15 @@
  * after them; `framed` adds an empty cell at each end so every sum stays under its own column. The cell under the
  * actions column is sticky like the column's own cells, so a sum that scrolls under the header does not show
  * through below the sticky „Műveletek”. [UNAPPROVED N295]
+ *
+ * The cell under the select-all checkbox holds the count of the ticked rows (the number alone; screen readers get
+ * „N kiválasztva”) and is empty while nothing is ticked.
  */
 import { createPortal, useLayoutEffect, useState } from '@wordpress/element';
-import { sumParts } from './format';
-import { GRID } from './texts';
+import { fmt, sumParts } from './format';
+import { GRID, SUM } from './texts';
 
-export default function SumRow( { root, columns, order, sums, menuFor, narrowed, framed } ) {
+export default function SumRow( { root, columns, order, sums, menuFor, narrowed, framed, selected = 0 } ) {
 	const [ row ] = useState( () => {
 		const tr = document.createElement( 'tr' );
 		tr.className = 'kg-sumtr';
@@ -77,7 +80,16 @@ export default function SumRow( { root, columns, order, sums, menuFor, narrowed,
 		} );
 	return createPortal(
 		<>
-			{ framed && <td className="kg-sumtd kg-sumtd-frame" /> }
+			{ framed && (
+				<td className="kg-sumtd kg-sumtd-frame dataviews-view-table__checkbox-column">
+					{ selected > 0 && (
+						<span className="kg-sumsel">
+							<span aria-hidden="true">{ selected }</span>
+							<span className="screen-reader-text">{ fmt( SUM.selected, selected ) }</span>
+						</span>
+					) }
+				</td>
+			) }
 			{ cells }
 			{ framed && <td className={ 'kg-sumtd kg-sumtd-frame kg-sumtd-actions dataviews-view-table__actions-column--sticky' + ( stuck ? ' dataviews-view-table__actions-column--stuck' : '' ) } /> }
 		</>,

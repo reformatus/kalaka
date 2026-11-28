@@ -49,12 +49,11 @@ final class MailPages
         if (!Access::mayReachAdmin($userId) || !(new Access())->isFull(new UserActor($userId))) {
             return;
         }
-        // A new top-level item with one submenu item, the page the banner names. Its icon is the Kaláka logo, as the
-        // owner's menu ruling has it (a plain „K” until the logo exists, as in the menu mock), drawn as a CSS mask
-        // (`menuStyle()`). Its place is the mock's: right after core's separator and right before the events, which
-        // the grid page puts at 4.01 and up (the approved menu code, #204, keeps the events there). WordPress shows a
-        // submenu only when it has a second item, so „Levelezés” stays out of the sidebar until the ruling's
-        // „Irányítópult” exists. [UNAPPROVED N271]
+        // A new top-level item with its own submenu: the item lands on the „Levelezés” page and its submenu holds
+        // just „Levelezés”, because there is no dashboard yet (owner ruling 8.14; no „Irányítópult” entry). Its icon
+        // is the Kaláka logo, as the owner's menu ruling has it (a plain „K” until the logo exists, as in the menu
+        // mock), drawn as a CSS mask (`menuStyle()`). Its place is the mock's: right after core's separator and
+        // right before the events, which the grid page puts at 4.01 and up. [UNAPPROVED N271]
         add_menu_page(
             Texts::SITE_PAGE,
             Texts::SITE_MENU,
@@ -211,6 +210,21 @@ final class MailPages
         }
 
         return preg_match('/^kalaka-event-([1-9][0-9]*)-mail$/', $page, $m) === 1 ? (int) $m[1] : null;
+    }
+
+    /**
+     * The address of the event's „Levelek” page on the bodies tab, or the site's „Levelezés” page without an event;
+     * the page an archived or unknown event has no menu item for falls back to the site's.
+     */
+    public static function url(?int $eventId): string
+    {
+        foreach ($eventId === null ? [] : (new Events())->notArchived() as $event) {
+            if ($event->id === $eventId) {
+                return admin_url('admin.php?page=' . self::slug($event) . '&tab=bodies');
+            }
+        }
+
+        return admin_url('admin.php?page=' . self::SITE_SLUG);
     }
 
     private static function slug(Event|int $event): string
