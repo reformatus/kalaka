@@ -14,7 +14,8 @@ use Kalaka\Portal\WithdrawRefusalCookie;
 /**
  * `POST kalaka-portal/v1/withdraw` `{code, return_url?, preview?, kalaka_withdraw_nonce}`: the participant's own
  * withdrawal for the active registration (`Portal\Api\Withdrawal`). A JSON request gets `{changed, status}`, or with
- * `preview: true` `{allowed, paid, owed_after}` (the registrant's own payer's money, nothing written); any other (a
+ * `preview: true` `{allowed, paid, owed_after, retained, surplus}` (the registrant's own payer's money, nothing
+ * written); any other (a
  * plain form post, no script) gets a 303 to the same-site return address (else the referrer, else the home page),
  * clean of any query, with a refusal's code in a flash cookie (`WithdrawRefusalCookie`) that the next page request
  * reads once. A plain form post is never a preview. Open to anyone who holds the active registration, which only a

@@ -32,11 +32,13 @@ use Kalaka\Registrations\RegistrationRepository;
  *   (`Event::registrationHasClosed()`) only staff can withdraw: the run is refused as `WithdrawClosed`
  *   (`kalaka_withdraw_closed`) and the preview answers `allowed: false`.
  * - Returns `{changed, status}`.
- * - Preview: `{allowed, paid, owed_after}` and nothing written (no audit entry): `allowed` is whether the
- *   registration may withdraw now; `paid` and `owed_after` are the registrant's OWN payer's (`participant`) amount
- *   paid and signed balance once the withdrawal is recorded (above zero owed, below zero overpaid), from the same
- *   composition the staff preview uses, and no other payer's. Both are null when `allowed` is false or the fee
- *   cannot be priced. [UNAPPROVED N662]
+ * - Preview: `{allowed, paid, owed_after, retained, surplus}` and nothing written (no audit entry): `allowed` is
+ *   whether the registration may withdraw now; `paid` and `owed_after` are the registrant's OWN payer's
+ *   (`participant`) amount paid and signed balance once the withdrawal is recorded (above zero owed, below zero
+ *   overpaid), from the same composition the staff preview uses, and no other payer's. `retained` is the part of
+ *   `paid` the event's retention rule keeps (the payer's fee target after the withdrawal, never more than `paid`);
+ *   `surplus` is what is left of `paid` (`paid` minus `retained`), owed back and never refunded automatically.
+ *   All four amounts are null when `allowed` is false or the fee cannot be priced. [UNAPPROVED N662, N1189]
  */
 final class WithdrawOwnRegistration implements PortalUseCase, PreviewableUseCase
 {
@@ -109,7 +111,7 @@ final class WithdrawOwnRegistration implements PortalUseCase, PreviewableUseCase
         return ['changed' => $changed, 'status' => $act->target()->value];
     }
 
-    /** @return array{allowed: bool, paid: ?string, owed_after: ?string} */
+    /** @return array{allowed: bool, paid: ?string, owed_after: ?string, retained: ?string, surplus: ?string} */
     private function preview(
         bool $allowed,
         Leaving $leaving,
@@ -119,17 +121,44 @@ final class WithdrawOwnRegistration implements PortalUseCase, PreviewableUseCase
     ): array {
         $rows = $allowed ? $leaving->money($act->target(), $key, $context) : null;
         if ($rows === null) {
-            return ['allowed' => $allowed, 'paid' => null, 'owed_after' => null];
+            return [
+                'allowed' => $allowed,
+                'paid' => null,
+                'owed_after' => null,
+                'retained' => null,
+                'surplus' => null,
+            ];
         }
+        $event = $this->events->find($key->eventId) ?? throw new NotFound();
         // Only the registrant's own payer: another payer's amounts (a sponsor's, a congregation's) are not theirs.
         foreach ($rows as $row) {
             if ($row['payer'] === Payer::PARTICIPANT) {
-                return ['allowed' => true, 'paid' => $row['paid'], 'owed_after' => $row['balance_after']];
+                // [UNAPPROVED N1189] What the rule keeps of the payment is the payer's fee target after the act
+                // (`balance_after` is that target minus what was paid), never more than was paid; the rest is owed
+                // back.
+                $paid = Money::of($row['paid'], $event->currency);
+                $target = $paid->plus(Money::of($row['balance_after'], $event->currency));
+                $zero = Money::zero($event->currency);
+                $retained = $target->isLessThan($paid) ? $target : $paid;
+                if ($retained->isNegative()) {
+                    $retained = $zero;
+                }
+                $surplus = $paid->minus($retained);
+                if ($surplus->isNegative()) {
+                    $surplus = $zero;
+                }
+
+                return [
+                    'allowed' => true,
+                    'paid' => $row['paid'],
+                    'owed_after' => $row['balance_after'],
+                    'retained' => $retained->amount(),
+                    'surplus' => $surplus->amount(),
+                ];
             }
         }
-        $event = $this->events->find($key->eventId) ?? throw new NotFound();
         $zero = Money::zero($event->currency)->amount();
 
-        return ['allowed' => true, 'paid' => $zero, 'owed_after' => $zero];
+        return ['allowed' => true, 'paid' => $zero, 'owed_after' => $zero, 'retained' => $zero, 'surplus' => $zero];
     }
 }

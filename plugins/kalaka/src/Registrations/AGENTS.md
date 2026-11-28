@@ -67,9 +67,11 @@ the waitlist and reference codes
   allowed from `registered` and `waitlisted` only, and only until the event's registration closes (after that it is
   refused as `Api\WithdrawClosed`, `kalaka_withdraw_closed`, and the preview says `allowed: false`; only staff can
   withdraw), no reason, no mail, nobody on the waitlist moves up.
-  Its preview (`preview: true`) is `{allowed, paid, owed_after}` for the registrant's own payer only (the
-  `participant` payer of the same composition the staff preview uses), writes nothing and leaves no audit entry; a
-  status that changed under the lock is `StatusActRefused`. [UNAPPROVED N660, N662, N666]
+  Its preview (`preview: true`) is `{allowed, paid, owed_after, retained, surplus}` for the registrant's own payer only
+  (the `participant` payer of the same composition the staff preview uses; `retained` is the part of `paid` the
+  event's retention rule keeps, never more than `paid`, and `surplus` the rest, owed back and never refunded
+  automatically), writes nothing and leaves no audit entry; a status that changed under the lock is
+  `StatusActRefused`. [UNAPPROVED N660, N662, N666, R345]
 - Submissions are append-only: never updated or deleted. Field values hold the
   current state, one row per field, and are what edits change.
 - A submit writes field values only through the event's participant-field list

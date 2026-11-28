@@ -317,11 +317,36 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
         // Only the registrant's own payer: never the congregation's 2 000.
         self::assertSame(
-            ['allowed' => true, 'paid' => '3000.00000000', 'owed_after' => '-3000.00000000'],
+            [
+                'allowed' => true,
+                'paid' => '3000.00000000',
+                'owed_after' => '-3000.00000000',
+                'retained' => '0.00000000',
+                'surplus' => '3000.00000000',
+            ],
             $preview
         );
         self::assertSame($before, $this->counts());
         self::assertSame('registered', $this->status('00A0'));
+    }
+
+    public function testThePreviewRetainsEverythingPaidOfAPartialPaymentAndOwesNothingBack(): void
+    {
+        // The default rule keeps what was paid: of 3 000 paid towards the 8 000 fee, 3 000 stays, nothing is owed back.
+        $this->pay('00A0', '3000');
+
+        $preview = $this->withdraw('00A0', preview: true);
+
+        self::assertSame(
+            [
+                'allowed' => true,
+                'paid' => '3000.00000000',
+                'owed_after' => '0.00000000',
+                'retained' => '3000.00000000',
+                'surplus' => '0.00000000',
+            ],
+            $preview
+        );
     }
 
     public function testThePreviewOfARegistrationThatCannotWithdrawSaysNotAllowedAndWritesNothing(): void
@@ -331,7 +356,10 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
         $preview = $this->withdraw('00A0', preview: true);
 
-        self::assertSame(['allowed' => false, 'paid' => null, 'owed_after' => null], $preview);
+        self::assertSame(
+            ['allowed' => false, 'paid' => null, 'owed_after' => null, 'retained' => null, 'surplus' => null],
+            $preview
+        );
         self::assertSame($before, $this->counts());
     }
 
@@ -339,7 +367,16 @@ final class SelfWithdrawalTest extends StaffEditTestCase
     {
         $preview = $this->withdraw('00A5', preview: true);
 
-        self::assertSame(['allowed' => true, 'paid' => '0.00000000', 'owed_after' => '0.00000000'], $preview);
+        self::assertSame(
+            [
+                'allowed' => true,
+                'paid' => '0.00000000',
+                'owed_after' => '0.00000000',
+                'retained' => '0.00000000',
+                'surplus' => '0.00000000',
+            ],
+            $preview
+        );
     }
 
     public function testThePreviewStillNeedsTheActiveRegistrationAndItsCode(): void
@@ -402,7 +439,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
                 }
                 self::assertNotSame('withdrawn', $this->status($code));
                 self::assertSame(
-                    ['allowed' => false, 'paid' => null, 'owed_after' => null],
+                    ['allowed' => false, 'paid' => null, 'owed_after' => null, 'retained' => null, 'surplus' => null],
                     $this->withdraw($code, preview: true)
                 );
             }
@@ -489,7 +526,13 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
         self::assertSame(200, $response->get_status());
         self::assertSame(
-            ['allowed' => true, 'paid' => '0.00000000', 'owed_after' => '0.00000000'],
+            [
+                'allowed' => true,
+                'paid' => '0.00000000',
+                'owed_after' => '0.00000000',
+                'retained' => '0.00000000',
+                'surplus' => '0.00000000',
+            ],
             $response->get_data()
         );
         self::assertSame($before, $this->counts());

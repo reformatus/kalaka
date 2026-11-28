@@ -96,7 +96,8 @@ final class Withdrawal
     /**
      * @param RegistrationKey|null $active the active registration (`ActiveRegistration::current()`), null for none
      * @param string $code the reference code the page sent
-     * @param bool $preview true: `{allowed, paid, owed_after}` for the registrant's own payer, nothing written
+     * @param bool $preview true: `{allowed, paid, owed_after, retained, surplus}` for the registrant's own payer, nothing
+     *     written
      * @param string|null $nonce the form's nonce (`nonceValue()`), required for a real withdrawal, ignored in a
      *     preview
      * @return array<string, mixed> `{changed, status}`, or the preview
