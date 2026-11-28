@@ -124,8 +124,8 @@ final class GridRoutesTest extends GrantTestCase
         self::assertSame(200, $this->rest('GET', '/views')->get_status());
     }
 
-    /** Topic 6a: Kód carries the default order both ways; Szám is not sortable yet. */
-    public function testTheRowsRouteSortsByCodeBothWaysAndRefusesTheSerial(): void
+    /** Topic 6a: Kód carries the default order both ways; Szám is a number sort. */
+    public function testTheRowsRouteSortsByCodeAndBySerialBothWays(): void
     {
         $this->as($this->admin->userId);
 
@@ -139,7 +139,10 @@ final class GridRoutesTest extends GrantTestCase
 
         self::assertSame($default, $up);
         self::assertSame(array_reverse($up), $down);
-        self::assertSame(400, $this->rest('GET', '/views/0/rows', ['orderby' => 'serial'])->get_status());
+        // Szám: the registered rows' numbers 1, 2, 3 and the waitlisted one's 1 interleave, and the tie falls
+        // back to the default order.
+        self::assertSame(['00A0', '00A8', '00A2', '00A5'], $keys(['orderby' => 'serial', 'order' => 'asc']));
+        self::assertSame(['00A5', '00A2', '00A0', '00A8'], $keys(['orderby' => 'serial', 'order' => 'desc']));
     }
 
     /** Topic 6a B1: nobody's counting is stored; full access sends it with the sums read like a grant holder. */
@@ -305,6 +308,69 @@ final class GridRoutesTest extends GrantTestCase
             static fn (array $tab): bool => $tab['key'] === 'g' . $blank
         ), 'name');
         self::assertSame(['Nézet'], $names);
+    }
+
+    /** @param list<array<string, mixed>> $filters */
+    private function narrow(array $filters, string $search = ''): array
+    {
+        return ['grant' => $this->grant, 'filters' => (string) wp_json_encode($filters), 'search' => $search];
+    }
+
+    public function testAGrantHolderNarrowsOnlyWithinTheirViewOnListedColumns(): void
+    {
+        $this->as($this->holder);
+        $route = '/views/' . $this->view;
+        $contains = static fn (string $text): array => [
+            ['field' => 'code', 'operator' => 'contains', 'value' => $text],
+        ];
+        $total = fn (array $params): string => $this->rest('GET', $route . '/rows', $params)
+            ->get_headers()['X-WP-Total'];
+
+        $rows = $this->rest('GET', $route . '/rows', self::narrow($contains('a5')));
+        self::assertSame(200, $rows->get_status());
+        self::assertSame(['00A5'], array_column($rows->get_data(), 'key'));
+        self::assertSame('1', $rows->get_headers()['X-WP-Total']);
+        // Their bound value stays in force: a filter or a search for another module's row finds nothing.
+        self::assertSame('0', $total(self::narrow($contains('00a2'))));
+        self::assertSame('0', $total(self::narrow([], '00a2')));
+        self::assertSame('2', $total(self::narrow($contains('00'))));
+        // The sum row follows the narrowed rows.
+        $sums = (array) $this->rest('GET', $route . '/sums', self::narrow($contains('a5')))->get_data();
+        self::assertSame(1, $sums['code']['n']);
+        self::assertSame(2, ((array) $this->rest('GET', $route . '/sums', self::narrow([]))->get_data())['code']['n']);
+        // A column the view does not list, a foreign operator and bad JSON are refused.
+        foreach (
+            [
+                self::narrow([['field' => 'field:module', 'operator' => 'contains', 'value' => 'a']]),
+                self::narrow([['field' => 'code', 'operator' => 'isAny', 'value' => ['a']]]),
+                ['grant' => $this->grant, 'filters' => '[{'],
+            ] as $params
+        ) {
+            self::assertSame(400, $this->rest('GET', $route . '/rows', $params)->get_status());
+            self::assertSame(400, $this->rest('GET', $route . '/sums', $params)->get_status());
+        }
+        // Over the search's length the request is refused before the query.
+        $long = ['grant' => $this->grant, 'search' => str_repeat('a', 101)];
+        self::assertSame(400, $this->rest('GET', $route . '/rows', $long)->get_status());
+    }
+
+    public function testFullAccessNarrowsTheMasterViewByStatusAndSearch(): void
+    {
+        $this->as($this->admin->userId);
+
+        $waitlisted = [['field' => 'status', 'operator' => 'isAny', 'value' => ['waitlisted']]];
+        $rows = $this->rest('GET', '/views/0/rows', self::narrow($waitlisted));
+        self::assertSame(['00A8'], array_column($rows->get_data(), 'key'));
+        self::assertSame('1', $rows->get_headers()['X-WP-Total']);
+        self::assertSame('1', $rows->get_headers()['X-WP-TotalPages']);
+        // The status word, with a capital and an accent folded away.
+        $keys = fn (array $params): array => array_column(
+            $this->rest('GET', '/views/0/rows', $params)->get_data(),
+            'key'
+        );
+        self::assertSame(['00A8'], $keys(self::narrow([], 'VAROLISTAS')));
+        // A search by the value of a field the master view lists.
+        self::assertSame(['00A2'], $keys(self::narrow([], 'b')));
     }
 
     public function testAGrantHolderSavesNothing(): void

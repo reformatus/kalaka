@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Api;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
+use Kalaka\Forms\AccountBlock;
+use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\EventFormHost;
@@ -13,13 +16,14 @@ use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * Reads forms and checks answers against them. It reads WordPress posts, so it runs before or
  * after a use case's transaction, never inside it: a submit reads the form and its definition
- * first and passes them in.
+ * first and passes them in. `participantValues()` is the one exception: it reads no post.
  */
 final class Forms
 {
@@ -51,8 +55,10 @@ final class Forms
      *
      * A form being served to a visitor (`$serving`: the page, the re-fetch, the submit and the broken-form
      * scan) with an account step (the event's current account mode) must also hold the account block
-     * (`account_block_missing`). A stored submission's definition (a mail's recipient and context) is read
-     * without that check, so a mode change never costs an existing registration its mail.
+     * (`account_block_missing`), and every field an extension requires of the event's registration form
+     * (`required_field_missing`: an event with a price ladder needs `price_tier`). A stored submission's
+     * definition (a mail's recipient and context) is read without those checks, so a mode or ladder change never
+     * costs an existing registration its mail.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
@@ -128,6 +134,48 @@ final class Forms
     }
 
     /**
+     * The published registration forms of the event that hold no account block, though the given account mode
+     * wants one (`EventFormHost::stepFor()`): what a change of the event's account mode to that mode is
+     * refused for (events-and-forms.md, "Forms implementation"). A form that does not parse or has no
+     * revision is left out, as it is closed and named in the broken-form warning already. Reads WordPress posts,
+     * so it runs before a use case's transaction.
+     *
+     * @return list<int> the forms' IDs, ascending
+     */
+    public function withoutAccountBlock(int $eventId, AccountMode $mode): array
+    {
+        $lacking = [];
+        foreach ($this->posts->ofEvent($eventId) as $post) {
+            if ($post->post_status !== 'publish') {
+                continue;
+            }
+            try {
+                $form = $this->form($post->ID);
+                if ($form === null) {
+                    continue;
+                }
+                $missing = AccountBlock::missing($this->definition($form), $form->placement, $mode);
+            } catch (SystemFailure) {
+                continue;
+            }
+            if ($missing) {
+                $lacking[] = $post->ID;
+            }
+        }
+
+        return $lacking;
+    }
+
+    /**
+     * Recomputes the broken-form list, which reads each event's account mode: after a mode changed. A plain
+     * option write, so it runs after the use case has committed.
+     */
+    public function refreshBrokenList(): void
+    {
+        BrokenForms::refresh();
+    }
+
+    /**
      * The event's participant fields (`ParticipantFields::of()`), each with the forms of the event that hold
      * it now (`ParticipantField::$forms`). It reads Kaláka's own table and the event's form posts, so it runs
      * outside a use case's transaction.
@@ -150,19 +198,64 @@ final class Forms
     }
 
     /**
+     * The forms of the event (every status whose fields count, `FormPosts::HOLDING_STATUSES`) whose number
+     * field under the key has other decimals than given: what a declaration that fixes the key's decimals
+     * (an extra charge) must not close. A field counts with `(int) ($settings['decimals'] ?? 0)`, as
+     * `SharedKeyCheck` reads it, and only a number field does. It reads the event's form posts, so it runs
+     * outside a use case's transaction.
+     *
+     * @return list<array{form_id: int, title: string}> by ascending form ID
+     */
+    public function formsWithOtherDecimals(int $eventId, string $key, int $decimals): array
+    {
+        $contributions = Contributions::current();
+        $found = [];
+        foreach ($this->posts->ofEvent($eventId) as $post) {
+            $field = FieldBlocks::of($post->post_content, $contributions)[$key] ?? null;
+            if (
+                $field !== null
+                && $field['type'] === FieldKind::NUMBER
+                && (int) ($field['settings']['decimals'] ?? 0) !== $decimals
+            ) {
+                $found[] = ['form_id' => $post->ID, 'title' => $post->post_title];
+            }
+        }
+
+        return $found;
+    }
+
+    /**
      * The values of one registration's stored answers over the event's participant fields (a document's value
      * context): one value for every field of the event, retired ones included, so a key that only another
      * form holds reads as `Value::none()` of its type and never fails. A field with no stored answer, a
      * `system` field (until decisions can be read here) and a field of a type no longer contributed read as
      * none too. A stored answer of a key the event does not have is left out.
      *
+     * Unlike the rest of this class it reads no post, only `ParticipantFields::of()` (its table and the block
+     * registry), and each stored answer is typed by its field type's `value()`, which fires no hook and writes
+     * nothing; so the evaluation calls it inside the transaction (`Registrations::factsOf()`).
+     *
      * @param array<string, string> $stored field key → the stored value
      * @return array<string, Value> field key → value
      */
     public function participantValues(int $eventId, array $stored): array
     {
+        return $this->participantFacts($eventId, $stored)->values;
+    }
+
+    /**
+     * `participantValues()` with each field's kind beside its value (N19): the block type and the number
+     * field's decimals a money rule needs to tell a consent from a quantity. One walk, one read of
+     * `ParticipantFields::of()`, the same exception as `participantValues()`.
+     *
+     * @param array<string, string> $stored field key → the stored value
+     */
+    public function participantFacts(int $eventId, array $stored): ParticipantFacts
+    {
         $values = [];
+        $kinds = [];
         foreach ($this->typedFields($eventId) as [$field, $type]) {
+            $kinds[$field->key] = new FieldKind($field->type, (int) ($field->settings['decimals'] ?? 0));
             if ($type === null) {
                 $values[$field->key] = Value::none(ValueType::Text);
                 continue;
@@ -173,7 +266,7 @@ final class Forms
                 : $type->value(new FieldTypeInput($answer, self::attributesOf($field, $answer)));
         }
 
-        return $values;
+        return new ParticipantFacts($values, $kinds);
     }
 
     /**
@@ -195,6 +288,27 @@ final class Forms
     }
 
     /**
+     * The keys of the event's participant fields an additional form's condition may read from the registration's
+     * stored values, with their value types: not a `system` field (a decision, not a stored answer), not a field
+     * of a type no longer contributed, and not a path (`pathKeys()`: read with `contains` against the field's own
+     * ancestors, which only a form's own field offers). Retired ones are read too, since their values are stored.
+     *
+     * @return array<string, ValueType>
+     */
+    public function storedTypes(int $eventId): array
+    {
+        $types = [];
+        foreach ($this->typedFields($eventId) as [$field, $type]) {
+            $readable = $type !== null && $field->source !== ParticipantField::SOURCE_SYSTEM;
+            if ($readable && !$type instanceof PathFieldType) {
+                $types[$field->key] = $type->valueType();
+            }
+        }
+
+        return $types;
+    }
+
+    /**
      * The event's participant fields, retired ones included, each with its contributed type (null when no
      * type is contributed for it any more).
      *
@@ -212,14 +326,16 @@ final class Forms
     }
 
     /**
-     * The block attributes a field type reads a stored answer with, from the participant field: the label,
-     * the options, and for a choice whether it is multiple, which its stored form shows (a JSON list).
+     * The block attributes a field type reads a stored answer with, from the participant field: its own
+     * settings (the number field's bounds, decimals and affixes), the label, the options, and for a choice
+     * whether it is multiple, which its stored form shows (a JSON list).
      *
      * @return array<string, mixed>
      */
     private static function attributesOf(ParticipantField $field, string $answer): array
     {
-        $attributes = ['label' => $field->title];
+        $attributes = $field->settings;
+        $attributes['label'] = $field->title;
         if ($field->options !== []) {
             $attributes['options'] = array_map(
                 static fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
@@ -232,12 +348,35 @@ final class Forms
     }
 
     /**
+     * The facts a submit's walk reads for the form, built the same way as its page's and re-fetch's
+     * (`FormHost::facts()`) but from what the caller read: the account state, the moment, and for an additional
+     * form the registration's field values and status (one read, so the use case can check the same read under
+     * its lock). Reads the database, so it runs before a use case's transaction.
+     *
+     * The moment is the caller's, the same one the page's and re-fetch's facts read at.
+     *
+     * @param array<string, string>|null $stored the registration's field values by key; null for none
+     * @param string|null $status the registration's status value
+     */
+    public function submitFacts(
+        Form $form,
+        Event $event,
+        ?bool $loggedIn,
+        \DateTimeImmutable $now,
+        ?array $stored,
+        ?string $status
+    ): ValueContext {
+        return (new EventFormHost())->factsFor($form, $event, $loggedIn, $now, $stored, $status);
+    }
+
+    /**
      * The submit's check of the answers, with the same walk as `availability()`.
      * Decision N5 (#156): the facts are optional, so the signature of #53 stays.
      *
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param Facts|null $facts the facts besides the answers: the event's keys (`EventValues::of()`) for a
-     *     form whose conditions read them; none when null
+     *     form whose conditions read them; when null, only the runner's moment (`EventValues::now()`), so
+     *     every condition scope carries `now`
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
      * @throws InvalidAnswers missing or wrong answers
      * @throws FormTerminal a terminal page shows for the answers
@@ -245,7 +384,11 @@ final class Forms
      */
     public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
     {
-        return $this->engine->validate($definition, $answers, $facts);
+        return $this->engine->validate(
+            $definition,
+            $answers,
+            $facts ?? new ValueContext(EventValues::now(Runner::current()->clock()->now()))
+        );
     }
 
     /**

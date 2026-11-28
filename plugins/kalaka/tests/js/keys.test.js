@@ -411,6 +411,7 @@ describe('field blocks, as the server names them (server.js)', () => {
 		expect(isField('kalaka/text-field')).toBe(true);
 		expect(isField('kalaka/choice-field')).toBe(true);
 		expect(isField('kalaka/scale-field')).toBe(true);
+		expect(isField('kalaka/number-field')).toBe(true);
 		expect(isField('kalaka/if')).toBe(false);
 		expect(isField('core/paragraph')).toBe(false);
 		expect(isField(null)).toBe(false);

@@ -80,7 +80,12 @@ final class FormSeeder implements Seeder
 
     private function definition(): string
     {
-        $nights = $this->block('kalaka/text-field', ['key' => 'ejszakak', 'label' => 'Hány éjszakára?']);
+        $nights = $this->block('kalaka/scale-field', [
+            'key' => 'ejszakak',
+            'label' => 'Éjszakák',
+            'min' => 1,
+            'max' => 8,
+        ]);
 
         return $this->block('kalaka/name-field', ['key' => 'nev', 'label' => 'Név', 'displayName' => true])
             . $this->block('kalaka/email-field', ['key' => 'email', 'label' => 'E-mail-cím', 'contactEmail' => true])
@@ -119,7 +124,8 @@ final class FormSeeder implements Seeder
                 ],
             ])
             . $this->block('kalaka/consent-field', ['key' => 'fenykep', 'label' => 'Készülhet rólam fénykép.'])
-            . $this->block('kalaka/text-field', ['key' => 'megjegyzes', 'label' => 'Megjegyzés', 'multiline' => true]);
+            . $this->block('kalaka/text-field', ['key' => 'megjegyzes', 'label' => 'Megjegyzés', 'multiline' => true])
+            . $this->block('kalaka/date-field', ['key' => 'erkezes', 'label' => 'Érkezés napja']);
     }
 
     /** @param array<string, mixed> $attributes */

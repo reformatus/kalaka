@@ -96,3 +96,41 @@
 	gap: 4px;
 	margin-bottom: 4px;
 }
+
+/* The number field's affixes in the editor preview (A5): the same muted, attached look as the form. */
+.kalaka-number {
+	position: relative;
+	display: block;
+}
+
+.kalaka-number input {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+.kalaka-number__affix {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	color: inherit;
+	opacity: 0.6;
+	pointer-events: none;
+	user-select: none;
+	z-index: 1;
+}
+
+.kalaka-number__prefix {
+	left: 0.75rem;
+}
+
+.kalaka-number__suffix {
+	right: 2rem;
+}
+
+.kalaka-number--prefix input {
+	padding-left: 2.5rem;
+}
+
+.kalaka-number--suffix input {
+	padding-right: 4rem;
+}

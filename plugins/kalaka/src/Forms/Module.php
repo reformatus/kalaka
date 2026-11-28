@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Engine\BlockGate;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Admin\Api\AdminAccess;
@@ -21,6 +22,7 @@ use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\Engine\FieldType\DateFieldType;
 use Kalaka\Forms\Engine\FieldType\EmailFieldType;
 use Kalaka\Forms\Engine\FieldType\NameFieldType;
+use Kalaka\Forms\Engine\FieldType\NumberFieldType;
 use Kalaka\Forms\Engine\FieldType\PhoneFieldType;
 use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
 use Kalaka\Forms\Engine\FieldType\TextFieldType;
@@ -36,7 +38,7 @@ final class Module extends AbstractModule
     private const EMBED_BLOCK = 'form';
 
     /** The core field blocks, in `Blocks/`, each with its title in its `block.json`. */
-    private const BLOCKS = ['name', 'email', 'phone', 'date', 'text', 'choice', 'consent', 'scale'];
+    private const BLOCKS = ['name', 'email', 'phone', 'date', 'text', 'choice', 'consent', 'scale', 'number'];
 
     /** The handle of the form's view stylesheet, named by the embed block's `viewStyle`. */
     public const VIEW_STYLE = 'kalaka-form-view';
@@ -71,6 +73,7 @@ final class Module extends AbstractModule
         $to->fieldType(new ChoiceFieldType());
         $to->fieldType(new ConsentFieldType());
         $to->fieldType(new ScaleFieldType());
+        $to->fieldType(new NumberFieldType());
         $to->siteWarning(new BrokenFormsWarning());
         $to->seeder(new FormSeeder());
     }
@@ -251,7 +254,7 @@ final class Module extends AbstractModule
             return;
         }
         // The editor's own data, then the gated blocks to hide in this editor (none in a form's).
-        $data = wp_json_encode([...self::editorData(), 'hidden' => BlockGate::hiddenHere()]);
+        $data = wp_json_encode([...self::editorData(self::editedFormTypes()), 'hidden' => BlockGate::hiddenHere()]);
         wp_add_inline_script($handle, 'window.kalakaFormEditor = ' . $data . ';', 'before');
     }
 
@@ -261,6 +264,8 @@ final class Module extends AbstractModule
      * a path (`Api\PathFieldType`, never compared with `equals`), the keys a form's
      * and the after-submit section's conditions may read, and a date reference's bounds.
      *
+     * @param array<string, ValueType>|null $formTypes the keys the edited form's conditions may read (the host's,
+     *     per event and placement); the event keys alone when null
      * @return array{
      *     fieldTypes: array<string, string>,
      *     pathFieldTypes: list<string>,
@@ -269,7 +274,7 @@ final class Module extends AbstractModule
      *     dateReference: array{maxYears: int, maxDays: int}
      * }
      */
-    public static function editorData(): array
+    public static function editorData(?array $formTypes = null): array
     {
         $value = static fn (ValueType $type): string => $type->value;
 
@@ -282,10 +287,34 @@ final class Module extends AbstractModule
                 Contributions::current()->fieldTypes(),
                 static fn (FieldType $type): bool => $type instanceof PathFieldType
             )),
-            'eventTypes' => array_map($value, EventValues::FORM_TYPES),
+            'eventTypes' => array_map($value, $formTypes ?? EventValues::FORM_TYPES),
             'afterSubmitTypes' => array_map($value, AfterSubmit::TYPES),
             'dateReference' => ['maxYears' => DateReference::MAX_YEARS, 'maxDays' => DateReference::MAX_DAYS],
         ];
+    }
+
+    /**
+     * The keys the edited form's conditions may read (`EventFormHost::typesOf()`): the per-event list, from
+     * the form post's saved event and placement. Null when the editor holds no saved form of an event.
+     * The list is read when the editor loads, so it is stale if the form's event is changed meanwhile.
+     *
+     * @return array<string, ValueType>|null
+     */
+    private static function editedFormTypes(): ?array
+    {
+        $post = get_post();
+        if (!$post instanceof \WP_Post || $post->post_type !== FormPosts::POST_TYPE) {
+            return null;
+        }
+        $eventId = (int) get_post_meta($post->ID, FormPosts::META_EVENT_ID, true);
+        $event = $eventId > 0 ? (new Events())->find($eventId) : null;
+        if ($event === null) {
+            return null;
+        }
+        $placement = FormPlacement::tryFrom((string) get_post_meta($post->ID, FormPosts::META_PLACEMENT, true))
+            ?? FormPlacement::Registration;
+
+        return (new EventFormHost())->typesOf($event, $placement);
     }
 
     /**
@@ -404,5 +433,15 @@ final class Module extends AbstractModule
             'show_in_rest' => true,
             'auth_callback' => $fullAccess,
         ]);
+        // An additional form's open period (S60): each end a date reference in JSON (`OpenPeriod`), kept as
+        // written; one that does not resolve closes the form.
+        foreach ([FormPosts::META_OPENS, FormPosts::META_CLOSES] as $end) {
+            register_post_meta(FormPosts::POST_TYPE, $end, [
+                'type' => 'string',
+                'single' => true,
+                'show_in_rest' => true,
+                'auth_callback' => $fullAccess,
+            ]);
+        }
     }
 }

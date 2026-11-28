@@ -43,7 +43,7 @@ describe( 'a column’s counting menu', () => {
 
 	test( 'the number is the trigger, named after its column as a column menu', () => {
 		const out = html( STATUS, { shown: '40' } );
-		expect( out ).toContain( 'aria-label="Oszlopmenü: Állapot"' );
+		expect( out ).toContain( 'aria-label="Összesítés: Állapot"' );
 		expect( out ).toContain( '>40<' );
 	} );
 

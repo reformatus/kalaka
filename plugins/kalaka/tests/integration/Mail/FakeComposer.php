@@ -34,7 +34,7 @@ final class FakeComposer implements MailComposer
             : 'teszt@example.test';
     }
 
-    public function compose(Delivery $delivery, string $to): MailMessage
+    public function compose(Delivery $delivery, string $to, \DateTimeImmutable $now): MailMessage
     {
         $this->composed[] = $delivery->id;
         if ($this->failure !== null) {

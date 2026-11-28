@@ -31,9 +31,9 @@ describe( 'the grid writes nothing of the view', () => {
 } );
 
 describe( 'the sum row', () => {
-	test( 'sends a grant holder\'s own counted members with the request, and none for the stored choice', async () => {
+	test( 'sends the viewer\'s own counted members with the request, and none for the stored choice', async () => {
 		apiFetch.mockResolvedValue( {} );
-		await fetchSums( config, { view: 4, grant: 3 }, { status: [ 'waitlisted' ] } );
+		await fetchSums( config, { view: 4, grant: 3 }, null, { status: [ 'waitlisted' ] } );
 		const path = apiFetch.mock.calls[ 0 ][ 0 ].path;
 		expect( path.startsWith( '/kalaka-admin/v1/events/7/views/4/sums?' ) ).toBe( true );
 		const query = path.split( '?' )[ 1 ];
@@ -48,6 +48,17 @@ describe( 'the sum row', () => {
 		expect( apiFetch ).toHaveBeenCalledWith( {
 			path: '/kalaka-admin/v1/events/7/views/4/sums?grant=3',
 		} );
+	} );
+} );
+
+describe( 'the narrowing', () => {
+	test( 'the filters and the search go with the rows and with the sums', async () => {
+		const narrow = { filters: [ { field: 'code', operator: 'contains', value: 'a' } ], search: 'x' };
+		apiFetch.mockResolvedValue( {} );
+		await fetchSums( config, { view: 0, grant: 0 }, narrow );
+		const query = apiFetch.mock.calls[ 0 ][ 0 ].path.split( '?' )[ 1 ];
+		expect( decodeURIComponent( /(?:^|&)filters=([^&]*)/.exec( query )[ 1 ] ) ).toBe( JSON.stringify( narrow.filters ) );
+		expect( /(?:^|&)search=x(?:&|$)/.test( query ) ).toBe( true );
 	} );
 } );
 

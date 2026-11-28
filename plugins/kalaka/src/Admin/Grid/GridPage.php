@@ -162,6 +162,7 @@ final class GridPage
             'columns' => $model->columns($view, $fields),
             // The stored counted members, so a grant holder's own counting starts from them.
             'counts' => (object) $model->counts($view, $fields),
+            'condition' => $model->condition($view, $fields),
         ], $held);
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read
         $asked = isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : null;

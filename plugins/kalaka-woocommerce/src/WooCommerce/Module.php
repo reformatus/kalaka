@@ -10,8 +10,10 @@ use Kalaka\Foundation\Api\Module\Contributions;
 final class Module extends AbstractModule
 {
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
-    public function __construct(private readonly AdminAccessGate $gate = new AdminAccessGate())
-    {
+    public function __construct(
+        private readonly AdminAccessGate $gate = new AdminAccessGate(),
+        private readonly LoginRedirects $login = new LoginRedirects(),
+    ) {
     }
 
     public function id(): string
@@ -40,5 +42,9 @@ final class Module extends AbstractModule
     {
         add_filter('woocommerce_prevent_admin_access', [$this->gate, 'prevent']);
         add_filter('woocommerce_disable_admin_bar', [$this->gate, 'keepAdminBar']);
+
+        // One login and one password screen: WordPress's own. After WooCommerce's handlers (priority 10).
+        $this->login->removeLostPasswordOverride();
+        add_action('template_redirect', [$this->login, 'redirect'], 20);
     }
 }
