@@ -474,7 +474,7 @@ describe( 'the note fields carry the participant-visible hint (topic 11, T36)', 
 		expect( hints() ).toBe( 2 );
 	} );
 
-	test( 'Indoklás of the Korrekció carries the hint and is optional', async () => {
+	test( 'Megjegyzés of the Korrekció carries the hint and is optional', async () => {
 		await render( MONEY_ONLY, 'correction' );
 		expect( noteHint( MONEY.reasonField ) ).toContain( MONEY.titleHint );
 		await pick( radios( MONEY.directionField )[ 0 ] );
