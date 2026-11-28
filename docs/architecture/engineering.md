@@ -20,6 +20,9 @@ title: Engineering
   10.3 database, and the hosting account switches to PHP 8.3; the version
   applies to all seven sites on the account, so they are checked first. IVK's
   host is not ours to choose, so its limits are fixed for now.
+- **What follows:** any SQL feature, PHP function or WordPress API newer than
+  these minimums needs a fallback or waits; the minimums move only when both
+  hosts can.
 - **SQLite (WordPress Playground) is never built for.** It is used only for
   Playground previews; anything that fails on SQLite is tested on MariaDB
   only. Known differences: SQLite stores `DECIMAL` as a float, lacks
@@ -92,13 +95,17 @@ title: Engineering
   totals, schemas). The admin screens use WordPress's admin components
   (DataViews, DataForm); admin tables read our own REST routes, which follow
   core's paging conventions, without core-data entities.
-- **A page that changes majorly is rendered in PHP:** the server renders
-  the page, and only its dynamic parts re-render in the browser (on a save,
-  for example). Existing pages are not reworked for this before launch.
-- **Admin actions are also WordPress abilities** (create a payment link,
-  award aid, apply money settings, admit from the waitlist, …):
-  schema-checked input, permission checks and REST access come from
-  WordPress. Admin table data stays on our own REST API.
+- **A page that changes majorly is rendered in PHP** (owner ruling
+  2026-11-26): the server renders the page, and only its dynamic parts
+  re-render in the browser (on a save, for example). Existing pages are not
+  reworked for this before launch. The event's mail page („Levelek”) was
+  rebuilt this way; the grid, its detail panel and the site's mail page
+  („Levelezés”) are React apps on our REST routes.
+- **Admin actions are also WordPress abilities** (record a payment, answer
+  a request, apply money settings, admit from the waitlist, send a manual
+  mail, …): schema-checked input, permission checks and REST access come from
+  WordPress. A screen and the command line call the same ability. Admin table
+  data stays on our own REST API.
 - **Block editor** for forms, field definitions and mail bodies; the
   **Interactivity API** for public forms. The one exception is the
   draft-claim popup: a `@wordpress/components` Modal, loaded only on a page
@@ -157,12 +164,12 @@ plugins/
     tests/js/             Jest
   kalaka-woocommerce/     an extension plugin, same shape
 VERSION                   the one version number
-bin/                      build, version check, Playground smoke, deptrac helper
+bin/                      build, version check, Playground smoke, deptrac helper, the site's chart
 dist/                     git-ignored: the built zips
 composer.json             development tools only
 package.json              development tools only
 phpstan.neon.dist, phpcs.xml.dist, deptrac.yaml   for all plugins
-docs/                     these pages (GitHub Pages)
+docs/                     these pages (kalaka.dev, built by GitHub Actions)
 internal/                 git-ignored: drafts, spikes, source material
 ```
 
@@ -222,35 +229,33 @@ src/Registrations/
     `render.php`, `edit.js`, `view.js`, laid out as `create-block` does).
 - Repositories are named `<Entity>Repository`.
 - Extension plugins have the same shape.
-- **Layers are not folders.** Today deptrac checks the boundary between
-  modules (a module uses another only through its `Api` namespace) and one
-  boundary inside a module: Forms' form engine (`Forms\Engine`) uses only
-  Foundation's `Api`, its own contract and WordPress. As use
-  cases and repositories appear, layers by interface, base class and name join
-  (use cases implement `UseCase`, repositories extend the repository base), so
-  it can then enforce, for example, that `Rest/`, `Cli/` and `Blocks/` never
-  touch repositories ([Static checks](#static-checks)).
+- **Layers are not folders.** deptrac checks the boundary between modules (a
+  module uses another only through its `Api` namespace), a few boundaries
+  inside modules (Forms' form engine uses only Foundation's `Api`, its own
+  contract, WordPress and brick/math), and layers by base class and name: use
+  cases implement `UseCase`, repositories and queries extend their bases, and
+  `Rest/`, `Cli/` and `Blocks/` reach only use cases and queries, never a
+  repository ([Static checks](#static-checks)).
 
 ### Builds
 
 - **PHP is buildless:** PSR-4 autoloading straight from `src/`. The PHP build
   only packages, and Strauss touches only bundled libraries.
 - **One JavaScript build command for everything:** `npm run build` runs one
-  `@wordpress/scripts` build per plugin that has JavaScript, core's first and
-  then each extension plugin's, chained, covering all JavaScript, including
+  `@wordpress/scripts` build per plugin that has JavaScript (core, then
+  `kalaka-ranking` and `kalaka-support`), covering all JavaScript, including
   the Interactivity API `view.js` files (built as script modules). There are
   no buildless modules alongside built scripts. During development
   `npm start` runs core's in watch mode, and an extension plugin has its own
-  watch script (`npm run start:ranking`).
+  watch script (`npm run start:ranking`, `npm run start:support`).
 - **Source maps** are part of the build and ship in the zip, so the shipped
   JavaScript stays readable.
 - **`@wordpress/scripts`** scans `src/` for `block.json` (with
   `--webpack-copy-php`); blocks are registered from `build/`. The root
-  `webpack.config.js` adds the two scripts no `block.json` names, the
-  admin app and the draft-claim popup.
-- **The admin app** lives in `src/Admin/app/`, with its own entry in a small
-  custom webpack config. If it grows large it can move to a top-level
-  `client/admin/`.
+  `webpack.config.js` adds the scripts no `block.json` names: the admin apps
+  and the draft-claim popup.
+- **The admin apps** live in `src/Admin/app/` (the grid, the mail pages).
+  If they grow large they can move to a top-level `client/admin/`.
 
 ## Code style
 
@@ -281,11 +286,9 @@ src/Registrations/
   that class, and a test refuses any file that silences the rule.
 - **Admin reads registration data only through the view query**
   ([Foundation](foundation.md#views-and-grants)). deptrac enforces it: Admin
-  and the admin-side entry points (`Rest/`, `Cli/`, `Blocks/`) may use
-  registration data only through the view-query class, and full-access code
-  paths are a named layer of their own. The rule joins when the view-query
-  class exists; until then PHPCS's direct-query rule keeps reads inside the
-  repositories and query classes, which run them through `Statements`.
+  and the admin-side entry points may use registration data only through the
+  view-query class, full-access code paths are a named layer of their own,
+  and a test checks that only the view query names a registration table.
 - **Error handling has one route each,** checked by unit tests that read the
   source with PHP's tokenizer:
   `register_rest_route` is called only inside the error boundary, every
@@ -306,7 +309,7 @@ src/Registrations/
 - **`tests/js`** holds the Jest tests of the JavaScript, run with jsdom
   (`npm run test:js`).
 - **Integration tests run on MariaDB 11.8 and 10.3,** with PHP 8.3 and the
-  latest PHP 8.x.
+  latest PHP 8.x (8.5 today).
 - **SQLite is only a smoke test:** Playground starts and loads the seed.
 - **Time** is controlled through a fixed clock
   ([Foundation](foundation.md#cross-cutting-rules)).
