@@ -78,8 +78,11 @@ final class MailPagesTest extends GrantTestCase
         self::assertSame([], $GLOBALS['submenu']);
     }
 
-    /** The configuration the page printed for the app. */
-    private function config(string $page): array
+    /**
+     * The configuration the page printed for its script: `window.kalakaMail` (the site page's app) or
+     * `window.kalakaMailPage` (the event page's dynamic parts).
+     */
+    private function config(string $page, string $global = 'kalakaMail'): array
     {
         $_GET['page'] = $page;
         MailPages::enqueue();
@@ -89,8 +92,9 @@ final class MailPagesTest extends GrantTestCase
         $inline = wp_scripts()->get_data('kalaka-admin-mail', 'before');
         self::assertIsArray($inline);
         $script = (string) end($inline);
-        self::assertStringStartsWith('window.kalakaMail = ', $script);
-        $config = json_decode(substr($script, strlen('window.kalakaMail = '), -1), true);
+        $prefix = 'window.' . $global . ' = ';
+        self::assertStringStartsWith($prefix, $script);
+        $config = json_decode(substr($script, strlen($prefix), -1), true);
         self::assertIsArray($config);
 
         return $config;
@@ -102,12 +106,12 @@ final class MailPagesTest extends GrantTestCase
         wp_set_current_user($this->admin->userId);
         Access::forget();
 
-        $config = $this->config(sprintf('kalaka-event-%d-mail', $event));
+        $config = $this->config(sprintf('kalaka-event-%d-mail', $event), 'kalakaMailPage');
 
-        self::assertSame('event', $config['kind']);
         self::assertSame($event, $config['event']);
-        self::assertSame('Nyári tábor', $config['eventName']);
         self::assertSame('/kalaka-admin/v1', $config['rest']);
+        self::assertSame([], $config['batches']);
+        self::assertStringContainsString('view=layout', $config['urls']['layout']);
     }
 
     public function testTheSitePageNamesTheEventsItCanLink(): void
