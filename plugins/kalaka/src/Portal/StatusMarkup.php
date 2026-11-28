@@ -313,6 +313,7 @@ final class StatusMarkup
 
             return $open . '<form method="get" action="' . esc_url($returnUrl . '#kalaka-withdraw-question') . '"'
                 . ' data-kalaka-withdraw="' . esc_attr($dialog === false ? '' : $dialog) . '">'
+                . self::ownQueryInputs($returnUrl)
                 . '<button type="submit" name="kalaka_withdraw" value="confirm"' . $class . $describedBy . '>'
                 . esc_html(self::WITHDRAW_BUTTON) . '</button></form>' . $error . '</div>';
         }
@@ -329,8 +330,31 @@ final class StatusMarkup
             . '<button type="submit" form="kalaka-withdraw-cancel"' . $class . '>' . esc_html(self::WITHDRAW_CANCEL)
             . '</button></div></form>'
             . '<form id="kalaka-withdraw-cancel" method="get" action="' . esc_url($returnUrl . '#kalaka-withdraw')
-            . '"></form>'
+            . '">' . self::ownQueryInputs($returnUrl) . '</form>'
             . $error . '</div>';
+    }
+
+    /**
+     * The page's own query args as hidden inputs of a GET form (a plain permalink is `?page_id=5`, and a browser
+     * replaces the action's query on a GET submit). Only the permalink's own args: never a secret link's token
+     * and never the confirm flag, which the form's own button sets.
+     */
+    private static function ownQueryInputs(string $url): string
+    {
+        $query = wp_parse_url($url, PHP_URL_QUERY);
+        if (!is_string($query) || $query === '') {
+            return '';
+        }
+        parse_str($query, $args);
+        $html = '';
+        foreach ($args as $name => $value) {
+            if (!is_string($value) || in_array((string) $name, ['kalaka_link', 'kalaka_withdraw'], true)) {
+                continue;
+            }
+            $html .= '<input type="hidden" name="' . esc_attr((string) $name) . '" value="' . esc_attr($value) . '">';
+        }
+
+        return $html;
     }
 
     private static function withdrawMoney(WithdrawOffer $offer): string

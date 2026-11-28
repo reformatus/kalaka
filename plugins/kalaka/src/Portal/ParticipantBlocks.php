@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Portal;
 
 use Kalaka\Events\Api\Events;
-use Kalaka\Forms\Api\ElementRole;
-use Kalaka\Forms\Api\FieldMarkup;
 use Kalaka\Forms\Api\FormCaching;
+use Kalaka\Forms\Api\ThemeStyle;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Money\Money;
@@ -163,11 +162,6 @@ final class ParticipantBlocks
         if ($canWithdraw) {
             self::enqueueDialog();
         }
-        $buttonClass = '';
-        $attribute = FieldMarkup::classAttribute(ElementRole::SubmitButton, 'wp-element-button');
-        if (preg_match('/class="([^"]*)"/', $attribute, $found) === 1) {
-            $buttonClass = html_entity_decode($found[1]);
-        }
         $returnUrl = get_permalink();
 
         return new WithdrawOffer(
@@ -175,8 +169,8 @@ final class ParticipantBlocks
             WithdrawRoute::url(),
             $returnUrl !== false ? $returnUrl : home_url('/'),
             $view->key->code,
-            $buttonClass,
-            null, // the adapter's error colour: `ThemeStyle::errorColor()` once #252 is on main (not in Forms\Api here)
+            ThemeStyle::buttonClass(),
+            ThemeStyle::errorColor(),
             $confirming,
             $view->withdrawRefusal,
             $paid,

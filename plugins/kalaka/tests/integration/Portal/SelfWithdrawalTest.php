@@ -517,6 +517,88 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertNull(self::line(null, null, null));
     }
 
+    /** Every refusal code the route can send back reads as its one text (N771, N1027, N1346). */
+    public function testEveryRefusalCodeReadsAsItsText(): void
+    {
+        $text = StatusMarkup::class . '::withdrawRefusalText';
+        self::assertSame(StatusMarkup::WITHDRAW_STALE, $text('kalaka_withdraw_stale'));
+        self::assertSame(StatusMarkup::WITHDRAW_STALE, $text('kalaka_withdraw_bad_nonce'));
+        self::assertSame(StatusMarkup::WITHDRAW_UNAVAILABLE, $text('kalaka_withdraw_unavailable'));
+        self::assertSame(StatusMarkup::WITHDRAW_UNAVAILABLE, $text('kalaka_status_act_refused'));
+        self::assertSame(StatusMarkup::WITHDRAW_VERSION_CONFLICT, $text('kalaka_version_conflict'));
+        self::assertSame(StatusMarkup::WITHDRAW_CLOSED, $text('kalaka_withdraw_closed'));
+        // Any other code, `kalaka_site_closed` included, is the generic text.
+        $generic = (new \Kalaka\Foundation\Api\Error\SystemFailure())->publicMessage();
+        self::assertSame($generic, $text('kalaka_system_failure'));
+        self::assertSame($generic, $text('kalaka_site_closed'));
+        self::assertSame($generic, $text('something_else'));
+    }
+
+    private function publishEvent(): void
+    {
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['state' => 'published'], ['id' => $this->event]);
+        \Kalaka\Foundation\ObjectCache::clear();
+        $this->closesAt(null);
+    }
+
+    /** A registered one whose preview gave nothing: T772 in the dialog, the page still offers the button (N1342). */
+    public function testAFailedPreviewOfARegisteredOneGivesTheNoMoneyTextInTheDialog(): void
+    {
+        $this->publishEvent();
+        $view = (new StatusRead())->of($this->key('00A0'));
+        self::assertNotNull($view);
+        $offer = new WithdrawOffer(true, 'x', 'https://example.org/', '00A0', previewFailed: true);
+        $markup = StatusMarkup::status($view, false, $offer);
+
+        self::assertStringContainsString('Jelentkezés lemondása', $markup);
+        self::assertSame(StatusMarkup::WITHDRAW_NO_MONEY, $this->dialogMoney($markup));
+    }
+
+    /** A waitlisted registration: the offer sits under its state box, and with nothing paid there is no money line. */
+    public function testAWaitlistedOnesOfferSitsUnderItsStateAndHasNoMoneyLine(): void
+    {
+        $this->publishEvent();
+        ActiveRegistrationState::set($this->key('00A5'), false);
+        $markup = ParticipantBlocks::status();
+        ActiveRegistrationState::set(null, false);
+
+        $state = strpos($markup, 'Várólistán vagy.');
+        $offer = strpos($markup, 'id="kalaka-withdraw"');
+        self::assertIsInt($state);
+        self::assertIsInt($offer);
+        self::assertGreaterThan($state, $offer);
+        self::assertStringContainsString('Jelentkezés lemondása', $markup);
+        self::assertSame('', $this->dialogMoney($markup));
+        self::assertStringNotContainsString(StatusMarkup::WITHDRAW_NOTHING_PAID, $markup);
+    }
+
+    /**
+     * C1: the GET forms (the start button and the no-script „Mégsem”) carry the page's own query as hidden inputs,
+     * so a plain permalink (`?page_id=5`) survives the submit; a secret link's token and the confirm flag never do.
+     */
+    public function testTheGetFormsCarryThePlainPermalinksOwnQuery(): void
+    {
+        $this->publishEvent();
+        $view = (new StatusRead())->of($this->key('00A0'));
+        self::assertNotNull($view);
+        $url = 'https://example.org/?page_id=5&kalaka_link=SECRET&kalaka_withdraw=confirm';
+
+        $start = StatusMarkup::status($view, false, new WithdrawOffer(true, 'x', $url, '00A0'));
+        self::assertStringContainsString('<input type="hidden" name="page_id" value="5">', $start);
+        self::assertStringNotContainsString('SECRET', $start);
+        self::assertStringNotContainsString('name="kalaka_link"', $start);
+
+        $confirm = StatusMarkup::status($view, false, new WithdrawOffer(true, 'x', $url, '00A0', confirming: true));
+        self::assertSame(1, preg_match('/<form id="kalaka-withdraw-cancel"[^>]*>(.*?)<\/form>/', $confirm, $cancel));
+        self::assertSame('<input type="hidden" name="page_id" value="5">', $cancel[1]);
+
+        // A pretty permalink has no query: nothing is added.
+        $plain = new WithdrawOffer(true, 'x', 'https://example.org/statusz/', '00A0');
+        $pretty = StatusMarkup::status($view, false, $plain);
+        self::assertStringNotContainsString('<input type="hidden" name="page_id"', $pretty);
+    }
+
     /** The money line the status block hands the Modal, from the data on the start form. */
     private function dialogMoney(string $markup): string
     {
