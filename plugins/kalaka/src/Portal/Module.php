@@ -8,10 +8,35 @@ use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
 final class Module extends AbstractModule
 {
+    /**
+     * The parked PWA scope: one row per registration and device, keyed by (event ID, code, endpoint hash),
+     * so a device subscribes once per registration. `endpoint` is the push service's URL, too long for a
+     * unique index, so `endpoint_hash` (the SHA-256 hex of it) is the key part; both are `utf8mb4_nopad_bin`,
+     * compared exactly. `key_p256dh` and `key_auth` are the subscription's keys: secret columns, which a
+     * repository over this table lists in `secretColumns()`, so the audit masks them like a registration's
+     * `secret`. `KEY endpoint_hash` serves the delete by a push service's rejection of one endpoint. No
+     * last-seen column: a dead subscription is found from that rejection. Nothing writes the table yet. A row
+     * is deleted on unsubscribe, on the registration's withdrawal and when the event ends.
+     */
+    private const PUSH_SUBSCRIPTIONS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_push_subscriptions (
+  event_id bigint(20) unsigned NOT NULL,
+  code varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  endpoint_hash varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  endpoint longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  key_p256dh varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  key_auth varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  created_at datetime(6) NOT NULL,
+  PRIMARY KEY  (event_id,code,endpoint_hash),
+  KEY endpoint_hash (endpoint_hash)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'portal';
@@ -20,6 +45,11 @@ final class Module extends AbstractModule
     public function requiresApi(): string
     {
         return '>=' . KALAKA_VERSION;
+    }
+
+    public function schema(): Schema
+    {
+        return new Schema(1, [self::PUSH_SUBSCRIPTIONS]);
     }
 
     public function boot(): void

@@ -17,26 +17,24 @@ final class PaymentFactsTest extends LedgerTestCase
         $registration = $this->registration();
         $stored = $this->record(
             $this->line($registration, LineKind::Charge, '48000', 'k1'),
-            $this->line($registration, LineKind::Adjustment, '-100', 'k2'),
             $this->line($registration, LineKind::ManualPayment, '-20000', 'k3', '2026-12-03'),
             $this->line($registration, LineKind::Payment, '-10000', 'k4', null, '2026-12-01 10:00:00'),
             $this->line($registration, LineKind::Refund, '500', 'k5', null, '2026-12-03 09:00:00'),
             $this->line($registration, LineKind::ManualRefund, '300', 'k6', '2026-12-02'),
-            $this->line($registration, LineKind::Transfer, '-700', 'k7', '2026-12-01'),
         );
 
         $facts = $this->ledger->paymentFactsOf($registration);
 
         self::assertSame(
-            [$stored[6]->id, $stored[3]->id, $stored[5]->id, $stored[2]->id, $stored[4]->id],
+            [$stored[2]->id, $stored[4]->id, $stored[1]->id, $stored[3]->id],
             array_map(static fn (PaymentFact $fact): int => $fact->id, $facts)
         );
         self::assertSame(
-            [LineKind::Transfer, LineKind::Payment, LineKind::ManualRefund, LineKind::ManualPayment, LineKind::Refund],
+            [LineKind::Payment, LineKind::ManualRefund, LineKind::ManualPayment, LineKind::Refund],
             array_map(static fn (PaymentFact $fact): LineKind => $fact->kind, $facts)
         );
         self::assertSame(
-            ['-700.00000000', '-10000.00000000', '300.00000000', '-20000.00000000', '500.00000000'],
+            ['-10000.00000000', '300.00000000', '-20000.00000000', '500.00000000'],
             array_map(static fn (PaymentFact $fact): string => $fact->amount->amount(), $facts)
         );
         self::assertSame(
@@ -44,7 +42,7 @@ final class PaymentFactsTest extends LedgerTestCase
             array_values(array_unique(array_map(static fn (PaymentFact $fact): string => $fact->payer, $facts)))
         );
 
-        $manual = $facts[3];
+        $manual = $facts[2];
         self::assertNotNull($manual->valueDate);
         self::assertSame('2026-12-02 23:00:00.000000', $manual->valueDate->format('Y-m-d H:i:s.u'));
         self::assertNull($manual->paidAt);
@@ -54,14 +52,14 @@ final class PaymentFactsTest extends LedgerTestCase
         );
         self::assertEquals($manual->valueDate, $manual->valueAt());
 
-        $online = $facts[1];
+        $online = $facts[0];
         self::assertNull($online->valueDate);
         self::assertNotNull($online->paidAt);
         self::assertSame('2026-12-01 10:00:00', $online->paidAt->format('Y-m-d H:i:s'));
         self::assertEquals($online->paidAt, $online->valueAt());
     }
 
-    /** #42 AC14: one line of every kind; the facts are every payment-fact kind and no charge or adjustment. */
+    /** #42 AC14: one line of every kind; the facts are every payment-fact kind and no charge. */
     public function testALineOfEveryPaymentFactKindAndNoOtherIsReturned(): void
     {
         $registration = $this->registration();
@@ -83,10 +81,9 @@ final class PaymentFactsTest extends LedgerTestCase
         );
         sort($expected);
 
-        self::assertSame(['manual_payment', 'manual_refund', 'payment', 'refund', 'transfer'], $expected);
+        self::assertSame(['manual_payment', 'manual_refund', 'payment', 'refund'], $expected);
         self::assertSame($expected, $kinds);
         self::assertNotContains(LineKind::Charge->value, $kinds);
-        self::assertNotContains(LineKind::Adjustment->value, $kinds);
     }
 
     public function testFactsOfTheSameInstantComeInTheOrderOfTheirIds(): void
