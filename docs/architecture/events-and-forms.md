@@ -7,80 +7,83 @@ title: Events and forms
 ## Events
 
 - **The event is the top-level unit.** A form belongs to exactly one event,
-  fixed when the form is created: a form is created from its event, and
-  changing the event is refused once the form has fields or submissions.
-  Opening a form therefore fixes the event. Seasons are grouped by
-  dates, labels and filters, not by a layer above events.
+  fixed when the form is created: changing the event is refused once the form
+  has fields or submissions. Seasons are grouped by dates, labels and
+  filters, not by a layer above events.
 - **Budgets and accounting are completely separate per event.** Linking
   events (e.g. REFISZ's two camps) is not part of the lifecycle.
-- **An event has one status-page slot,** a WordPress post ID, empty when
-  the event has none. The status-page app is parked; only the slot and the
-  per-device push subscriptions (event, registration, endpoint and keys)
-  exist. A subscription is deleted on unsubscribe, on the registration's
-  withdrawal and when the event ends.
+- **An event carries its own settings** for what its forms, mails and money
+  need: capacity, timeline points, the account mode, the payment-due days,
+  the bank-transfer texts, the mail layout, and each money plugin's settings.
+- **An event has one status-page slot,** a WordPress post ID, and a table for
+  per-device push subscriptions. The status-page app is parked; nothing reads
+  or writes either yet.
 
 ## Event lifecycle
 
 - **States are admin acts:** draft → published ⇄ unpublished → archived.
   - **Unpublished** pauses all of the event's public interfaces: forms, the
-    participant blocks, payments. It also stops the event's mail: no delivery is
-    sent, and the periodic run adds no scheduled or reminder deliveries for
-    it. Action mails are still queued, so none is forgotten.
-    The participant blocks are closed too, including "resend my link"; self-sent mails
-    requested before unpublishing stay queued. On republishing, the admin sees the pending count and can clear them.
-    This follows from a sound unpublish; the control stays separate from the global mail pause, which
-    only pauses sending ([Mail](mail.md#pausing)).
+    participant blocks, payments. It also stops the event's mail: no delivery
+    is sent, and the periodic run adds no scheduled or reminder deliveries for
+    it. Action mails are still queued, so none is forgotten. On republishing,
+    the admin sees the pending count and can clear them. The control stays
+    separate from the global mail pause, which only pauses sending
+    ([Mail](mail.md#pausing)).
   - **Archived** is read-only and starts the retention clock.
-- **Publishing needs a capacity.** It may be empty only while the event is a
-  draft. 0 is allowed, and then every counted registration is waitlisted.
-  There is no unlimited capacity.
+- **Publishing needs a name, the four core points and a capacity.** Capacity
+  may be empty only while the event is a draft. 0 is allowed, and then every
+  counted registration is waitlisted. There is no unlimited capacity.
 - **The "full" latch** is the other stored event state
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
 - **A failed load treats every event as unpublished** without changing the
   stored state ([Modules](modules-and-extensions.md#failure-isolation)).
 - **Timeline points:** core has **registration opens, registration closes,
-  start, end**; admins can add their own named points, which mails can use.
-  Points are **absolute instants only**: an admin enters a day and a time in
-the site time zone, and the point is stored in UTC. Points are never
-relative to each other (that would allow cycles). Registration is open from
-the "registration opens" instant up to, but not including, the
-"registration closes" instant.
+  start, end**; admins can add their own named points, which mails and forms
+  can use. Points are **absolute instants only**: an admin enters a day and a
+  time in the site time zone, and the point is stored in UTC. Points are never
+  relative to each other (that would allow cycles). Registration is open from
+  the "registration opens" instant up to, but not including, the
+  "registration closes" instant. A removed custom point's ID is never reused.
 - **"Open", "closed" and phases are derived** by comparing the current time
   with the points. They are never stored, and nothing fires at those moments.
   The same holds for every form's open period. Registration therefore opens
   and closes automatically at its points; to change that, an admin edits the
-points (which does not clear the "full" latch).
+  points (which does not clear the "full" latch).
 - **The participant phase tracker** (today's F1–F5) stays, as a modular
   subsystem in the Events module: core default phases, configurable,
   extensions add phases. Designed later ([Deferred](deferred.md)).
 - Today's reclassification is dropped; late fees replace it. Post-camp
   settlement is a deferred extension.
 
+**What follows:** nothing in Kaláka happens "at" a point. A rule that depends
+on time compares with the clock when it runs: a form at render and again at
+submit, a mail in the periodic run. Moving a point moves every rule that
+reads it at once.
+
 ## Date references
 
-Wherever a date can be set (mail schedules, an additional form's open
-period, fee rules, …) it can
-be:
+Wherever a date can be set (mail schedules, an additional form's open period,
+fee rules, …) it can be:
 
 - a fixed date;
 - an event point (core or custom);
-- a **date type** declared by core or an extension.
+- a **date type**, which may differ per registration.
 
-A date type **may differ per registration** (e.g. 14 days after
-registering). It is computed only from registration facts and absolute points, never from another derived date. Core declares
-**payment due**: N days, configured per event, after the later of the moment the registration last
-became `registered` and its last changed answer to a request, and none while a request awaits an answer
-([Money](money.md#core-money-scope)). Date types are an extension point that runs inside the
-transaction and takes one immutable input; the periodic run computes them
-in PHP for registrations in published events. If that ever becomes slow, the
-computed date is cached in a column on the registration.
+A date type is computed only from registration facts and absolute points,
+never from another derived date. Core declares **payment due**: N days,
+configured per event, after the later of the moment the registration last
+became `registered` and its last changed answer to a request, and none while
+a request awaits an answer ([Money](money.md#core-money-scope)). It is
+computed on every read, never stored; if that ever becomes slow, the computed
+date is cached in a column on the registration. Extension date types are
+foreseen as an inside point (not built yet,
+[Modules](modules-and-extensions.md#the-extension-surface)).
 
 **Deadlines are compared as instants.** A deadline set as a day ends at
-midnight in the site time zone at the end of that day. For a stored
-deadline that instant is fixed when it is stored, not when it is used, so a
-later change of the site time zone does not move it. A date type that is
-computed, such as payment due, is not stored: its day ends at midnight in
-the site time zone at the time of computing.
+midnight in the site time zone at the end of that day. For a stored deadline
+that instant is fixed when it is stored, so a later change of the site time
+zone does not move it. A computed date, such as payment due, is not stored:
+its day ends at midnight in the site time zone at the time of computing.
 
 ## Forms and the registration slot
 
@@ -100,104 +103,112 @@ flowchart TB
 - An event has a **registration slot** holding one or more **registration
   forms**, plus **additional forms** that write to an existing registration
   (e.g. a staff form, or a form holding only the module ranking). A form's
-  purpose follows from where it sits.
+  purpose follows from where it sits; otherwise all forms share the same
+  primitives.
 - **Every form has its own access requirements,** kept minimal: a password
   (WordPress's own post password) and a required WordPress role.
-- **When a form is open:**
-  - a registration form is open while the slot is: from "registration
-    opens" up to "registration closes". It has no period of its own;
-  - **each additional form has its own open period**, which a form link can
-    bypass ([below](#form-links-and-admin-submissions)).
-- **The slot adds one more rule:** every form in it must contain the
-  required fields and functionality (e.g. exactly one contact email, or the
-  field an extension requires, such as the price ladder's `price_tier`).
-  Otherwise all forms share the same primitives.
+- **When a form is open:** a registration form is open while the slot is,
+  from "registration opens" up to "registration closes", with no period of
+  its own. **Each additional form has its own open period,** each end a date
+  reference (an end not set does not limit it), which a form link can bypass
+  ([below](#form-links-and-admin-submissions)).
+- **The slot adds one more rule:** every form in it must hold the required
+  fields: exactly one contact email, one display name, the account block in
+  an event with accounts, and any field an extension requires (the price
+  ladder's `price_tier`), required and outside any condition. A form that
+  lacks one is closed until fixed.
 - **An additional form never creates a registration** and never counts
   toward capacity. It writes to the active registration
   ([Registrations](registrations-and-identity.md#access)) or to the one its
-  form link targets, and only a `registered` registration may submit it: a
-  waitlisted registration has no additional forms, and its link shows the
-  form closed, as for a withdrawn or removed one
-  ([Changing participant fields after submit](#changing-participant-fields-after-submit)).
+  form link targets, and **only a `registered` registration may submit it**
+  (owner ruling): a waitlisted, withdrawn or removed
+  registration's link shows the form closed.
 - **The event's capacity is the only capacity on registrations**
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
-  There are no registration categories and no per-form capacity. Options of
-  an assignment set have their own capacity, which limits only that choice.
+  There are no registration categories and no per-form capacity. Limited
+  choices (set options, price tiers, support offers) have their own pools,
+  which limit only that choice.
 - **Staff work as today:** they register through the normal registration form
   (taking a place), then fill in the staff form, an additional form whose
-  answers give the discount. Staff is not a core concept; it is built on
-  additional forms.
+  answers give the discount. Staff is not a core concept.
 - Workshops, modules, groups, rooms and meal turns are **assignment sets**
-  ([Modules](modules-and-extensions.md#assignment-sets)). A choice field in a
-  form writes a set's direct choice or a request. **Re-choosing later is an
-  additional form** holding that choice, in both access modes, open while
-  that form is; there is no separate portal edit.
-- **Form texts read amounts, quotas and deadlines from the event's settings,**
-  so they cannot drift from the rules
+  ([Modules](modules-and-extensions.md#assignment-sets)). **Re-choosing later
+  is an additional form** holding that choice, open while that form is;
+  there is no separate portal edit.
+- **Form texts read amounts, quotas, places left and deadlines from the
+  event's values,** so they cannot drift from the rules
   ([Values and conditions](#values-and-conditions)).
+
+**What follows:** a new "kind" of registration (staff, a helper, a child) is
+never a new form type: it is fields and conditions on the same forms, and an
+additional form for what comes later. Anything every registration must have
+is a slot requirement, checked when a form is saved live and when it is
+served.
 
 ## Prefill from a link
 
-- **Public prefill comes as a guest draft.** A request to a page that
-  places one registration form may carry answers as `kalaka[<field key>]`
-  (the quiz's POST body, or a static GET link). They are untrusted: each is
-  first cleaned by its field type's prefill rules, the rules a stored value
-  opens with, so its bad parts are dropped and the rest kept, and then
-  checked alone with its field's type. An unknown key, or an answer that
-  cleans to nothing or that the type does not accept, is dropped, silently.
-  What is left is kept as a guest
-  draft ([Submissions and values](registrations-and-identity.md#submissions-and-values))
-  under a claim token in a cookie, in every account mode, and the request is answered with a 303 to
-  the page without them. The answers wait in a guest draft and a cookie of their
-  own, never touching the draft the browser already holds; the page the 303
-  leads to settles them against it: they become the browser's draft, or, when
-  that draft holds a guest's typing the link would change, the guest chooses
-  (merge, keep the draft, keep the link; the
-  popup of [Submissions and values](registrations-and-identity.md#submissions-and-values)).
-  The form then opens with them, as editable values.
-  A link-only field never takes public prefill. Nothing of the request is
-  logged.
+- **Public prefill comes as a guest draft.** A request to a page that places
+  one registration form may carry answers as `kalaka[<field key>]` (the quiz's
+  POST body, or a static GET link). They are untrusted: each is cleaned by its
+  field type's prefill rules and checked alone with its type; an unknown key
+  or an answer that does not pass is dropped, silently. What is left is kept
+  as a guest draft
+  ([Submissions and values](registrations-and-identity.md#submissions-and-values))
+  under a claim token in a cookie, in every account mode, and the request is
+  answered with a 303 to the page without them. **Nothing of the request is
+  logged.**
+- **The handed-over answers never overwrite what the browser already holds.**
+  They wait in a guest draft of their own; the next page load settles them:
+  they become the browser's draft, or, when that draft holds the person's own
+  typing that the link would change, the person chooses: merge (the link's
+  answers win), keep the draft, or keep the link. The form then opens with
+  them, as editable values.
 - **Forms start from the active registration**
-  ([Registrations](registrations-and-identity.md#access)): an additional
-  form is prefilled from its current field values, as editable values; a
-  registration form may prefill from it too. A type may refuse prefill: its
-  field then opens empty, and left blank it keeps the current value
+  ([Registrations](registrations-and-identity.md#access)): an additional form
+  opens with its current field values, as editable values. A type may refuse
+  prefill: its field then opens empty, and left blank it keeps the current
+  value
   ([Changing participant fields after submit](#changing-participant-fields-after-submit)).
 - **A form link prefills from its record** (below): the server sets the
-  values, either locked or as editable prefilled values. Prefill from a
-  preset is separate ([Fields](#fields)).
+  values, either locked or as editable prefilled values. A link-only field
+  never takes public prefill. Not built yet.
+- **Prefill from a preset** is separate ([Fields](#fields)). Not built yet.
 - **Form links created from public pages** (e.g. "register for the other
   camp too") come from a portal or system use case with its own rate limit.
 
+**What follows:** anything that arrives in a link can be forged, so a
+prefilled answer is a suggestion, never an authority. What only staff or a
+partner may set must come from a form link's record, a staff write or an
+extension's own act.
+
 ## Form links and admin submissions
 
-**One form-link mechanism replaces the one-time invitation.**
+**One form-link mechanism replaces the one-time invitation.** None of it is
+built yet.
 
 - **A form link has:**
   - its form;
-  - optionally, a **target registration**: the registration an additional
+  - optionally, a **target registration**, the registration an additional
     form writes to. A registration is never identified by a typed reference
     code ([Registrations](registrations-and-identity.md#reference-codes));
   - the field values it sets, each either locked (read-only or hidden) or an
     editable prefilled value;
-  - uses: unlimited or at most N (a single-use link, max 1, is today's
-    invitation); a use is spent on a successful submit, not on opening;
+  - uses: unlimited or at most N (a single-use link is today's invitation); a
+    use is spent on a successful submit, not on opening;
   - bypasses, each off by default: the form's requirements, the slot's date
     range or an additional form's open period, the event's capacity and
-    "full" latch (an invitation has them all on, so the registration lands
-    as `registered`);
-  - an expiry, and revocation. Expired links are cleaned up.
+    "full" latch (an invitation has them all on, so the registration lands as
+    `registered`);
+  - an expiry, and revocation.
 - **Creation, revocation and use are audited.** The link a registration came
   through is stored on it as a fact.
-- **Link-only fields** can be set only by a link, never by the registrant. **Link-only options** are choice options shown only when a
-  link sets them (e.g. an invitation-only partner).
+- **Link-only fields** can be set only by a link, never by the registrant.
+  **Link-only options** are choice options shown only when a link sets them.
 - **Secret sections** are ordinary conditional sections whose condition reads
-  a link-only field. The server re-checks conditions at submit
-  ([Conditions](#conditions)).
+  a link-only field. The server re-checks conditions at submit.
 - **Tokens:** 128 random bits, never written into a log line by our own code
   ([Foundation](foundation.md#the-error-log)), masked in exports, sent with
-  no-referrer. Links are stored readable, single-use ones included, so admins
-  can always re-send them.
+  no-referrer. Links are stored readable, so admins can always re-send them.
 - **An association** (e.g. a partner church) is either chosen by the
   registrant from public options, or set and locked by a partner's link; the
   stored fact records which. A link-set association is not partner
@@ -212,247 +223,212 @@ flowchart TB
 ## Forms implementation
 
 - **Our own implementation on WordPress's building blocks; no form plugin.**
-- Forms are **block documents** (`kalaka_form` posts) built from our own
-  field blocks.
-- The public page uses WordPress's **Interactivity API**. The one exception
-  is the draft-claim popup: a `@wordpress/components` Modal, loaded only on
-  a page with a pending claim ([Engineering](engineering.md#wordpress-surfaces)).
-- **Accounts:** in the event's mandatory and optional account mode, every
-  registration form holds the account block, which the save check requires;
-  where it sits is the author's choice. Logged out, it says what an account
-  gives and has one button that opens WordPress's own login page in a window
-  of its own; that page links to the registration page. After the login the
-  window closes and the form shows the account in place, keeping what was
-  typed. In mandatory mode the block refuses moving past its page, like a
-  required field, and the send is refused without an account. In off mode,
-  and on additional forms, the block is not offered and renders nothing
-  ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
-  **Changing an event's account mode** is refused while a published
-  registration form of the event lacks the block, or while the event's
-  "registered" mail is off or its template lacks the set-password link
-  ([Mail](mail.md#content)), and the broken-forms list is refreshed after a
-  mode change (S72).
-- **Forms need JavaScript.** Without it the form stays as the server
-  rendered it for no answers and cannot be sent, and it shows a warning
-  (UI text approved when built). A multi-page form shows none of its pages
-  without it.
-- **Moving between pages:** Next checks the current page on the server
-  first; Back, and the browser's Back button, move to the previous page
-  that shows; there is no progress indicator.
-- **Answers stay in the browser while the page is open:** a hidden answer
-  is kept and only the answers of what shows are sent; a ticked option that
-  stops being offered is ticked again when it returns. A reload keeps the
-  answers, a guest's own typing and what a link or the quiz handed over in
-  their guest draft, a logged-in person's in their draft, which the
-  autosave keeps
-  ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
-- **While the server is asked** (a re-fetch, a page check, a submit) the
-  form is dimmed and its fields take no input; after 2 seconds a spinner in
-  the look of WordPress's own shows over it.
-- **One request in flight per form:** changes made while a request runs
-  coalesce into one follow-up with the latest answers. A click on Next or
-  Send during a request is queued, not lost; Back is ignored while the form
-  is busy. The autosave of a person's or a guest's draft is apart: it runs
-  beside these requests, never dims the form, and sends nothing once a send
-  has started.
-- **The server validates against the same form definition:** only declared
-  fields that show are accepted, and a hidden field only with a value from a
-  link or a prefill.
-- **Each submission stores the form and its version**
-  ([Registrations](registrations-and-identity.md#submissions-and-values)).
-- **Stable field keys**; pickers for conditions come later
-  ([Deferred](deferred.md#design-decisions)).
-- **The block editor is the form builder.** Organizers build and edit forms
-  in it directly, with Kaláka's field and condition blocks; there is no
-  separate visual builder. Its experience must be good: no polish, but the
-  basics work.
+  Forms are **block documents** (`kalaka_form` posts) built from our own field
+  blocks. **The block editor is the form builder;** there is no separate
+  visual builder. Its experience must be good: no polish, but the basics
+  work. Forms are edited by full access only.
 - **Placing a form:** an **embed block** for block-editor pages, and a
   `[kalaka_form id="…"]` **shortcode** for page builders that cannot hold
   blocks, such as Divi 4's Builder. Both use the same renderer. A form is
-  never edited from the page builder.
-- **Multi-page forms** (Google Forms style): a form has no pages (one
-  page) or all its content in **page blocks** at the top level, each with
-  an optional title, an optional condition (none on the first page) and an
-  optional **terminal** mark. A page's condition reads earlier pages and
-  the event's values; a page that does not show is skipped both ways and
-  its answers are dropped like those of a hidden branch. Unlike a branch,
-  a page is never withheld: every page is sent hidden, whatever its
-  condition reads, and shown when it holds. Next checks the
-  current page on the server first (the re-fetch with the page); Back needs
-  no request. A terminal page holds no fields and has a condition: it shows
-  its content and cannot be sent, and the server refuses a submit while one
-  shows. The contact email and the display name never sit on a conditional
-  page. A reload keeps the answers, a guest's in their guest draft and a
-  logged-in person's in their draft
+  never edited from the page builder. A page that places a form is never
+  cached.
+- **The public page uses WordPress's Interactivity API,** and forms need
+  JavaScript: without it the form cannot be sent and shows a warning. The one
+  React part is the draft-claim popup, a `@wordpress/components` Modal loaded
+  only on a page with a pending claim
+  ([Engineering](engineering.md#wordpress-surfaces)).
+- **Forms are rendered by the server; the page's script holds no
+  condition.** The script keeps every answer while the page is open, sends
+  only the answers of what shows, and asks the server whenever the outcome of
+  a held condition may change ([Conditions](#conditions)). One request is in
+  flight per form: changes made meanwhile coalesce into one follow-up, and a
+  click on Next or Send is queued, not lost.
+- **The server validates against the same form definition** the page was
+  built from: only declared fields that show are accepted, and only the
+  form's latest version.
+- **A published form never goes from working to broken through an edit.** A
+  live save runs the full definition check and refuses a broken form; a form
+  broken some other way (an extension turned off, a clashing key) stays
+  closed and is named in a site warning
+  ([Foundation](foundation.md#site-warnings)). A scheduled form is checked
+  again when WordPress publishes it.
+- **Each submission stores the form and its version,** a revision ID;
+  revisions of forms are never pruned, and a form that submissions refer to
+  is never deleted permanently, so a submission always resolves to the
+  definition it was checked against
+  ([Registrations](registrations-and-identity.md#submissions-and-values)).
+- **Accounts:** in the event's mandatory and optional account mode, every
+  registration form holds the account block; where it sits is the author's
+  choice. Logged out, it says what an account gives and opens WordPress's own
+  login page in a window of its own; after the login the window closes and
+  the form shows the account in place, keeping what was typed. In mandatory
+  mode the send is refused without an account. In off mode, and on additional
+  forms, the block renders nothing
+  ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
+  **Changing an event's account mode** to one with accounts is refused while a
+  published registration form lacks the block, or while the event's
+  "registered" mail is off or lacks the set-password link
+  ([Mail](mail.md#configuration)).
+- **Multi-page forms** (Google Forms style): a form has no pages or all its
+  content in top-level **page blocks**, each with an optional title, an
+  optional condition (none on the first page) and an optional **terminal**
+  mark. A page's condition reads earlier pages and the event's values; a page
+  that does not show is skipped both ways and its answers are dropped. Unlike
+  a branch, a page is never withheld: every page is sent hidden and shown
+  when it holds. Next checks the current page on the server; Back needs no
+  request. A terminal page holds no fields, shows its content and cannot be
+  sent past. The contact email and the display name never sit on a
+  conditional page. There is no progress indicator.
+- **Answers survive a reload:** a guest's in their guest draft, a logged-in
+  person's in their draft, which the autosave keeps
   ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **After a successful submit** the form is replaced by its **after-submit
-  section**, part of the form document and edited with it (the thank-you
-  message): one block per form, at the top level outside any branch or
-  page, holding no fields. It
-  never shows in the form; it is rendered at submit with the event's values
-  and the new registration's reference code and status, and its conditions
-  read only those. Without it, a short default text per status shows.
+  section** (the thank-you message), part of the form document: one block at
+  the top level, holding no fields, rendered at submit with the event's
+  values and the new registration's reference code and status, which its
+  conditions read. Without it, a short default text per status shows.
 - **Required fields** show a bold asterisk after the field's title, in the
   error colour. The form's look follows the site's theme
   ([Engineering](engineering.md#wordpress-surfaces)).
-- **Spam protection:** the submit route counts every attempt per client, a
-  logged-in person by account and a guest by address, and refuses the
-  attempt over the limit in a short window with its own code and a
-  `Retry-After` time. It runs before the submit, outside any use case, so
-  the count is WordPress-owned data (a transient), never our tables; it
-  stores no address, only a keyed hash per window that expires with it. The
-  address is the request's own unless the site names its reverse proxies.
-  Account creation is guarded by a CAPTCHA plugin on WordPress's
-  registration page, which Kaláka never bypasses.
-- Still to build within forms: file upload
-  ([Deferred](deferred.md)).
+- **Spam protection:** the submit route counts every attempt per client (a
+  logged-in person by account, a guest by address) and refuses the attempt
+  over the limit in a short window with a `Retry-After` time. It runs before
+  the submit, outside any use case, so the count is WordPress-owned data (a
+  transient), never our tables; **it stores no address,** only a keyed hash
+  per window that expires with it. The address is the request's own unless
+  the site names its reverse proxies. Account creation is guarded by a
+  CAPTCHA plugin on WordPress's registration page, which Kaláka never
+  bypasses.
+- **Stable field keys;** pickers for conditions come later (conditions are
+  written as JSON until then, [Deferred](deferred.md#design-decisions)).
+- Still to build within forms: file upload ([Deferred](deferred.md)).
 
 ## Fields
 
 | Concept | What it is |
 |---|---|
 | **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, its type's settings, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
-| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, number, choice, scale, …) |
-| **Field definition** | Optional organization configuration in its own post type (`kalaka_field`), edited in the block editor and limited to one field block. Holds the complete field including its settings, with no override layer. Created by a single switch on a form field |
-| **Form field** | A block in a form that asks for one participant field, standalone or copied from a definition (keeping the definition's ID and version) |
+| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, number, choice, consent, …) |
+| **Field definition** | Optional organization configuration in its own post type (`kalaka_field`), edited in the block editor and limited to one field block. Holds the complete field including its settings, with no override layer. Not built yet |
+| **Form field** | A block in a form that asks for one participant field |
 
 - **Words.** A **submission** is what one submit sends, kept frozen; an
   **answer** is one field's entry in it; a **field value** is a participant
   field's current value for one registration
   ([Registrations](registrations-and-identity.md#submissions-and-values)).
-  A field definition is not a participant field.
 - **Each event has one list of participant fields,** stored as a table, not
-  derived from the forms. Each field records its **source**:
-  - **form:** created by a form field; most fields are;
-  - **staff:** a column admins add that no participant fills in; staff
-    write it through views, and it may also appear in an additional form;
-  - **extension:** written only by an extension's own use case, e.g. the
-    award of adjudicated aid ([Money](money.md#core-money-scope)), or by the
-    request source that core's answer act calls, unless the extension
-    declares the field form-writable (off by default); only then may a form
-    hold its key, and only then may staff correct it through views. A form
+  derived from the forms. Each field records its **source**, which decides
+  who may write it:
+  - **form:** created by a form field; most fields are. Forms write it, and
+    staff may correct it;
+  - **staff:** a column admins add that no participant fills in; staff write
+    it through views, and it may also appear in an additional form;
+  - **extension:** declared by an extension's code (the price tier, an extra
+    charge, the donation, a share or support answer, aid) and written only by
+    that code, unless the extension declares the field form-writable; only
+    then may a form hold its key, and only then may staff correct it. A form
     that joins an extension's choice field offers only options the extension
     declared, any subset of them, and never adds one;
   - **system:** a read-only field that only **declares** a system decision
-    (e.g. confirmation) so that mails, views and conditions can name it. The
-    decision record stays the source of truth
-    ([Foundation](foundation.md#facts-decisions-and-computed-values)); no
-    field value is ever written for it, so nothing can shadow the decision.
-    A registration's own state (its status, whether it awaits an answer) is
-    no such field: it is a `registration.*` fact of the fact source.
-- **A participant field's title and option labels are its own,** separate
-  from the labels the forms show. Each is set when it is first declared (an
-  option is matched by its value) and is never overwritten by a form's label,
-  including a form that joins the field. It changes only on an explicit
-  request: the form editor asks the organizer whether to carry a changed
-  label over, or staff edit it in the field list (`form` and `staff` fields;
-  a `system` or `extension` field's texts are its declarer's). A form shows
-  its own labels, and shows the participant field's only where it leaves a
-  label empty (for an `extension` field, the declarer's text, which is the
-  admin name); mails, views and the participant blocks show the participant
-  field's.
-- **Designing a form designs participant fields.** A new form field creates
-  a new participant field. A form field joins an existing participant field
-  only explicitly, by taking its key (below); several forms writing one
-  field is never accidental.
-- **A field that no form holds any more stays in the list, retired.** Its
-  values stay, and its key is never given to another field.
-- **Definition, its copies in forms and its data are three separate things.**
-  Changing a definition never changes forms automatically: admins are offered
-  an update per form (a new form version), and registration data is never
-  touched.
-- **A definition never changes its type.** Presets store values in the type's
-  shape; a different type means a new definition.
-- **Prefill from a preset:** only fields linked to a definition are
-  prefilled, because presets store values by definition ID. A copy edited after it was taken
-  still prefills whenever the preset value is valid for the field's current
-  settings (e.g. a removed choice option is not); otherwise it stays empty.
-  How prefill looks is approved with the UI. Prefill from a link is
-  separate ([Prefill from a link](#prefill-from-a-link)).
-- **Types may refuse** to be definitions and may refuse prefill.
-- **Hidden fields** hold values the registrant does not see, such as an
-  attribution key. They get their values from the form link record or from a
-  public prefill ([Prefill from a link](#prefill-from-a-link)), never from the
-  registrant's typing; a prefilled one can be forged, so it is attribution
-  only.
-- Extensions add field types, e.g. the congregation picker
-  ([Money](money.md#sponsor-and-church-support)) and the module ranking.
+    (e.g. confirmation) so that mails, views and conditions can name it. No
+    field value is ever written for it
+    ([Foundation](foundation.md#facts-decisions-and-computed-values)). A
+    registration's own state (its status, whether it awaits an answer) is no
+    such field: it is a `registration.*` fact.
+- **Designing a form designs participant fields.** A new form field creates a
+  new participant field. A form field joins an existing one only explicitly,
+  by taking its key; **several forms writing one field is never
+  accidental.** The editor asks when a pasted block carries a key the event
+  already has, and never joins silently.
 - **Keys and option values come from the visible text.** A field's key is
   derived from its title and a choice option's value from its label: no
   diacritics, snake_case, and `_1`, `_2`, … on a collision. A derived key is
-  **unique across the event's participant fields, retired ones included,**
-  so a key is never reused; an option value is unique within its field.
-  Both are set when the field or option is created and stay the same when
-  the text is renamed later, so stored data keeps its meaning. The editor
-  hides them unless asked.
-- **A typed key may match on purpose.** A form field given the key of an
-  existing participant field is that same field: its answers write the same
-  field value. Its field type must be the same; saving a form that gives a
-  key another type is refused. A typed key that matches a **retired**
-  participant field revives that same field, with its key and its values,
-  when the type is the same; with another type the save is refused.
-  Derivation never picks a retired key. A choice field's options are the union over
-  the forms that hold it; an option no form offers any more is retired,
-  keeping its label, so stored values still read. An extension field's
-  options are its declarer's, not the forms' union.
+  **unique across the event's participant fields, retired ones included,** so
+  a key is never reused. Both are set when created and **never change when the
+  text is renamed,** so stored data keeps its meaning.
+- **A typed key may match on purpose:** a form field given an existing key is
+  that same field, and its type must be the same; another type is refused on
+  save. A typed key that matches a retired field revives it, with its values.
+  A choice field's options are the union over the forms that hold it; an
+  option no form offers any more is retired, keeping its label, so stored
+  values still read.
+- **A participant field's title and option labels are its own,** separate
+  from the labels forms show. Each is set when first declared and is never
+  overwritten by a form's label; it changes only on an explicit request (the
+  form editor asks whether to carry a changed label over, or staff rename it
+  in the field list). A form shows its own labels, and the participant field's
+  only where it leaves a label empty; mails, views and the participant blocks
+  show the participant field's.
+- **A field that no form holds any more stays in the list, retired.** Its
+  values stay, and its key is never given to another field. No field is ever
+  deleted.
 - **Who defines a participant field.** A field that only holds data is
-  created by the form field that first asks for it. A field that code acts
-  on (the price tier, an extra charge, the donation, a share or support
-  answer) is defined by that code, which declares it with its key and type
-  when its setting is saved (`extension` source); a form field joins it by
-  taking its key and never creates it. The field with that key is what the
-  code reads; a declared key no form field holds does nothing. When a form
-  field already holds the key, with the same type, the declaration adopts
-  it: the field becomes an `extension` field with the declarer's title (the
-  participant field's own; every form keeps its own labels), and its values
-  stay. A key a `staff` or `system` field holds, or a field of
-  another type, refuses the declaration. A key another code declarer holds
-  is refused.
-- **Explicit markings:** the contact email (exactly one per form in the
-  registration slot) and the display name. They stay on the registration
-  form's blocks and do not move to the participant-field list.
-- **An additional form holds neither explicit marking;** the save refuses it,
-  as the slot's rule does. A "change my e-mail" form waits for its own design.
-- **Money-relevance is a type capability** supplied by plugins, or declared
-  by an extension for a field it declares; core ships no money field types.
-  Values are stored like any other, **locked after their
-  first write by default** (an organizer can unlock per field), and changed
-  only through use cases that re-materialize the money; a staff correction
-  through views is one and needs no unlock.
+  created by the form field that first asks for it. **A field that code acts
+  on is defined by that code** (`extension` source), declared with its key
+  and type when its setting is saved; a form field joins it by key and never
+  creates it. A declared key no form holds does nothing. When a form field
+  already holds the key with the same type, the declaration adopts it, with
+  its values. A key a staff or system field holds, a field of another type,
+  or a key another declarer holds refuses the declaration.
+- **Explicit markings:** the contact email (exactly one per registration
+  form) and the display name stay on the registration form's blocks. An
+  additional form holds neither; a "change my e-mail" form waits for its own
+  design.
+- **Money-relevance is a field's capability,** supplied by a plugin's field
+  type or declared by an extension for a field it declares; core ships no
+  money field types. **A money-relevant value is locked after its first
+  write** (an organizer can unlock per field): an additional form may set it
+  once, and a later overwrite is refused. A staff correction through views is
+  allowed and re-materializes the money.
+- **Hidden fields** hold values the registrant does not see, such as an
+  attribution key, from a form link's record or a public prefill, never from
+  the registrant's typing; a prefilled one can be forged, so it is
+  attribution only.
+- **Field definitions** (not built yet): changing a definition never changes
+  forms automatically (admins are offered an update per form) and never
+  touches registration data; a definition never changes its type; **prefill
+  from a preset** works only for fields linked to a definition, because
+  presets store values by definition ID, and only when the stored value is
+  valid for the field's current settings. Types may refuse to be definitions
+  and may refuse prefill.
+- Extensions add field types, e.g. the congregation picker
+  ([Money](money.md#sponsor-and-church-support)) and the module ranking.
+
+**What follows:** renaming a question on a form is free and changes no
+data. Reusing a key is a deliberate join and must keep the type. Money and
+rules always read the event's participant field, so a form can never change
+what a price, a condition or a mail means, only whether it asks.
 
 ### Changing participant fields after submit
 
-**A participant changes field values by submitting an additional form**
-that holds those fields, e.g. a form holding only the module ranking. There
-is no other participant-side edit.
+**A participant changes field values by submitting an additional form** that
+holds those fields, e.g. a form holding only the module ranking. There is no
+other participant-side edit.
 
 - **Every submit appends a submission;** earlier submissions stay as they
   are. The latest write wins in the field values, and each change is
   audited.
 - **Only fields the form shows are written,** plus hidden fields that get a
   value from its form link or a public prefill. Fields the form does not hold,
-  and fields in branches or pages that do not show, keep their values. A
-  shown field that was prefilled and is left blank clears its value: the
+  and fields in branches or pages that do not show, keep their values. **A
+  shown field that was prefilled and is left blank clears its value:** the
   form showed the current value, so blank is the answer. A shown consent left
-  unticked is not blank but the answer no, stored as `0`: withdrawing a consent
-  given earlier overwrites it and never clears it. A field whose type
-  refuses prefill opens empty, so left blank it keeps the current value:
-  the form never showed it.
+  unticked is the answer no, stored as `0`. A field whose type refuses
+  prefill opens empty, so left blank it keeps the current value.
+- **An additional form may take and free seats** of limited choices, under
+  the one seat rule
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)); a full
+  pool refuses it as it does the registration form.
 - **An additional form's submit sends no action mail;** the page shows the
-  form's after-submit text, or the supplement's default when it has none
-  ([Forms implementation](#forms-implementation)).
-- **The form opens with the current values** of the registration, as
-  editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
+  form's after-submit text.
 - **Locked fields, money-relevant ones by default:** the first write is
-  allowed (e.g. the staff form setting staff status); an overwrite is
-  refused unless an organizer unlocked the field; a staff correction through
-  views needs no unlock.
-- **Staff fields may appear in an additional form.**
+  allowed (e.g. the staff form setting staff status); an overwrite is refused
+  unless an organizer unlocked the field.
 - **Admins can correct a form or staff field at any time, and an extension
-  field only when it is form-writable,** through views. An admin
-  edit and a later participant submit are both writes: the last one wins
-  and both are audited. To freeze a field, an admin closes the form's open
-  period and revokes the form's links that bypass it.
+  field only when it is form-writable,** through views. An admin edit and a
+  later participant submit are both writes: the last one wins and both are
+  audited. To freeze a field, an admin closes the form's open period and
+  revokes the form's links that bypass it.
 - A resubmit never re-decides "not counted"
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
 
@@ -462,158 +438,103 @@ is no other participant-side edit.
 
 - **Each document kind declares its context,** and a saved placeholder must
   name one of that context's keys:
-  - mail: the recipient, the registration and its event's values
-    (`event.*`);
-  - a participant block: the active registration
+  - **mail:** the recipient, the registration and its event's values
+    (`event.*`), and the mail's own keys ([Mail](mail.md#content));
+  - **a participant block:** the active registration
     ([Registrations](registrations-and-identity.md#access));
-  - form, for conditions: the answers of earlier fields and the event's
-    values (`event.*`), plus the current field values of the registration it
-    writes to for participant fields the form does not hold (e.g. a staff
-    form branching on the camp chosen at registration). Fields the form holds
-    are always read from its answers. Event values are also rendered at page
-    load. A registration form's conditions may also read whether someone is
-    logged in (`account.logged_in`, „Bejelentkezve”): yes or no where the
-    form has an account step, and none where it has none (the event's off
-    account mode, an additional form), never no there.
-    An additional form's conditions also read its registration's facts
-    (`registration.*`, such as `registration.status`). Every form's conditions
-    read the places the event has left (`event.seats_left`), the places left
-    of a set option, price tier or support offer
-    (`seats_left.<field key>.<option value>`; no value means unlimited, and
-    a removed one reads 0) and the event's own points
-    (`event.points.<id>`). Whatever decides what a form shows is such a
-    value; the backend keeps no rule of its own on who sees what.
-- **Whole attributes** use Block Bindings with one source, `kalaka/value`,
-  with a `key` argument.
-- **Placeholders** are typed by hand as `{{key}}` in the text, and also inside
-  attributes such as a button's link URL. A save is refused while a
-  placeholder names a key its document kind's context does not declare
-  (`kalaka_unknown_placeholder`, 422, the keys as typed); `{{content}}` is
-  known only in a mail's layout. The server replaces a placeholder using the
-  HTML API: a known key with no value gives an empty text, text is escaped,
-  and a URL attribute takes the URL fitting that attribute. A key that cannot
-  be resolved when the document renders fails that act (a mail is failed,
-  never sent with the raw placeholder; a page fails to render altogether,
-  N1150). A page fills only the placeholders inside Kaláka blocks; a `{{` in
-  ordinary text is left alone (N1180). An ordinary post or page is checked
-  only when its save is, or makes it, live (`publish` or `future`), against the
-  keys an after-submit section fills with: the event's values (`event.*`),
-  `registration.code` and `registration.status`, and no other key of the
-  active registration; a draft, pending or private one is saved as it is. A
-  form page fills every block of its content but the after-submit section,
-  which fills with those same keys; the definition check refuses a key the
-  part it sits in cannot fill, at the save and in every other read of the
-  current version (`DefinitionParser`, N1182). A value's text is never read
-  for placeholders. The older `<span data-kalaka-value="key">Label</span>` keeps
-  rendering as the basis of a future editor, but no editor inserts it.
+  - **a form, for conditions:** the answers of earlier fields and the event's
+    values, plus, for an additional form, its registration's facts
+    (`registration.*`) and the current values of participant fields the form
+    does not hold (e.g. a staff form branching on the camp chosen at
+    registration). A registration form may read whether someone is logged in
+    (`account.logged_in`), which is none where the form has no account step.
+    Every form may read the places left: the event's (`event.seats_left`) and
+    each limited choice's (`seats_left.<field key>.<option value>`; no value
+    means unlimited, a removed pool reads 0), and the event's own points.
+    **Whatever decides what a form shows is such a value;** the backend keeps
+    no rule of its own on who sees what.
+- **Placeholders** are typed by hand as `{{key}}` in the text, and inside
+  attributes such as a link URL; whole attributes may also use Block Bindings
+  with the one source `kalaka/value`. **A save is refused while a placeholder
+  names a key its context does not declare.** The server replaces them with
+  WordPress's HTML API: a known key with no value gives an empty text, text is
+  escaped, and a URL attribute takes a fitting URL. **A key that cannot be
+  resolved when the document renders fails that act:** a mail is failed,
+  never sent with the raw placeholder; a page fails to render. A value's text
+  is never read for placeholders. On ordinary posts and pages, only Kaláka
+  blocks are filled, and they are checked when the page goes live.
 - **Storage** is plain block markup in `post_content`. A friendlier editor
-  later changes only the UI.
-- **WordPress 7.0 was checked on 2026-10-31:** no core way to bind part of a
-  text was found, since bindings replace whole attributes. Re-check at
-  implementation, and use a core mechanism if one exists.
+  later changes only the UI. (WordPress 7.0 had no core way to bind part of a
+  text when checked on 2026-10-31; re-check, and use a core mechanism if one
+  appears.)
+
+**What follows:** a new value a form, mail or block can show is a new key in
+a declared context, never text assembled in a template. Removing a key that
+saved documents use makes them fail loudly, not render blank.
 
 ### Conditions
 
 - **Container blocks** `kalaka/if`, `kalaka/else-if` and `kalaka/else` hold
   the branches, using the one condition format below.
-- **The server renders them** in mails and participant blocks.
 - **One availability base.** Whatever is shown or selectable is decided by
-  one condition in this format, through one evaluator in PHP that reads a
-  **fact source**: form fields and branches, pages and sections, and a
-  choice field's options (the options a ranking takes from an assignment set
-  included). Set options, price tiers, support offers, extra charges and aid
-  carry no condition of their own: the form decides what is shown and
-  offered, and the server re-walks the form at submit. In a form it reads
-  the draft answers and the event's values, on every render and again at
-  submit; the fee components and the materializer read the registration's
-  facts and evaluate no condition. The evaluator never runs the materializer
-  on a draft. The backend keeps only the hard rules: seats, windows and
-  locked fields. Computed facts such as free seats
-  are put into the fact source by the caller; a congregation answer carries
-  its ancestors in its own value, a snapshot of its path.
-- **Forms are rendered by the server; the page's script holds no
-  condition.** A branch whose conditions read only the form's own answers
-  is sent hidden and shown when it holds for the current answers; so is one
-  that reads whether someone is logged in, which a login from the form's
-  account block changes in place. A branch whose condition reads anything
-  else (an event value, a link-only or other
-  held fact) is sent only when it holds, so a browser never receives a
-  branch it does not qualify for; when its outcome changes, the page
-  re-fetches it. At submit the server walks the form the same way and keeps
-  only answers of fields that show, including only the options that are
-  offered; whatever the browser still holds for a hidden field is dropped.
+  one condition in this format, through **one evaluator in PHP** that reads a
+  **fact source**: form fields and branches, pages and sections, and a choice
+  field's options (the options a ranking takes from an assignment set
+  included). **Set options, price tiers, support offers, extra charges and
+  aid carry no condition of their own:** the form decides what is shown and
+  offered, and the server re-walks the form at submit. The backend keeps only
+  the hard rules: seats, windows and locked fields.
+- **The evaluator is pure:** no database, hook, current user, request or
+  clock. Whoever evaluates fills the fact source, "now" included; the
+  evaluator never runs the materializer on a draft. JavaScript never
+  evaluates a condition (the editor only checks one against the server's
+  rules to show problems).
+- **What the browser receives.** A branch whose conditions read only the
+  form's own answers (or whether someone is logged in) is sent hidden and
+  shown when it holds. **A branch whose condition reads anything else** (an
+  event value, places left, a registration fact, the time) **is sent only
+  when it holds,** so a browser never receives a branch it does not qualify
+  for; when its outcome may change, the page re-fetches it.
+- **The submit judges.** At submit the server walks the form the same way,
+  with values as they are then (the time, the places left, the registration's
+  status), and keeps only answers of fields that show and options that are
+  offered. Mid-form availability is advisory; places are taken only under the
+  lock, by the rules that own them.
 - **An unanswered field reads as empty; no chain waits.** An unanswered
-  choice, required or optional, reads as empty like an empty text, so the
-  branch for "empty" (often `else`) shows until an answer is given. A
-  consent is different: one that shows and is left unticked is answered
-  "no" and stores `0`, so it is not empty; a consent that never showed
-  stores nothing. Validation follows what shows: at submit a required
-  choice left unanswered has its own required error, and the fields of the
-  branch shown at that moment (an `else`, say) are checked like any shown
-  field. A registration form's submit and an
-  additional form's submit both walk the form this way, so a required field
-  that shows and is left blank refuses the submit with the general answer
-  error.
-- **Mid-form availability is advisory.** Seats and capacity are decided only
-  at submit, under the lock; the texts say so (approved when built).
-- **The submit judges values that change.** The time, the places left, a
-  registration's status can change between the page and
-  the submit. The submit's walk reads them as they are then: a field that now shows is checked
-  like any shown field, and an answer that no longer shows or is no longer
-  offered is dropped. An additional form's submit reads the registration's
-  stored values and facts once for its walk and reads them again under the
-  registration lock; if they differ, the walk is run again. Places are still
-  taken only under the lock, by the rules that own them.
+  choice reads as empty like an empty text, so the branch for "empty" (often
+  `else`) shows until an answer is given. Validation follows what shows: a
+  required field that shows and is left blank refuses the submit.
 
 **The condition format:**
 
 - **Operators:** equals, less than, less or equal, greater than, greater or
-  equal, contains, empty.
-- **A "not" switch** on each condition, instead of separate negated
-  operators.
-- **A missing value is unknown, never false.** A comparison on a value that
-  was never answered (or against a date reference to a missing date) is
-  neither true nor false but unknown; only `empty` reads a missing value.
-  `not` leaves unknown unknown, so "not equals X" does not include someone
-  who never answered; a condition that should include them is "empty or not
-  equals X". Groups follow the same three values: `all` with an unknown item
-  and no false is unknown, `any` with a true is true, and `not` on a group
-  leaves unknown unknown. A condition that is unknown counts as not matched.
+  equal, contains, empty, with a **"not" switch** on each condition instead
+  of negated operators.
+- **A missing value is unknown, never false.** A comparison on a value never
+  answered is neither true nor false; only `empty` reads a missing value, and
+  `not` leaves unknown unknown, so "not equals X" does not include someone who
+  never answered ("empty or not equals X" does). Groups follow the same three
+  values, and unknown counts as not matched.
 - **Typed comparison:** values compare as number, date, datetime, text or
-  choice. A date is a calendar day; a datetime is an instant. Two datetimes
-  compare as instants; a date against a date or a datetime compares on the
-  day (a datetime gives the site-time-zone day it falls on, never midnight),
-  so a day-only value keeps its whole-day meaning against `now`. The
-  registration's opening and closing (`event.registration_opens`,
-  `event.registration_closes`) are datetimes, the event's start and end
-  (`event.start`, `event.end`) dates. A choice that is a path (the
-  congregation field) is only asked whether it contains a node, never
+  choice. Two datetimes compare as instants; a date against a datetime
+  compares on the site-time-zone day. The registration's opening and closing
+  are datetimes, the event's start and end dates. A choice that is a path
+  (the congregation field) is only asked whether it contains a node, never
   whether it equals one.
-- **A date or datetime can be compared with a date reference:** another date
-  or datetime key of the fact source moved by whole years and days, e.g. the
-  event's start minus 16 years for "under 16 at the event's start". A day
-  the moved month does not have becomes its last day (29 February to 28
-  February), so the age rule holds for an event starting on 29 February. A
-  datetime moves its wall time in the site's time zone.
-- **A datetime can be a literal:** `YYYY-MM-DDTHH:MM:SS` with the site's
-  offset in force on that day (`Z` or `+HH:MM`), e.g.
-  `2026-12-01T18:00:00+01:00`; a date key or a datetime key takes it or a
-  plain day. The instant is fixed when stored. Against a date, a literal's
-  day is its date part as written. The editor and the server check it by the
-  same rules.
-- **A date reference can be "now":** the clock's time, to the second, in the
-  site's time zone (a datetime), moved by whole years and days like any date
-  reference (e.g. "now + 0 days"); no hours or minutes. While a form is
-  filled in it is the render time (the page render and every re-fetch), at
-  submit the submit time, and after submit (mails, participant blocks,
-  views) the clock time of the read that renders them (the runner's
-  `Clock`); the evaluator reads it from the fact source like any value,
-  never from a clock of its own. As a date reference it is only
-  `{"ref": "now"}`, never the key `time.now`; that key is read only as the left side of a comparison, a datetime
-  (e.g. `time.now` before `2026-12-01T18:00:00+01:00`: "show this until then"). A branch that reads it is held server-side like one that
-  reads an event value, and the page re-fetches it with the form's other
-  re-fetches; the submit is the judge.
+- **A date reference** is another date key moved by whole years and days
+  (e.g. the event's start minus 16 years for "under 16 at the start"; 29
+  February moves to 28 February), a datetime literal in the site's offset, or
+  **"now"**, the clock's time (at render while filling in, at submit for the
+  submit, and at read time for mails and blocks), moved by whole years and
+  days.
 - **Combining:** all / any; a condition can be a group, one level deep.
-- **Extension conditions** can be used alongside comparisons.
+- **Extension conditions** alongside comparisons are foreseen (not built
+  yet).
 - Examples: status equals waitlisted; balance greater than 0; a multi-choice
   answer contains X; date of birth less or equal to a date.
+
+**What follows:** who may pick a tier, an offer or a module is authored on the
+form, so two forms of one event may offer different choices, and fixing a
+wrong offer is a form edit, not a money setting. A rule that must never be
+broken by a forged post (a seat, a window, a locked field) must be a backend
+rule, not only a condition.
