@@ -95,10 +95,10 @@ reached; the grant defines who holds the view.**
     users screen, REST or WP-CLI; plain code can still delete the user, which
     is logged, and re-activation restores a holder. On multisite, super admins
     pass every check.
-- **Actions that are not a column** (withdraw, remove, admit, record payment,
-  refund, notes, audit history) are carried by the grant,
-  not by WordPress roles. An action is usable only on registrations inside
-  the filter of the same grant's view. Modules declare the actions they
+- **Actions that are not a column** (withdraw, remove, admit, record money,
+  view money, notes, audit history) are carried by the grant, not by
+  WordPress roles. An action is usable only on registrations inside the
+  filter of the same grant's view. Modules declare the actions they
   offer ([Modules](modules-and-extensions.md#the-module-interface)). A grant
   lists its actions one by one; there are no default bundles yet.
 - **A grant holds a use case only by name:** the use case names an action

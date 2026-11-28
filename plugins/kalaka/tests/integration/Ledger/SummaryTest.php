@@ -17,7 +17,7 @@ final class SummaryTest extends LedgerTestCase
         $other = $this->registration('00A0');
         $this->record(
             $this->line($key, LineKind::Charge, '48000', 'a'),
-            $this->line($key, LineKind::Adjustment, '-10000', 'b', sourceType: 'adjustment'),
+            $this->line($key, LineKind::Charge, '-10000', 'b', sourceType: 'waiver'),
             $this->fitted($key, LineKind::ManualPayment, '-20000', 'c'),
             $this->fitted($key, LineKind::ManualRefund, '500', 'd'),
             $this->line($key, LineKind::Charge, '12000', 'e', payer: 'congregation'),
@@ -43,7 +43,7 @@ final class SummaryTest extends LedgerTestCase
                 $summary->chargeLinesOf(Payer::PARTICIPANT)
             )
         );
-        self::assertSame('adjustment', $summary->chargeLinesOf(Payer::PARTICIPANT)[1]->source->type);
+        self::assertSame('waiver', $summary->chargeLinesOf(Payer::PARTICIPANT)[1]->source->type);
         $congregation = $summary->of('congregation', Currency::HUF);
         self::assertSame('12000.00000000', $congregation->balance->amount());
     }

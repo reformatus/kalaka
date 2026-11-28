@@ -254,7 +254,7 @@ final readonly class ViewShape
                 throw new InvalidInput();
             }
             $column = $term['column'];
-            if ($column === 'code' || $column === 'serial') {
+            if (in_array($column, ['code', 'serial', 'registered_at', 'submitted_at'], true)) {
                 throw new InvalidInput();
             }
 
@@ -402,7 +402,7 @@ final readonly class ViewShape
 
     private static function validColumn(string $column): bool
     {
-        if (in_array($column, ['code', 'status', 'serial'], true)) {
+        if (in_array($column, ['code', 'status', 'serial', 'registered_at', 'submitted_at'], true)) {
             return true;
         }
         if (str_starts_with($column, 'field:')) {

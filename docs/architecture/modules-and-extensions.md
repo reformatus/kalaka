@@ -75,7 +75,7 @@ flowchart LR
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, seats, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
 | Extras | extra charges and the donation: generic per-event charges, each declaring the participant field with its key for forms to join, and the donation, the number field with the key `adomany`, declared by the same save |
-| Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
+| Ledger | lines, payers, balances, organizer-recorded payments, refunds and corrections, manual charges and discounts |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
 | Portal | the active registration (by secret link or account), the participant blocks admins place on any page, the account area |

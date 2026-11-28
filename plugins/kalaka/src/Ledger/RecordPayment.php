@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Ledger;
+
+use Kalaka\Ledger\Api\Ledger;
+use Kalaka\Ledger\Api\LineKind;
+
+/**
+ * Records one manual payment (money.md, "Recording payments by hand"): a negative `manual_payment` line with
+ * the method and the value date, and the optional bank reference or payer note as its note. Carried by the
+ * per-event action `kalaka_record_money` inside its grant's view, or full access. Returns the line's `id`.
+ */
+final class RecordPayment extends RecordManualEntry
+{
+    public static function name(): string
+    {
+        return 'kalaka/record-payment';
+    }
+
+    public function action(): string
+    {
+        return Ledger::RECORD_MONEY;
+    }
+
+    protected function kind(array $input): LineKind
+    {
+        return LineKind::ManualPayment;
+    }
+}

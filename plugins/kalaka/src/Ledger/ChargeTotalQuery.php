@@ -16,7 +16,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 final class ChargeTotalQuery extends Query
 {
     /**
-     * One statement over the registration's `charge` lines; `adjustment` lines never count.
+     * One statement over the registration's `charge` lines.
      *
      * @return list<ChargeTotal> ordered by source, then payer
      */
