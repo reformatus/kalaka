@@ -261,7 +261,8 @@ final class ViewQuery extends Query
      * One registration as the views that hold it show it, the union of their columns. The views must be the
      * ones `Access::holding()` found to hold it (or the master view of full access): this read does not
      * check the filter again. Null when the event has no such registration. The times of `registered_at` and
-     * the first submission are shown to the master view only, as no column lists them.
+     * the first submission are shown only where a held view lists the column (`registered_at`, `submitted_at`),
+     * and always to full access.
      *
      * @param non-empty-list<HeldView> $views
      */

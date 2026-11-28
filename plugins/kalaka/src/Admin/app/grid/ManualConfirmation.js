@@ -4,7 +4,7 @@
  * why, the button that sets it (with `can.confirm_manually`, while it is not set) and the one „Visszaigazolás
  * visszavonása” (with `can.unconfirm`, on any confirmed registration). The flag itself is read under the money
  * gate, so a user who may confirm but not see money gets the row without the line: setting is idempotent (the
- * unconfirm is not, see `api.js`). The line „Indoklás: …” is left out when the reason is empty. The buttons are the
+ * unconfirm is not, see `api.js`). The line „Megjegyzés: …” is left out when the reason is empty. The buttons are the
  * confirmation row's children, under the state, not a block of their own.
  * The disabled unconfirm's reason is visible text under the button, tied to it by `aria-describedby`, not a
  * tooltip: a touch screen cannot open a tooltip on a disabled button ([UNAPPROVED N1263], [UNAPPROVED N71
