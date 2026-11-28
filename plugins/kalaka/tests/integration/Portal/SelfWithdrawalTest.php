@@ -586,7 +586,9 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
         $start = StatusMarkup::status($view, false, new WithdrawOffer(true, 'x', $url, '00A0'));
         self::assertStringContainsString('<input type="hidden" name="page_id" value="5">', $start);
-        self::assertStringNotContainsString('SECRET', $start);
+        // No hidden input carries the token. (The form's own address is the page's, which on a real page never holds
+        // it: the link handler drops it with a 302 first.)
+        self::assertDoesNotMatchRegularExpression('/<input[^>]*value="SECRET"/', $start);
         self::assertStringNotContainsString('name="kalaka_link"', $start);
 
         $confirm = StatusMarkup::status($view, false, new WithdrawOffer(true, 'x', $url, '00A0', confirming: true));
