@@ -5,7 +5,7 @@
  *
  * A column that can count offers its counting menu from the number itself (owner, 2026-11-27): the number is
  * the trigger, there is no down arrow, and a column that can count but has nothing counted yet shows a grey
- * placeholder with a dotted underline. Columns that cannot count keep a plain value. [UNAPPROVED N1046]
+ * placeholder with a dotted underline. Columns that cannot count keep a plain value.
  */
 import { createPortal, useLayoutEffect, useState } from '@wordpress/element';
 import { sumParts } from './format';

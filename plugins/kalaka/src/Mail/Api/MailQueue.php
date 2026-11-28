@@ -44,37 +44,59 @@ final class MailQueue
         MailKind $kind,
         Subject $cause,
     ): bool {
+        $inserted = $this->addAll($context, [$registration], $mail, $kind, $cause);
+
+        return $inserted > 0;
+    }
+
+    /**
+     * `add()` for several registrations of one mail and cause, with one nudge after the commit instead of
+     * one per delivery (a manual mail's send batch).
+     *
+     * @param list<RegistrationKey> $registrations
+     * @return int how many deliveries were inserted; those whose key was already queued are not counted
+     * @throws SystemFailure on a mail key or cause that is a programming error
+     */
+    public function addAll(
+        Context $context,
+        array $registrations,
+        string $mail,
+        MailKind $kind,
+        Subject $cause,
+    ): int {
         if (preg_match(self::MAIL_PATTERN, $mail) !== 1 || strlen($mail) > 64) {
             $reason = new \InvalidArgumentException('A mail key is [a-z][a-z0-9_]*, at most 64.');
             $error = new SystemFailure(null, $reason);
             throw $error;
         }
-        if ($cause->eventId !== null && $cause->eventId !== $registration->eventId) {
-            $reason = new \LogicException('The cause of a delivery belongs to another event.');
-            $error = new SystemFailure(null, $reason);
-            throw $error;
+        $inserted = 0;
+        foreach ($registrations as $registration) {
+            if ($cause->eventId !== null && $cause->eventId !== $registration->eventId) {
+                $reason = new \LogicException('The cause of a delivery belongs to another event.');
+                $error = new SystemFailure(null, $reason);
+                throw $error;
+            }
+            $delivery = new Delivery(
+                $registration,
+                $mail,
+                $cause->type,
+                $cause->key,
+                $kind,
+                DeliveryStatus::Pending,
+                $context->now()
+            );
+            if ($this->deliveries->queue($delivery, $context) !== null) {
+                ++$inserted;
+            }
+        }
+        if ($inserted > 0) {
+            $at = $context->now();
+            $context->afterCommit(static function () use ($at): void {
+                self::nudge($at);
+            });
         }
 
-        $delivery = new Delivery(
-            $registration,
-            $mail,
-            $cause->type,
-            $cause->key,
-            $kind,
-            DeliveryStatus::Pending,
-            $context->now()
-        );
-        $stored = $this->deliveries->queue($delivery, $context);
-        if ($stored === null) {
-            return false;
-        }
-
-        $at = $context->now();
-        $context->afterCommit(static function () use ($at): void {
-            self::nudge($at);
-        });
-
-        return true;
+        return $inserted;
     }
 
     /**

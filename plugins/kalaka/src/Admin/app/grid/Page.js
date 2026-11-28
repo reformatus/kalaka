@@ -38,7 +38,7 @@ import { GRID, PANEL, SUM } from './texts';
 
 /**
  * The default order: Kód ascending, when the view lists Kód (the ordering time, then the code); a view without
- * it has no sort at all, and only clearing the other sorts gives it the default order. [UNAPPROVED N60]
+ * it has no sort at all, and only clearing the other sorts gives it the default order.
  */
 const defaultSort = ( tab ) =>
 	tab.columns.some( ( c ) => c.column === 'code' ) ? { field: 'code', direction: 'asc' } : undefined;
@@ -77,7 +77,7 @@ export default function Page( { config } ) {
 	const [ notices, setNotices ] = useState( [] );
 	const [ host, setHost ] = useState( null );
 	// The counting picks since the tab was opened: the viewer's own, for the session, and for full access too.
-	// Never saved; reset on a tab switch, like the sort and the filters (topic 6a G1, B1). [UNAPPROVED N61]
+	// Never saved; reset on a tab switch, like the sort and the filters (topic 6a G1, B1).
 	const picks = useRef( null );
 	if ( ! picks.current ) {
 		picks.current = createPicks();
@@ -129,7 +129,6 @@ export default function Page( { config } ) {
 	// The one reset: the search, the added filters (the locked condition stays), the sort (back to the default
 	// order) and the viewer's own counting, and back to page 1. DataViews' own „Visszaállítás” clears only the
 	// search and the filters, so it is hidden (grid.css) and this button, labelled the same, takes its place.
-	// [UNAPPROVED N7]
 	const resetAll = () => {
 		setView( {
 			...v,
@@ -361,7 +360,7 @@ export default function Page( { config } ) {
 	}, [ tab, narrowKey, opener ] );
 
 	// The copy result is a snackbar, not text beside the button: a success goes away by itself, an error stays
-	// until it is dismissed. [UNAPPROVED N62]
+	// until it is dismissed.
 	const timers = useRef( [] );
 	useEffect(
 		() => () => {
@@ -448,7 +447,7 @@ export default function Page( { config } ) {
 		// Filters or a search that match nothing say so.
 		empty = <p className="kg-no-match">{ GRID.noMatch }</p>;
 	} else {
-		// A view with no registrations at all. [UNAPPROVED N10]
+		// A view with no registrations at all.
 		empty = <p className="kg-no-match">{ GRID.emptyView }</p>;
 	}
 	const copyButton = (
@@ -514,7 +513,7 @@ export default function Page( { config } ) {
 				>
 					<div className="kg-bulkbar" role="toolbar" aria-label={ GRID.toolbar }>
 						<DataViews.Search />
-						{ /* DataViews' own add-filter: the funnel opens its menu while no filter is shown. [UNAPPROVED N63] */ }
+						{ /* DataViews' own add-filter: the funnel opens its menu while no filter is shown. */ }
 						<DataViews.FiltersToggle />
 						<DataViews.FiltersToggled className="kg-filters" />
 						{ canReset && (

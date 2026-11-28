@@ -32,6 +32,12 @@ final class FieldValueRepository extends EntityRepository
         );
     }
 
+    /** @return list<FieldValue> the event's rows of one field, in one statement */
+    public function ofField(int $eventId, string $fieldKey): array
+    {
+        return $this->findWhere('event_id = %d AND field_key = %s', [$eventId, self::checked($fieldKey)]);
+    }
+
     protected function table(): string
     {
         return 'kalaka_field_values';
