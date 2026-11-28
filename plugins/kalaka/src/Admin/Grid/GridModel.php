@@ -496,9 +496,9 @@ final class GridModel
             // A core-derived yes/no column: shown, filtered and counted as a consent field is
             // (stored '1' / '0'), but with three values: no value is N/A (the registration is not `registered`),
             // shown as `na` („–”), different from „Nem”; there is no „Nincs válasz” and no N/A filter option.
-            // The label is a placeholder: the column's title is UX's. [UNAPPROVED N690, T1120]
+            // The title is Texts::AWAITS_ANSWER. [UNAPPROVED N690, T1120]
             return $meta + [
-                'label' => $column,
+                'label' => Texts::AWAITS_ANSWER,
                 'type' => 'consent',
                 'options' => ['1' => Texts::YES, '0' => Texts::NO],
                 'na' => Texts::NOT_APPLICABLE,
