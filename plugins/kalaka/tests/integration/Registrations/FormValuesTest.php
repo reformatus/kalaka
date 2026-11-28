@@ -34,6 +34,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationNotActive;
 use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Tests\Integration\Foundation\TestClock;
@@ -176,7 +177,7 @@ final class FormValuesTest extends FormsTestCase
 
     private function facts(int $formId): \Kalaka\Forms\Api\ValueContext
     {
-        $facts = $this->host()->facts($this->formOf($formId), $this->runner->clock()->now());
+        $facts = $this->host()->facts($this->formOf($formId), $this->clock->now());
         self::assertNotNull($facts);
 
         return $facts;
@@ -201,11 +202,45 @@ final class FormValuesTest extends FormsTestCase
         $this->register(['name' => 'Teszt Béla', 'email' => 'teszt.bela@example.org', 'szint' => 'kezdo']);
         self::assertSame('0', $this->facts($form)->get('event.seats_left')->data);
 
-        // A waitlisted registration takes no place and the latch keeps it at 0 after a cancellation.
+        // A waitlisted registration takes no place.
+        $this->setStatus('waitlisted');
+        self::assertSame('1', $this->facts($form)->get('event.seats_left')->data);
+        // Neither does a withdrawn one, and the latch keeps it at 0 after a cancellation.
         $this->setStatus('withdrawn');
         self::assertSame('1', $this->facts($form)->get('event.seats_left')->data);
         $this->markFull($this->event);
         self::assertSame('0', $this->facts($form)->get('event.seats_left')->data);
+    }
+
+    public function testSeatsLeftIsTheOneSeatRule(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+        $seats = new Seats();
+        $pool = $seats->eventPool($this->event);
+
+        self::assertSame(1, $seats->left($pool));
+        self::assertSame((string) $seats->left($pool), $this->facts($form)->get('event.seats_left')->data);
+
+        // The latch, not the count, reads 0 while the event is full.
+        $this->markFull($this->event);
+        self::assertSame(0, $seats->left($pool));
+        self::assertSame('0', $this->facts($form)->get('event.seats_left')->data);
+
+        // No limit: the seat rule reads null, and the form has no value.
+        $unlimited = $this->create('Korlátlan');
+        $event = $this->events->find($unlimited);
+        self::assertNotNull($event);
+        self::assertNull($seats->left($seats->eventPool($unlimited)));
+        $facts = $this->host()->factsFor(
+            new Form(1, $unlimited, FormPlacement::Registration, null, false, 1),
+            $event,
+            null,
+            $this->clock->now(),
+            null,
+            null
+        );
+        self::assertTrue($facts->get('event.seats_left')->isEmpty());
+        self::assertSame(ValueType::Number, $facts->get('event.seats_left')->type);
     }
 
     public function testAnEventWithoutACapacityReadsAsEmptyAndAnyPoolDoesNotShowUp(): void
@@ -242,7 +277,7 @@ final class FormValuesTest extends FormsTestCase
 
         $check = function (int $formId) use ($host): void {
             $form = $this->formOf($formId);
-            $facts = $host->facts($form, $this->runner->clock()->now());
+            $facts = $host->facts($form, $this->clock->now());
             self::assertNotNull($facts);
             foreach (array_keys($host->factTypes($form)) as $key) {
                 self::assertTrue($facts->has((string) $key), 'No value for ' . $key);
@@ -562,7 +597,7 @@ final class FormValuesTest extends FormsTestCase
         $definition = $this->forms->definition($this->readForm($form));
         $gone = $this->host()->goneTypes($this->readForm($form), ['event.points.' . $id, 'event.points.x']);
         self::assertSame(['event.points.' . $id => ValueType::Date], $gone);
-        $facts = $this->host()->facts($this->readForm($form), $this->runner->clock()->now());
+        $facts = $this->host()->facts($this->readForm($form), $this->clock->now());
         self::assertNotNull($facts);
         self::assertTrue($facts->get('event.points.' . $id)->isEmpty());
         self::assertCount(1, $definition->chains);
@@ -964,7 +999,9 @@ final class FormValuesTest extends FormsTestCase
             null
         );
 
-        self::assertSame('2026-12-05', $facts->get(Facts::NOW)->data);
+        // `time.now` is an instant (a datetime in the site's time zone): its day is the given moment's, not the
+        // clock's (2026-11-30).
+        self::assertSame('2026-12-05', substr((string) $facts->get(Facts::NOW)->data, 0, 10));
     }
 
     public function testAnAdditionalFormReadsEveryRegistrationKeyTheOneBuilderDeclaresAndNotTheCode(): void

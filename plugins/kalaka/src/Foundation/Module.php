@@ -21,6 +21,7 @@ use Kalaka\Foundation\Periodic\PeriodicRun;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
 use Kalaka\Foundation\Periodic\TimeRules;
 use Kalaka\Foundation\Seed\Seed;
+use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\Materializer;
 
 final class Module extends AbstractModule
@@ -109,6 +110,25 @@ CREATE TABLE {prefix}kalaka_evaluation_failures (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * foundation.md, "An act's retry key": one row per used key of a staff act; the unique key makes the
+     * key one registration's.
+     */
+    private const ACT_KEYS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_act_keys (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  event_id bigint(20) unsigned NOT NULL,
+  code varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  act varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  idempotency_key varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  input_hash char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  result longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  created_at datetime(6) NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY registration_key (event_id,code,idempotency_key)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'foundation';
@@ -121,7 +141,13 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(3, [self::AUDIT_ENTRIES, self::AUDIT_SUBJECTS, self::DECISIONS, self::EVALUATION_FAILURES]);
+        return new Schema(4, [
+            self::AUDIT_ENTRIES,
+            self::AUDIT_SUBJECTS,
+            self::DECISIONS,
+            self::EVALUATION_FAILURES,
+            self::ACT_KEYS,
+        ]);
     }
 
     /**
@@ -152,9 +178,14 @@ SQL;
     {
         $clock = new WordPressClock();
         $binlog = new BinlogCheck();
+        // Core's decision rules, added here as the materializer is built: confirmation, which reads every
+        // payer's target through the materializer's own composition. Extensions get the decision point with
+        // the first extension rule (the late fee). [UNAPPROVED N4]
+        $money = new Materializer();
         $rules = new DecisionRules();
+        $rules->add(new ConfirmationRule($money->composition()), core: true);
         DecisionRules::publish($rules);
-        $evaluation = new Evaluation($rules, money: new Materializer());
+        $evaluation = new Evaluation($rules, money: $money);
         $runner = new Runner($clock, evaluation: $evaluation, binlog: $binlog);
         Runner::publish($runner);
 

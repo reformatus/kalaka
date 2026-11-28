@@ -12,8 +12,11 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\AccountStep;
 use Kalaka\Forms\Api\AfterSubmit;
+use Kalaka\Forms\Api\AnswerSet;
+use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
+use Kalaka\Forms\Api\FormDraft;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
@@ -24,13 +27,22 @@ use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Engine\Condition\ConditionKeys;
 use Kalaka\Forms\Engine\FormPosts;
+use Kalaka\Forms\Engine\SubmitGuard;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
+use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
+use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Portal\Api\ActiveRegistration;
+use Kalaka\Registrations\Api\DraftClaim;
+use Kalaka\Registrations\Api\DraftClaimRefused;
+use Kalaka\Registrations\Api\DraftClaimOutcome;
+use Kalaka\Registrations\Api\Drafts;
 use Kalaka\Registrations\Api\PoolEntry;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -64,10 +76,12 @@ final class EventFormHost implements FormHost
     public function __construct(
         private readonly Events $events = new Events(),
         private readonly ?RegistrationSubmit $registrationSubmit = null,
+        private readonly Drafts $drafts = new Drafts(),
         private readonly AssignmentSets $sets = new AssignmentSets(),
+        private readonly SubmitGuard $guard = new SubmitGuard(),
+        private readonly Seats $seats = new Seats(),
         private ?Registrations $registrations = null,
         private readonly ?\Closure $active = null,
-        private ?Seats $seats = null,
     ) {
     }
 
@@ -78,12 +92,6 @@ final class EventFormHost implements FormHost
     private function registrations(): Registrations
     {
         return $this->registrations ??= new Registrations();
-    }
-
-    /** Built on first use, like `registrations()`. */
-    private function seats(): Seats
-    {
-        return $this->seats ??= new Seats();
     }
 
     /**
@@ -124,7 +132,7 @@ final class EventFormHost implements FormHost
                 continue;
             }
             if (
-                preg_match('/\Aevent\.points\.[0-9]+\z/', $key) === 1
+                EventValues::isPointKey($key)
                 && !isset(EventValues::volatileTypes($event)[$key])
             ) {
                 $gone[$key] = ValueType::Date;
@@ -212,7 +220,7 @@ final class EventFormHost implements FormHost
      */
     private function poolValues(Event $event, bool $eventFull): array
     {
-        $seats = $this->seats();
+        $seats = $this->seats;
         $values = [];
         foreach ($this->poolEntries($event) as $key => $entry) {
             if ($eventFull) {
@@ -249,7 +257,8 @@ final class EventFormHost implements FormHost
 
     /**
      * The values of `factTypes()` on a form's page and re-fetch: the active registration's facts and field values
-     * for an additional form, as they are now.
+     * for an additional form, as they are now, and the event's keys read at the moment the caller gives
+     * (one clock per act: the page, the re-fetch and the submit's walk keep it alike).
      */
     public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
@@ -272,6 +281,11 @@ final class EventFormHost implements FormHost
      * (`Registrations::factsOf()`); with no registration (null) it reads them as none, never fails. The places
      * left are read now, unlocked: the submit's lock decides them again.
      *
+     * The caller gives the moment the facts are read at (the page and re-fetch the act's
+     * moment, a submit's walk the same one before its transaction), so one moment is used for all the facts of a
+     * read, and the page, the re-fetch and the submit's walk keep it alike: `time.now` and the event's dates read
+     * it.
+     *
      * @param RegistrationFacts|null $registration the registration's facts (an additional form)
      */
     public function factsFor(
@@ -282,7 +296,7 @@ final class EventFormHost implements FormHost
         ?RegistrationFacts $registration
     ): ValueContext {
         // The event's places left, read once for `event.seats_left` and for the registration form's pools below.
-        $eventLeft = $this->seats()->left($this->seats()->eventPool($event->id));
+        $eventLeft = $this->seats->left($this->seats->eventPool($event->id));
         $values = $this->goneValues($form) + EventValues::form($event, $loggedIn, $now)
             + EventValues::volatile($event, $eventLeft)
             + $this->poolValues($event, $form->placement === FormPlacement::Registration && $eventLeft === 0);
@@ -346,7 +360,7 @@ final class EventFormHost implements FormHost
      */
     public static function maySubmit(?RegistrationStatus $status): bool
     {
-        return $status === RegistrationStatus::Registered;
+        return $status?->isLive() === true;
     }
 
     /**
@@ -409,8 +423,8 @@ final class EventFormHost implements FormHost
     /**
      * What a form opens with: on a form with an account step, the logged-in account's address in the contact email
      * field (it stays editable; the page and the re-fetch's block fill it only while the field is empty, never over
-     * an answer typed). An additional form opens with its registration's current field values (S60). A draft (S74)
-     * comes here.
+     * an answer typed). An additional form opens with its registration's current field values (S60). The person's
+     * draft is `draft()`, laid over these.
      */
     public function prefill(Form $form): array
     {
@@ -438,6 +452,162 @@ final class EventFormHost implements FormHost
         }
 
         return null;
+    }
+
+    /**
+     * A registration form's draft (S74): the logged-in person's own, or a guest draft the cookie names (a
+     * link's or the quiz's handoff, or the guest's own typing). An additional form has none (re-asked with S60).
+     *
+     * In every account mode, `off` included: a guest's guest draft needs no account (owner ruling 2026-11-26).
+     */
+    public function draft(Form $form): FormDraft
+    {
+        if (!$this->keepsDrafts($form)) {
+            return new FormDraft();
+        }
+        $user = get_current_user_id();
+        $draft = $this->drafts->opening(
+            $form->eventId,
+            $form->id,
+            $user > 0 ? $user : null,
+            DraftClaim::current(),
+            DraftClaim::handoff()
+        );
+        $notice = DraftHandoff::settledNow();
+
+        return $notice === null ? $draft : new FormDraft(
+            $draft->answers,
+            $draft->autosave,
+            $draft->claimConflict,
+            $draft->claims,
+            $draft->linkChanges,
+            $notice,
+            $draft->guestStart,
+            $draft->guestChoice
+        );
+    }
+
+    public function saveDraft(
+        Form $form,
+        int $version,
+        AnswerSet $answers,
+        int $page,
+        int $claims,
+        Actor $actor
+    ): void {
+        if (!$this->keepsDrafts($form)) {
+            $error = new NotFound();
+            throw $error;
+        }
+        if (!$actor instanceof GuestActor) {
+            $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $claims, $actor);
+
+            return;
+        }
+        // A guest's save (owner ruling 2026-11-26): the first one creates the guest draft and gives the cookie,
+        // lasting until the event's registration closes; the same draft, cookie and lifetime as a handoff's.
+        $closes = $this->event($form)?->registrationCloses;
+        if ($closes === null) {
+            $error = new NotFound();
+            throw $error;
+        }
+        $token = DraftClaim::current();
+        if ($token === null || !$this->drafts->holdsOf($form->id, $token)) {
+            // A save that creates a row counts like a handoff, per address (`SubmitGuard::checkHandoff()`); a
+            // save into the draft the cookie names is bounded by the body limit, as a logged-in person's is.
+            $this->guard->checkHandoff($actor);
+        }
+        $kept = $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $claims, $actor, $token);
+        if ($kept !== null) {
+            DraftClaim::setCookie($kept, $closes);
+        }
+    }
+
+    /**
+     * A link's or the quiz's accepted answers as a guest draft (S74, the handoff), in every account mode: the
+     * claim token for the handoff cookie, and the instant the cookie lives until, the event's registration
+     * closing; null when the form keeps no drafts (an additional form) or its event is gone. The answers wait
+     * there for the next load (`settleHandoff()`).
+     *
+     * @param ?string $claimToken the token of the request's handoff cookie: a handoff left waiting is replaced
+     * @return array{string, \DateTimeImmutable}|null
+     */
+    public function handOver(Form $form, int $version, AnswerSet $accepted, ?string $claimToken, Actor $actor): ?array
+    {
+        $event = $this->keepsDrafts($form) ? $this->event($form) : null;
+        if ($event === null || $event->registrationCloses === null) {
+            return null;
+        }
+        $token = $this->drafts->handOver($form->eventId, $form->id, $version, $accepted, $claimToken, $actor);
+
+        return [$token, $event->registrationCloses];
+    }
+
+    /** A logged-in person's claim of the cookie's guest draft, on the `wp` request. */
+    public function claimDraft(Form $form, string $token, AccountActor $actor): DraftClaimOutcome
+    {
+        return $this->drafts->claim($form->id, $token, $actor);
+    }
+
+    /**
+     * The page load after a handoff (N1106): the handoff that waits under the token meets the guest draft the
+     * draft cookie names (`$claimToken`, if any); see `Drafts::settleHandoff()`.
+     */
+    public function settleHandoff(
+        Form $form,
+        string $handoffToken,
+        ?string $claimToken,
+        Actor $actor
+    ): DraftClaimOutcome {
+        return $this->drafts->settleHandoff($form->id, $handoffToken, $claimToken, $actor);
+    }
+
+    /** The choice that settled the handoff into the guest's own draft; null when none (N1106). */
+    public function settledGuestChoice(Form $form, string $claimToken, string $handoffToken): ?DraftClaimChoice
+    {
+        return $this->drafts->settledGuestChoice($form->id, $claimToken, $handoffToken);
+    }
+
+    /** The instant the draft cookies of the form live until, its event's registration closing; null when none. */
+    public function cookieUntil(Form $form): ?\DateTimeImmutable
+    {
+        return $this->event($form)?->registrationCloses;
+    }
+
+    /** The choice that settled the person's claim of the guest draft; null when none. */
+    public function settledChoice(Form $form, int $userId, string $token): ?DraftClaimChoice
+    {
+        return $this->drafts->settledChoice($form->eventId, $form->id, $userId, $token);
+    }
+
+    /** Whether the form has drafts: a registration form, whatever the event's account mode. */
+    private function keepsDrafts(Form $form): bool
+    {
+        return $form->placement === FormPlacement::Registration && $this->event($form) !== null;
+    }
+
+    public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void
+    {
+        $token = DraftClaim::current();
+        if ($actor instanceof GuestActor) {
+            // A guest's choice (N1106): the guest's own draft (the draft cookie) against the handoff that waits
+            // (the handoff cookie); the request proves itself with both tokens, as it has no account.
+            $handoff = DraftClaim::handoff();
+            if ($token === null || $handoff === null) {
+                $error = new DraftClaimRefused();
+                throw $error;
+            }
+            $this->drafts->resolveGuest($form->id, $token, $handoff, $choice, $actor);
+
+            return;
+        }
+        if ($token === null) {
+            $error = new DraftClaimRefused();
+            throw $error;
+        }
+        // The cookie stays, so a repeat after a lost answer finds the same claim; the next load of the form's
+        // page clears it (`DraftHandoff`: the guest draft is gone).
+        $this->drafts->resolve($form->eventId, $form->id, $token, $choice, $actor);
     }
 
     public function requestOptions(Form $form, int $setId): ?RequestOptions
@@ -478,9 +648,24 @@ final class EventFormHost implements FormHost
             // The secret link's registration acts: the runner lets it act on that registration only.
             $actor = new SecretLinkActor($target);
         }
-        $request = new SubmitRequest($formId, $version, $answers, $token, $roles, $passwordGiven, $target);
+        $claim = DraftClaim::current();
+        $request = new SubmitRequest(
+            $formId,
+            $version,
+            $answers,
+            $token,
+            $roles,
+            $passwordGiven,
+            $target,
+            $claim
+        );
+        $result = ($this->registrationSubmit ?? new RegistrationSubmit())->submit($request, $actor)->toArray();
+        // The submit deleted the cookie's guest draft when it was this form's (S74): the cookie is done then.
+        if ($claim !== null && !$this->drafts->holds($claim)) {
+            DraftClaim::setCookie(null);
+        }
 
-        return ($this->registrationSubmit ?? new RegistrationSubmit())->submit($request, $actor)->toArray();
+        return $result;
     }
 
     public function afterSubmitTypes(): array
@@ -526,10 +711,38 @@ final class EventFormHost implements FormHost
         }
         $keys = [];
         foreach (Contributions::current()->slotRequirements() as $requirement) {
-            array_push($keys, ...$requirement->requiredKeys($form->eventId));
+            // An outside contribution point: a throwing requirement is logged and skipped, never the page
+            // (modules-and-extensions.md, "Failure isolation"), as `ThemeAdapters::pick()` treats an adapter.
+            $required = [];
+            Boundary::background(
+                'slot requirement ' . $requirement::class,
+                static function () use ($requirement, $form, &$required): void {
+                    $required = $requirement->requiredKeys($form->eventId);
+                }
+            );
+            array_push($keys, ...$required);
         }
 
         return array_values(array_unique($keys));
+    }
+
+    /**
+     * The event's participant fields' titles and option labels, retired fields and options included: what a form shows
+     * where it leaves a label empty. For a code-declared (`extension`) field these are the declarer's texts, its admin
+     * name.
+     */
+    public function labelFallbacks(Form $form): array
+    {
+        $fallbacks = [];
+        foreach ((new ParticipantFields())->of($form->eventId, true) as $field) {
+            $options = [];
+            foreach ($field->options as $option) {
+                $options[$option['value']] = $option['label'];
+            }
+            $fallbacks[$field->key] = ['title' => $field->title, 'options' => $options];
+        }
+
+        return $fallbacks;
     }
 
     private function event(Form $form): ?Event

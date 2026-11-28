@@ -7,7 +7,8 @@ with the fixed key `adomany`, on its own line, with no setting).
 A charge declares its participant field when the charges are saved (key = the charge's key, a consent or a number by the
 charge's `type`, consent when none is given, the charge's label as the title; `extension` source, form-writable). A
 form field joins it by the key and never creates it; a form field of the same type that already holds the key is
-adopted, a staff or system field or another type refuses the save. The field calls
+adopted, a staff or system field or another type refuses the save, and so does a form of the event that holds a
+number charge's key as a number field with other decimals (`FieldDecimalsHeld`). The field calls
 the charge (a consent charges once, a whole number `n` charges `n` times). The same save declares the donation's
 number field `adomany`, with or without charges.
 

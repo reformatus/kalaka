@@ -50,16 +50,18 @@ final class EventValues
     }
 
     /**
-     * The key a date reference to "now" reads (`Facts::NOW`): the day of the clock's time in the site's time
-     * zone, of the moment `$at` the caller holds (the act's, never a clock read here: one read, one clock). A fact
-     * source whose conditions may use the reference adds it to the event's keys; it is no key a condition may
-     * name itself, so it is in no `TYPES`.
+     * The key a date reference to "now" reads (`Facts::NOW`): the clock's time, to the second, in the site's time
+     * zone (a datetime), of the moment `$at` the caller holds (the act's, never a clock read here: one read, one
+     * clock). A fact
+     * source whose conditions may use the reference adds it to the event's keys. The value side of a comparison
+     * may only use the reference (a `key` naming it there is refused); the left side may name it, as a datetime.
+     * It is in no `TYPES`.
      *
      * @return array<string, Value>
      */
     public static function now(\DateTimeImmutable $at): array
     {
-        return [Facts::NOW => self::day($at)];
+        return [Facts::NOW => self::instant($at)];
     }
 
     /**
@@ -84,18 +86,24 @@ final class EventValues
     /** Before a custom point's ID: the point's date (`event.points.<id>`), for a form's conditions only. */
     public const POINT_PREFIX = 'event.points.';
 
-    /** Every event key and its type. */
+    /** Whether the key is a custom point's (`POINT_PREFIX` and its numeric ID), the one shape of a point key. */
+    public static function isPointKey(string $key): bool
+    {
+        return preg_match('/\A' . preg_quote(self::POINT_PREFIX, '/') . '[0-9]+\z/', $key) === 1;
+    }
+
+    /** Every event key and its type. Decision N649 (#222): the event's start and end stay dates. */
     public const TYPES = [
         self::NAME => ValueType::Text,
-        self::REGISTRATION_OPENS => ValueType::Date,
-        self::REGISTRATION_CLOSES => ValueType::Date,
+        self::REGISTRATION_OPENS => ValueType::Datetime,
+        self::REGISTRATION_CLOSES => ValueType::Datetime,
         self::START => ValueType::Date,
         self::END => ValueType::Date,
     ];
 
     /**
-     * Every key is declared; a date point that is not set is `Value::none()`. A point is a calendar day
-     * in the site's time zone.
+     * Every key is declared; a point that is not set is `Value::none()`. Registration opens and closes are
+     * instants in the site's time zone (datetimes); the event's start and end are calendar days there.
      *
      * @return array<string, Value> key → value, for `new ValueContext()`
      */
@@ -103,8 +111,8 @@ final class EventValues
     {
         return [
             self::NAME => Value::text($event->name, $event->name),
-            self::REGISTRATION_OPENS => self::day($event->registrationOpens),
-            self::REGISTRATION_CLOSES => self::day($event->registrationCloses),
+            self::REGISTRATION_OPENS => self::instant($event->registrationOpens),
+            self::REGISTRATION_CLOSES => self::instant($event->registrationCloses),
             self::START => self::day($event->start),
             self::END => self::day($event->end),
         ];
@@ -128,17 +136,17 @@ final class EventValues
     }
 
     /**
-     * The values of `volatileTypes()`. `event.seats_left` is the event pool's places left, given in
-     * (`Registrations\Api\Seats::left()`, the one computation: 0 while the event's "full" latch is set, none while
-     * the event has no capacity, a draft without one included). A custom point is a day in the site's time zone,
-     * like the event's other points.
+     * The values of `volatileTypes()`. `event.seats_left` is the one seat rule's read of the event's pool
+     * (`Registrations\Api\Seats::left()`: `max(0, limit - held)`, 0 while the event's "full" latch is set), given
+     * in; none when the pool has no limit (`$left` null). A custom point is a day in the site's time zone, like
+     * the event's other points.
      *
-     * @param int|null $seatsLeft the event pool's places left; null for no limit
+     * @param int|null $left the event's seats left, null when it has no limit
      * @return array<string, Value>
      */
-    public static function volatile(Event $event, ?int $seatsLeft): array
+    public static function volatile(Event $event, ?int $left): array
     {
-        $values = [self::SEATS_LEFT => self::places($seatsLeft)];
+        $values = [self::SEATS_LEFT => self::places($left)];
         foreach ($event->customPoints as $point) {
             /** @var EventPoint $point */
             $values[self::POINT_PREFIX . $point->id] = self::day($point->at);
@@ -153,6 +161,21 @@ final class EventValues
         return $left === null
             ? Value::none(ValueType::Number)
             : Value::number((string) $left, (string) $left);
+    }
+
+    /**
+     * An instant in the site's time zone, to the second, as a datetime; its text is its day's date text (the one
+     * format of a date in a document).
+     */
+    private static function instant(?\DateTimeImmutable $point): Value
+    {
+        if ($point === null) {
+            return Value::none(ValueType::Datetime);
+        }
+        $zone = wp_timezone();
+        $local = $point->setTimezone($zone);
+
+        return Value::datetime($local->format('Y-m-d\TH:i:sP'), DateText::of($local->format('Y-m-d')), $zone);
     }
 
     private static function day(?\DateTimeImmutable $point): Value

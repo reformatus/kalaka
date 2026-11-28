@@ -50,7 +50,7 @@ keeps of what it knows about its participants
   the forms' union never adds or retires one. A declaration adopts a `form`
   field of the same type (it becomes `extension`, retired or not, values
   untouched) and never takes over a `staff` or `system` field, a key
-  of another type or another declarer's `extension` field [UNAPPROVED, N4 of #231]. A field stores
+  of another type or another declarer's `extension` field. A field stores
   its declarer's module ID (`declared_by`, e.g. `extras` or `price_ladder`; null for form,
   staff and system fields and for one declared before the column, which the first declarer takes) and
   `money_relevant`, the claim that its value is locked after the first write: an extension makes it in its
@@ -60,8 +60,9 @@ keeps of what it knows about its participants
   `checkDeclarable()` and the declaration share one rule
   (`ParticipantFieldRecord::requireDeclarableBy()`, which throws `Api\FieldKeyHeld`, a `RuleViolation` with the code
   `kalaka_field_key_held`). A declared field is never retired by its declarer: a removed
-  item leaves it declared. [UNAPPROVED N3, N5, N300, N301 of #231]
+  item leaves it declared.
 - A field's `type` is a block name. The module reads only that block's
-  registered title from WordPress's block registry (the type label) and
-  nothing of Forms: which forms hold a field is Forms' to add
+  registered title from WordPress's block registry (the type label) and,
+  of Forms, only a field type's money-relevant capability (`MoneyRelevantFieldType`, through
+  `Contributions::fieldTypes()`, for `lockedAfterFirstWrite()`): which forms hold a field is Forms' to add
   (`ParticipantField::withForms()`).

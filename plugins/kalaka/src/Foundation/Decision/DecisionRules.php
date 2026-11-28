@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Decision;
 
-/** The registered rules, core first; foundation.md, "Facts, decisions and computed values". */
+use Kalaka\Foundation\Api\Decision\DecisionRule;
+
+/**
+ * The registered rules (foundation.md, "Facts, decisions and computed values"), declared core first; the
+ * evaluation asks them in that order.
+ */
 final class DecisionRules
 {
     private static ?self $current = null;
@@ -21,8 +26,9 @@ final class DecisionRules
     private array $kinds = [];
 
     /**
-     * @throws \InvalidArgumentException when the kind is taken or malformed, a state is malformed or missing, or
-     *                                   the kind or a state has no label; nothing is registered then
+     * @throws \InvalidArgumentException when the kind is taken or malformed, a state is malformed or missing, the
+     *                                   kind or a state has no label, or the base state is not a declared state;
+     *                                   nothing is registered then
      */
     public function add(DecisionRule $rule, bool $core): void
     {
@@ -49,6 +55,20 @@ final class DecisionRules
             }
         }
 
+        foreach ($rule->marks() as $state => $mark) {
+            if (!isset($states[$state])) {
+                throw new \InvalidArgumentException('A mark belongs to a declared state.');
+            }
+            if (trim($mark['icon']) === '') {
+                throw new \InvalidArgumentException('A mark has an icon.');
+            }
+        }
+
+        $default = $rule->defaultState();
+        if ($default !== null && !isset($states[$default->state])) {
+            throw new \InvalidArgumentException('A base state is a declared state.');
+        }
+
         $this->kinds[$kind] = true;
         if ($core) {
             $this->core[] = $rule;
@@ -73,6 +93,18 @@ final class DecisionRules
     public function all(): array
     {
         return [...$this->core, ...$this->extension];
+    }
+
+    /** Whether the kind is registered as a core rule's. */
+    public function isCore(string $kind): bool
+    {
+        foreach ($this->core as $rule) {
+            if ($rule->kind() === $kind) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return list<DecisionRule> in the order they were added */

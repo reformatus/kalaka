@@ -29,12 +29,13 @@ final class Extras
         private readonly ChargesInput $input = new ChargesInput(),
         private readonly ParticipantFields $fields = new ParticipantFields(),
         private readonly ChargeRemovalGuard $guard = new ChargeRemovalGuard(),
+        private readonly ChargeField $field = new ChargeField(),
     ) {
     }
 
     /**
      * The event's charges in order; none when it has none. A charge's type is its declared field's: a number for
-     * an `extension` number field, a consent otherwise.
+     * a number field whatever its source, a consent otherwise.
      *
      * @return list<Charge>
      */
@@ -63,7 +64,8 @@ final class Extras
      *
      * @param list<array<string, mixed>> $charges
      * @throws NotFound when there is no such event
-     * @throws RuleViolation when a field another source defined holds a charge's key
+     * @throws RuleViolation when a field another source defined holds a charge's key, or (`FieldDecimalsHeld`)
+     *     when a form holds a number charge's key with decimals
      * @throws ItemChosen when a charge an open registration chose is taken out (`ChargeRemovalGuard`)
      * @throws InvalidInput when the charges are not valid; `kalaka/set-extra-charges` checks its schema again
      */
@@ -73,6 +75,12 @@ final class Extras
         foreach ($charges as $charge) {
             if (rest_validate_value_from_schema($charge, ChargesInput::ITEM_SCHEMA) !== true) {
                 throw new InvalidInput();
+            }
+        }
+        // The forms first (the whole save is refused, naming them), before the record-based checks below.
+        foreach ($charges as $charge) {
+            if (($charge['type'] ?? Charge::CONSENT) === Charge::NUMBER) {
+                $this->field->checkForms($eventId, (string) $charge['key']);
             }
         }
         $input = ['event_id' => $eventId, 'currency' => $event->currency->value, 'charges' => $charges];

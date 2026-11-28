@@ -13,6 +13,11 @@ title: Events and forms
   dates, labels and filters, not by a layer above events.
 - **Budgets and accounting are completely separate per event.** Linking
   events (e.g. REFISZ's two camps) is not part of the lifecycle.
+- **An event has one status-page slot,** a WordPress post ID, empty when
+  the event has none. The status-page app is parked; only the slot and the
+  per-device push subscriptions (event, registration, endpoint and keys)
+  exist. A subscription is deleted on unsubscribe, on the registration's
+  withdrawal and when the event ends.
 
 ## Event lifecycle
 
@@ -132,8 +137,25 @@ flowchart TB
 
 ## Prefill from a link
 
-- **There is no public prefill:** no URL argument other than the link token
-  affects a form.
+- **Public prefill comes as a guest draft.** A request to a page that
+  places one registration form may carry answers as `kalaka[<field key>]`
+  (the quiz's POST body, or a static GET link). They are untrusted: each is
+  first cleaned by its field type's prefill rules, the rules a stored value
+  opens with, so its bad parts are dropped and the rest kept, and then
+  checked alone with its field's type. An unknown key, or an answer that
+  cleans to nothing or that the type does not accept, is dropped, silently.
+  What is left is kept as a guest
+  draft ([Submissions and values](registrations-and-identity.md#submissions-and-values))
+  under a claim token in a cookie, in every account mode, and the request is answered with a 303 to
+  the page without them. The answers wait in a guest draft and a cookie of their
+  own, never touching the draft the browser already holds; the page the 303
+  leads to settles them against it: they become the browser's draft, or, when
+  that draft holds a guest's typing the link would change, the guest chooses
+  (merge, keep the draft, keep the link; the
+  popup of [Submissions and values](registrations-and-identity.md#submissions-and-values)).
+  The form then opens with them, as editable values.
+  A link-only field never takes public prefill. Nothing of the request is
+  logged.
 - **Forms start from the active registration**
   ([Registrations](registrations-and-identity.md#access)): an additional
   form is prefilled from its current field values, as editable values; a
@@ -191,7 +213,9 @@ flowchart TB
 - **Our own implementation on WordPress's building blocks; no form plugin.**
 - Forms are **block documents** (`kalaka_form` posts) built from our own
   field blocks.
-- The public page uses WordPress's **Interactivity API**.
+- The public page uses WordPress's **Interactivity API**. The one exception
+  is the draft-claim popup: a `@wordpress/components` Modal, loaded only on
+  a page with a pending claim ([Engineering](engineering.md#wordpress-surfaces)).
 - **Accounts:** in the event's mandatory and optional account mode, every
   registration form holds the account block, which the save check requires;
   where it sits is the author's choice. Logged out, it says what an account
@@ -203,8 +227,10 @@ flowchart TB
   and on additional forms, the block is not offered and renders nothing
   ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
   **Changing an event's account mode** is refused while a published
-  registration form of the event lacks the block, and the broken-forms list
-  is refreshed after a mode change (S72).
+  registration form of the event lacks the block, or while the event's
+  "registered" mail is off or its template lacks the set-password link
+  ([Mail](mail.md#content)), and the broken-forms list is refreshed after a
+  mode change (S72).
 - **Forms need JavaScript.** Without it the form stays as the server
   rendered it for no answers and cannot be sent, and it shows a warning
   (UI text approved when built). A multi-page form shows none of its pages
@@ -214,17 +240,23 @@ flowchart TB
   that shows; there is no progress indicator.
 - **Answers stay in the browser while the page is open:** a hidden answer
   is kept and only the answers of what shows are sent; a ticked option that
-  stops being offered is ticked again when it returns. Nothing is kept
-  across a reload.
+  stops being offered is ticked again when it returns. A reload keeps the
+  answers, a guest's own typing and what a link or the quiz handed over in
+  their guest draft, a logged-in person's in their draft, which the
+  autosave keeps
+  ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **While the server is asked** (a re-fetch, a page check, a submit) the
   form is dimmed and its fields take no input; after 2 seconds a spinner in
   the look of WordPress's own shows over it.
 - **One request in flight per form:** changes made while a request runs
   coalesce into one follow-up with the latest answers. A click on Next or
   Send during a request is queued, not lost; Back is ignored while the form
-  is busy.
-- **The server validates against the same form definition:** only declared,
-  visible fields are accepted.
+  is busy. The autosave of a person's or a guest's draft is apart: it runs
+  beside these requests, never dims the form, and sends nothing once a send
+  has started.
+- **The server validates against the same form definition:** only declared
+  fields that show are accepted, and a hidden field only with a value from a
+  link or a prefill.
 - **Each submission stores the form and its version**
   ([Registrations](registrations-and-identity.md#submissions-and-values)).
 - **Stable field keys**; pickers for conditions come later
@@ -249,7 +281,9 @@ flowchart TB
   no request. A terminal page holds no fields and has a condition: it shows
   its content and cannot be sent, and the server refuses a submit while one
   shows. The contact email and the display name never sit on a conditional
-  page. Answers are not kept across a reload.
+  page. A reload keeps the answers, a guest's in their guest draft and a
+  logged-in person's in their draft
+  ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **After a successful submit** the form is replaced by its **after-submit
   section**, part of the form document and edited with it (the thank-you
   message): one block per form, at the top level outside any branch or
@@ -294,7 +328,8 @@ flowchart TB
   - **extension:** written only by an extension's own use case, e.g. the
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
-    then may a form hold its key. A form that joins an extension's choice
+    then may a form hold its key, and only then may staff correct it
+    through views. A form that joins an extension's choice
     field offers only options the extension declared, any subset of them,
     and never adds one;
   - **system:** a read-only field that only **declares** a system decision
@@ -311,8 +346,10 @@ flowchart TB
   request: the form editor asks the organizer whether to carry a changed
   label over, or staff edit it in the field list (`form` and `staff` fields;
   a `system` or `extension` field's texts are its declarer's). A form shows
-  its own labels; mails, views and the participant blocks show the
-  participant field's.
+  its own labels, and shows the participant field's only where it leaves a
+  label empty (for an `extension` field, the declarer's text, which is the
+  admin name); mails, views and the participant blocks show the participant
+  field's.
 - **Designing a form designs participant fields.** A new form field creates
   a new participant field. A form field joins an existing participant field
   only explicitly, by taking its key (below); several forms writing one
@@ -333,8 +370,10 @@ flowchart TB
   separate ([Prefill from a link](#prefill-from-a-link)).
 - **Types may refuse** to be definitions and may refuse prefill.
 - **Hidden fields** hold values the registrant does not see, such as an
-  attribution key. They get their values only from the form link record;
-  values the browser sends for them are rejected.
+  attribution key. They get their values from the form link record or from a
+  public prefill ([Prefill from a link](#prefill-from-a-link)), never from the
+  registrant's typing; a prefilled one can be forged, so it is attribution
+  only.
 - Extensions add field types, e.g. the congregation picker
   ([Money](money.md#sponsor-and-church-support)) and the module ranking.
 - **Keys and option values come from the visible text.** A field's key is
@@ -363,8 +402,9 @@ flowchart TB
   taking its key and never creates it. The field with that key is what the
   code reads; a declared key no form field holds does nothing. When a form
   field already holds the key, with the same type, the declaration adopts
-  it: the field becomes an `extension` field with the declarer's title, and
-  its values stay. A key a `staff` or `system` field holds, or a field of
+  it: the field becomes an `extension` field with the declarer's title (the
+  participant field's own; every form keeps its own labels), and its values
+  stay. A key a `staff` or `system` field holds, or a field of
   another type, refuses the declaration. A key another code declarer holds
   is refused.
 - **Explicit markings:** the contact email (exactly one per form in the
@@ -376,7 +416,8 @@ flowchart TB
   by an extension for a field it declares; core ships no money field types.
   Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
-  only through use cases that re-materialize the money.
+  only through use cases that re-materialize the money; a staff correction
+  through views is one and needs no unlock.
 
 ### Changing participant fields after submit
 
@@ -387,8 +428,8 @@ is no other participant-side edit.
 - **Every submit appends a submission;** earlier submissions stay as they
   are. The latest write wins in the field values, and each change is
   audited.
-- **Only fields the form shows are written,** plus hidden fields its form
-  link sets. Fields the form does not hold,
+- **Only fields the form shows are written,** plus hidden fields that get a
+  value from its form link or a public prefill. Fields the form does not hold,
   and fields in branches or pages that do not show, keep their values. A
   shown field that was prefilled and is left blank clears its value: the
   form showed the current value, so blank is the answer. A shown consent left
@@ -403,9 +444,11 @@ is no other participant-side edit.
   editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
 - **Locked fields, money-relevant ones by default:** the first write is
   allowed (e.g. the staff form setting staff status); an overwrite is
-  refused unless an organizer unlocked the field.
+  refused unless an organizer unlocked the field; a staff correction through
+  views needs no unlock.
 - **Staff fields may appear in an additional form.**
-- **Admins can correct any field at any time,** through views. An admin
+- **Admins can correct a form or staff field at any time, and an extension
+  field only when it is form-writable,** through views. An admin
   edit and a later participant submit are both writes: the last one wins
   and both are audited. To freeze a field, an admin closes the form's open
   period and revokes the form's links that bypass it.
@@ -518,22 +561,38 @@ is no other participant-side edit.
   equals X". Groups follow the same three values: `all` with an unknown item
   and no false is unknown, `any` with a true is true, and `not` on a group
   leaves unknown unknown. A condition that is unknown counts as not matched.
-- **Typed comparison:** values compare as number, date, text or choice. A
-  choice that is a path (the congregation field) is only asked whether it
-  contains a node, never whether it equals one.
-- **A date can be compared with a date reference:** another date key of the
-  fact source moved by whole years and days, e.g. the event's start minus 16
-  years for "under 16 at the event's start". A day the moved month does not
-  have becomes its last day (29 February to 28 February), so the age rule
-  holds for an event starting on 29 February.
-- **A date reference can be "now":** the day of the clock's time in the site's
-  time zone, moved by whole years and days like any date reference (e.g. "now
-  + 0 days"). While a form is filled in it is the render time (the page render
-  and every re-fetch), at submit the submit time, and after submit (mails,
-  participant blocks, views) the clock time of the read that renders them (the
-  runner's `Clock`); the evaluator reads it from the fact source like any
-  value, never from a clock of its own. It is a reference only, never a key a
-  condition names. A branch that reads it is held server-side like one that
+- **Typed comparison:** values compare as number, date, datetime, text or
+  choice. A date is a calendar day; a datetime is an instant. Two datetimes
+  compare as instants; a date against a date or a datetime compares on the
+  day (a datetime gives the site-time-zone day it falls on, never midnight),
+  so a day-only value keeps its whole-day meaning against `now`. The
+  registration's opening and closing (`event.registration_opens`,
+  `event.registration_closes`) are datetimes, the event's start and end
+  (`event.start`, `event.end`) dates. A choice that is a path (the
+  congregation field) is only asked whether it contains a node, never
+  whether it equals one.
+- **A date or datetime can be compared with a date reference:** another date
+  or datetime key of the fact source moved by whole years and days, e.g. the
+  event's start minus 16 years for "under 16 at the event's start". A day
+  the moved month does not have becomes its last day (29 February to 28
+  February), so the age rule holds for an event starting on 29 February. A
+  datetime moves its wall time in the site's time zone.
+- **A datetime can be a literal:** `YYYY-MM-DDTHH:MM:SS` with the site's
+  offset in force on that day (`Z` or `+HH:MM`), e.g.
+  `2026-12-01T18:00:00+01:00`; a date key or a datetime key takes it or a
+  plain day. The instant is fixed when stored. Against a date, a literal's
+  day is its date part as written. The editor and the server check it by the
+  same rules.
+- **A date reference can be "now":** the clock's time, to the second, in the
+  site's time zone (a datetime), moved by whole years and days like any date
+  reference (e.g. "now + 0 days"); no hours or minutes. While a form is
+  filled in it is the render time (the page render and every re-fetch), at
+  submit the submit time, and after submit (mails, participant blocks,
+  views) the clock time of the read that renders them (the runner's
+  `Clock`); the evaluator reads it from the fact source like any value,
+  never from a clock of its own. As a date reference it is only
+  `{"ref": "now"}`, never the key `time.now`; that key is read only as the left side of a comparison, a datetime
+  (e.g. `time.now` before `2026-12-01T18:00:00+01:00`: "show this until then"). A branch that reads it is held server-side like one that
   reads an event value, and the page re-fetches it with the form's other
   re-fetches; the submit is the judge.
 - **Combining:** all / any; a condition can be a group, one level deep.

@@ -19,6 +19,8 @@ namespace {
             public static function reset(): void
             {
                 self::$calls = [];
+                self::$decline = false;
+                self::$exitWithoutYes = false;
             }
 
             /** @param array<string, mixed> $args */
@@ -33,6 +35,27 @@ namespace {
                 self::$calls[] = ['line', $message];
             }
 
+            /** @var bool whether confirm() answers no, as an operator declining does */
+            public static bool $decline = false;
+
+            /** @var bool whether confirm() without a yes exits as the real one does on a no, instead of throwing */
+            public static bool $exitWithoutYes = false;
+
+            /** @param array<string, mixed> $assoc */
+            public static function confirm(string $question, array $assoc = []): void
+            {
+                self::$calls[] = ['confirm', $question];
+                if (isset($assoc['yes'])) {
+                    return;
+                }
+                if (self::$exitWithoutYes) {
+                    throw new \WP_CLI\ExitException(0, 'WP_CLI::confirm');
+                }
+                if (self::$decline) {
+                    throw new \RuntimeException('WP_CLI::confirm declined');
+                }
+            }
+
             public static function success(string $message): void
             {
                 self::$calls[] = ['success', $message];
@@ -41,15 +64,6 @@ namespace {
             public static function warning(string $message, bool $group = false): void
             {
                 self::$calls[] = ['warning', $message];
-            }
-
-            /** @param array<string, mixed> $assocArgs */
-            public static function confirm(string $question, array $assocArgs = []): void
-            {
-                self::$calls[] = ['confirm', $question];
-                if (empty($assocArgs['yes'])) {
-                    throw new \WP_CLI\ExitException(0, 'WP_CLI::confirm');
-                }
             }
 
             public static function error(string $message, int $exitCode = 1): void

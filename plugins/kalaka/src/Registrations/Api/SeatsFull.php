@@ -9,7 +9,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 /** The pool has no seat left for an act that may not go over its limit. */
 final class SeatsFull extends RuleViolation
 {
-    /** What a registrant is told when the choice they made filled up (a refused submit). [UNAPPROVED T1] */
+    /** What a registrant is told when the choice they made filled up (a refused submit). */
     public const TEXT = 'Ez a lehetőség időközben betelt. Válassz másikat.';
 
     protected function defaultMessage(): string

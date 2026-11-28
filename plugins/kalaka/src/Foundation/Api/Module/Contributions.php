@@ -42,6 +42,7 @@ final class Contributions
 
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
+
     /** @var list<SeatClaimSource> */
     private array $seatClaimSources = [];
 

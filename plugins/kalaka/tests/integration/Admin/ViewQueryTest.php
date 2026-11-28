@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Admin;
 
+use Kalaka\Admin\Api\AggregateKind;
+use Kalaka\Admin\Api\AggregateSpec;
+use Kalaka\Admin\Api\ColumnFilter;
+use Kalaka\Admin\Api\FilterKind;
 use Kalaka\Admin\Api\HeldView;
+use Kalaka\Admin\Api\Narrowing;
+use Kalaka\Admin\Api\SearchWord;
 use Kalaka\Admin\Api\ViewQuery;
 use Kalaka\Admin\Api\ViewRow;
 use Kalaka\Admin\View\ViewShape;
@@ -113,7 +119,7 @@ final class ViewQueryTest extends AdminTestCase
         self::assertSame(
             [
                 'code' => '00A5', 'status' => 'registered', 'serial' => 2,
-                'field:a_key' => 'z', 'field:b_key' => null, 'decision:confirmation' => null,
+                'field:a_key' => 'z', 'field:b_key' => null, 'decision:confirmation' => 'unconfirmed',
             ],
             $rows[2]['values']
         );
@@ -124,9 +130,13 @@ final class ViewQueryTest extends AdminTestCase
         }
     }
 
-    public function testTheMasterViewOfAnEventWithNoDataHasTheThreeBuiltInColumns(): void
+    /** The confirmation kind has a base state, so it holds with no record: the master view always lists it. */
+    public function testTheMasterViewOfAnEventWithNoDataHasTheBuiltInColumnsAndConfirmation(): void
     {
-        self::assertSame(['code', 'status', 'serial'], $this->columnIds($this->query->columns($this->held(null))));
+        self::assertSame(
+            ['code', 'status', 'serial', 'decision:confirmation'],
+            $this->columnIds($this->query->columns($this->held(null)))
+        );
         self::assertSame([], $this->viewRows($this->held(null)));
         self::assertSame(0, $this->query->count($this->held(null)));
     }
@@ -165,19 +175,95 @@ final class ViewQueryTest extends AdminTestCase
     public function testADecisionTermMatchesTheLatestStateOnly(): void
     {
         $this->seedStatuses();
-        $this->addDecision(self::EVENT, '00A0', 'confirmation', 'confirmed');
-        $this->addDecision(self::EVENT, '00A0', 'confirmation', 'pending');
-        $this->addDecision(self::EVENT, '00A2', 'confirmation', 'pending');
-        $this->addDecision(self::EVENT, '00A2', 'confirmation', 'confirmed');
+        $this->addDecision(self::EVENT, '00A0', 'room_hold', 'confirmed');
+        $this->addDecision(self::EVENT, '00A0', 'room_hold', 'pending');
+        $this->addDecision(self::EVENT, '00A2', 'room_hold', 'pending');
+        $this->addDecision(self::EVENT, '00A2', 'room_hold', 'confirmed');
         $this->addDecision(self::EVENT, '00A5', 'payment_hold', 'confirmed');
-        $columns = [['column' => 'code', 'write' => false], ['column' => 'decision:confirmation', 'write' => false]];
+        $columns = [['column' => 'code', 'write' => false], ['column' => 'decision:room_hold', 'write' => false]];
 
         $rows = $this->viewRows($this->held(
-            $this->shape([['column' => 'decision:confirmation', 'in' => ['confirmed']]], $columns)
+            $this->shape([['column' => 'decision:room_hold', 'in' => ['confirmed']]], $columns)
         ));
 
         self::assertSame(['00A2'], $this->codes($rows));
-        self::assertSame(['code' => '00A2', 'decision:confirmation' => 'confirmed'], $rows[0]['values']);
+        self::assertSame(['code' => '00A2', 'decision:room_hold' => 'confirmed'], $rows[0]['values']);
+    }
+
+    /**
+     * The owner's ruling 2026-11-19: no confirmation record is the base state, `unconfirmed`, derived, for a
+     * `registered` registration only; another status shows no state, whatever its records say. The stored
+     * filter, the page and the aggregates read it the same way.
+     */
+    public function testNoConfirmationRecordReadsUnconfirmedForARegisteredRegistrationOnly(): void
+    {
+        $this->seedStatuses();
+        $this->addDecision(self::EVENT, '00A0', 'confirmation', 'confirmed');
+        // A closed sequence of a withdrawn registration, and a record left on a waitlisted one.
+        $this->addDecision(self::EVENT, '00A8', 'confirmation', 'unconfirmed');
+        $this->addDecision(self::EVENT, '00A2', 'confirmation', 'unconfirmed');
+        $columns = [['column' => 'code', 'write' => false], ['column' => 'decision:confirmation', 'write' => false]];
+
+        $all = $this->viewRows($this->held($this->shape([], $columns)));
+        $states = [];
+        foreach ($all as $row) {
+            $states[$row['values']['code']] = $row['values']['decision:confirmation'];
+        }
+        ksort($states);
+        self::assertSame(
+            ['00A0' => 'confirmed', '00A2' => null, '00A5' => 'unconfirmed', '00A8' => null, '00B0' => null],
+            $states
+        );
+
+        $unconfirmed = $this->held(
+            $this->shape([['column' => 'decision:confirmation', 'in' => ['unconfirmed']]], $columns)
+        );
+        self::assertSame(['00A5'], $this->codes($this->viewRows($unconfirmed)));
+        self::assertSame(1, $this->query->count($unconfirmed));
+        self::assertSame(
+            [1, 1],
+            $this->query->aggregates($this->held($this->shape([], $columns)), [
+                new AggregateSpec('decision:confirmation', AggregateKind::Members, ['unconfirmed']),
+                new AggregateSpec('decision:confirmation', AggregateKind::Members, ['confirmed']),
+            ])
+        );
+
+        // The grid's ad hoc filters, „Nincs válasz”, search and sort read it the same way.
+        $view = $this->held($this->shape([], $columns));
+        $narrowed = fn (array $filters, array $words = [], ?string $sort = null): array => array_map(
+            static fn (ViewRow $row): string => $row->key->code,
+            $this->query->page($view, $sort, narrowing: new Narrowing($filters, $words))->rows
+        );
+        $unconfirmedOnly = ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isAny', ['unconfirmed']);
+        self::assertSame(['00A5'], $narrowed([$unconfirmedOnly]));
+        self::assertSame(
+            ['00A2', '00A5', '00A8', '00B0'],
+            $this->sorted($narrowed([
+                ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isNone', ['confirmed']),
+            ]))
+        );
+        self::assertSame(
+            ['00A2', '00A8', '00B0'],
+            $this->sorted($narrowed([
+                ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isAny', [ColumnFilter::NO_ANSWER]),
+            ]))
+        );
+        self::assertSame(
+            ['00A5'],
+            $narrowed([], [new SearchWord('nincs', ['decision:confirmation' => ['unconfirmed']])])
+        );
+        self::assertSame(['00A0', '00A5'], array_slice($narrowed([], [], 'decision:confirmation'), -2));
+    }
+
+    /**
+     * @param list<string> $codes
+     * @return list<string>
+     */
+    private function sorted(array $codes): array
+    {
+        sort($codes);
+
+        return $codes;
     }
 
     public function testTwoTermsTogetherMatchOnlyRegistrationsMeetingBoth(): void
@@ -219,6 +305,60 @@ final class ViewQueryTest extends AdminTestCase
         // The count and the page, then the sorszám only when listed.
         self::assertCount(2, $this->selects(fn () => $this->viewRows($this->held($without))));
         self::assertCount(3, $this->selects(fn () => $this->viewRows($this->held($with))));
+    }
+
+    /** The owner's ruling 2026-11-19 (topic 3): the registered and submitted times are display-only view columns. */
+    public function testTheTimeColumnsAreShownAndDisplayOnly(): void
+    {
+        global $wpdb;
+        $this->seedStatuses();
+        $wpdb->insert($wpdb->prefix . 'kalaka_submissions', [
+            'event_id' => self::EVENT,
+            'code' => '00A0',
+            'number' => 1,
+            'form_id' => 1,
+            'form_version' => 1,
+            'answers' => '{}',
+            'submitted_at' => '2026-11-30 07:59:00.000000',
+        ]);
+        $columns = [
+            ['column' => 'code', 'write' => false],
+            ['column' => 'registered_at', 'write' => false],
+            ['column' => 'submitted_at', 'write' => false],
+        ];
+
+        $filter = [['column' => 'status', 'in' => ['registered', 'waitlisted']]];
+        $rows = $this->viewRows($this->held($this->shape($filter, $columns)));
+
+        $values = [];
+        foreach ($rows as $row) {
+            $values[$row['key']->code] = $row['values'];
+        }
+        self::assertSame('2026-11-30T08:00:00Z', $values['00A0']['registered_at']);
+        self::assertSame('2026-11-30T07:59:00Z', $values['00A0']['submitted_at']);
+        self::assertNull($values['00A5']['submitted_at']);
+        self::assertNull($values['00A2']['registered_at']);
+
+        // The submissions are read only when the column is listed: the count and the page, then one more.
+        $without = $this->shape([], [['column' => 'registered_at', 'write' => false]]);
+        $with = $this->shape([], [['column' => 'submitted_at', 'write' => false]]);
+        self::assertCount(2, $this->selects(fn () => $this->viewRows($this->held($without))));
+        self::assertCount(3, $this->selects(fn () => $this->viewRows($this->held($with))));
+
+        foreach (['registered_at', 'submitted_at'] as $column) {
+            try {
+                $this->query->page($this->held($this->shape([], $columns)), $column);
+                self::fail($column . ' was sortable.');
+            } catch (InvalidInput) {
+                self::addToAssertionCount(1);
+            }
+            try {
+                $this->shape([['column' => $column, 'in' => ['x']]], $columns);
+                self::fail($column . ' was filterable.');
+            } catch (InvalidInput) {
+                self::addToAssertionCount(1);
+            }
+        }
     }
 
     public function testTheParameterIsBoundToTheOneValue(): void
@@ -301,24 +441,87 @@ final class ViewQueryTest extends AdminTestCase
         self::assertSame(['code', 'status', 'field:name', 'decision:confirmation'], $this->columnIds($page->columns));
     }
 
-    /** @return iterable<string, array{?string, int, int}> */
+    /** C1-1: a number-valued field sorts by its number, not by the stored text. */
+    public function testANumberFieldSortsByItsNumberWithEmptyAndMissingValuesFirst(): void
+    {
+        $this->seedStatuses();
+        $this->addValue(self::EVENT, '00A0', 'nights', '10');
+        $this->addValue(self::EVENT, '00A2', 'nights', '9');
+        $this->addValue(self::EVENT, '00A5', 'nights', '100');
+        $this->addValue(self::EVENT, '00A8', 'nights', '');
+        // 00B0 has no value stored.
+        $view = $this->held($this->shape([], [
+            ['column' => 'code', 'write' => false],
+            ['column' => 'field:nights', 'write' => false],
+        ]));
+        $codes = fn (bool $descending): array => array_map(
+            static fn (ViewRow $row): string => $row->key->code,
+            $this->query->page($view, 'field:nights', $descending, 50, 0, ['field:nights'])->rows
+        );
+
+        // Empty and missing values keep the text order's place: first ascending, last descending. The
+        // sorszám tie-break stays ascending, as it does for a text sort.
+        self::assertSame(['00A8', '00B0', '00A2', '00A0', '00A5'], $codes(false));
+        self::assertSame(['00A5', '00A0', '00A2', '00A8', '00B0'], $codes(true));
+    }
+
+    /** @return iterable<string, array{?string, int, int, string}> */
     public static function refusedPages(): iterable
     {
-        yield 'an unlisted column' => ['field:other', 50, 0];
-        yield 'the code' => ['code', 50, 0];
-        yield 'an unknown column' => ['secret', 50, 0];
-        yield 'no rows' => [null, 0, 0];
-        yield 'too many rows' => [null, ViewQuery::MAX_LIMIT + 1, 0];
-        yield 'a negative offset' => [null, 50, -1];
+        yield 'an unlisted column' => ['field:other', 50, 0, 'code'];
+        yield 'the code of a view that does not list it' => ['code', 50, 0, 'status'];
+        yield 'an unknown column' => ['secret', 50, 0, 'code'];
+        yield 'no rows' => [null, 0, 0, 'code'];
+        yield 'too many rows' => [null, ViewQuery::MAX_LIMIT + 1, 0, 'code'];
+        yield 'a negative offset' => [null, 50, -1, 'code'];
     }
 
     /** @dataProvider refusedPages */
-    public function testASortOutsideTheViewOrAPageOutOfRangeIsInvalidInput(?string $sort, int $limit, int $offset): void
-    {
-        $view = $this->held($this->shape([], [['column' => 'code', 'write' => false]]));
+    public function testASortOutsideTheViewOrAPageOutOfRangeIsInvalidInput(
+        ?string $sort,
+        int $limit,
+        int $offset,
+        string $listed
+    ): void {
+        $view = $this->held($this->shape([], [['column' => $listed, 'write' => false]]));
 
         $this->expectException(InvalidInput::class);
         $this->query->page($view, $sort, false, $limit, $offset);
+    }
+
+    /** Topic 6a: Kód carries the default order, and descending is its exact reverse. */
+    public function testTheCodeColumnSortsByTheDefaultOrderBothWays(): void
+    {
+        $this->seedStatuses();
+        $view = $this->held($this->shape([], [['column' => 'code', 'write' => false]]));
+        $codes = fn (?string $sort, bool $descending): array => $this->codes(array_map(
+            static fn (ViewRow $row): array => ['key' => $row->key, 'values' => $row->values],
+            $this->query->page($view, $sort, $descending, ViewQuery::MAX_LIMIT)->rows
+        ));
+
+        // The ordering time (registered_at for registered rows, created_at for the rest), then the code.
+        $default = ['00A0', '00A2', '00A5', '00A8', '00B0'];
+        self::assertSame($default, $codes(null, false));
+        self::assertSame($default, $codes('code', false));
+        self::assertSame(array_reverse($default), $codes('code', true));
+    }
+
+    /** Topic 6a: Szám is a number sort; no number sorts first ascending, ties fall back to the default order. */
+    public function testTheSerialSortsByTheNumberAndInterleavesTheStatuses(): void
+    {
+        $this->seedStatuses();
+        $view = $this->held($this->shape([], [
+            ['column' => 'code', 'write' => false],
+            ['column' => 'serial', 'write' => false],
+        ]));
+        $codes = fn (bool $descending): array => $this->codes(array_map(
+            static fn (ViewRow $row): array => ['key' => $row->key, 'values' => $row->values],
+            $this->query->page($view, 'serial', $descending, ViewQuery::MAX_LIMIT)->rows
+        ));
+
+        // 00A0 is registered no. 1, 00A2 waitlisted no. 1, 00A5 registered no. 2; 00A8 and 00B0 have none.
+        self::assertSame(['00A8', '00B0', '00A0', '00A2', '00A5'], $codes(false));
+        self::assertSame(['00A5', '00A0', '00A2', '00A8', '00B0'], $codes(true));
     }
 
     public function testNoStatementSelectsTheSecretOrLeavesTheEvent(): void

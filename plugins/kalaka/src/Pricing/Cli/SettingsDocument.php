@@ -9,6 +9,7 @@ use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\ParticipantFields\Api\FieldDecimalsHeld;
 use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\MoneySettings;
@@ -21,7 +22,7 @@ use Kalaka\Pricing\CoreFeeComponents;
  * `{"fixed_price": "15000", "components": {"<component ID>": {…that component's settings…}}}`. Core writes
  * and reads the fixed price; every other component is a `ConfigurableFeeComponent` that does its own.
  * Reading follows `ProposedMoneySettings`: a `fixed_price` that is null or missing, and a component not
- * named, stay as they are; what `show` prints read back changes nothing. [UNAPPROVED N2]
+ * named, stay as they are; what `show` prints read back changes nothing.
  */
 final class SettingsDocument
 {
@@ -106,6 +107,18 @@ final class SettingsDocument
                 $proposed[] = $configurable[$id]->settingsFromArray($eventId, $settings);
             } catch (InvalidInput $invalid) {
                 $error = new CommandFailure('The settings of "' . $id . '" are not valid.', $invalid);
+                throw $error;
+            } catch (FieldDecimalsHeld $held) {
+                $forms = implode(', ', array_map(
+                    static fn (array $form): string => '#' . $form['form_id'] . ' "' . $form['title'] . '"',
+                    $held->forms
+                ));
+                $error = new CommandFailure(
+                    'The settings of "' . $id . '" are refused: the key "' . $held->key . '" is a number charge, '
+                    . 'which fixes its decimals at 0, and these forms of the event hold a number field with that '
+                    . 'key and other decimals: ' . $forms . '. Change the fields to 0 decimals or choose another key.',
+                    $held
+                );
                 throw $error;
             } catch (FieldKeyHeld $refused) {
                 $error = new CommandFailure(

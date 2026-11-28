@@ -9,17 +9,15 @@ final readonly class ActionMailSetting
 {
     /**
      * @param ?int $bodyId the body's `kalaka_mail` post; null when none is assigned
-     * @param bool $layout whether the event's layout wraps the mail, when the event has one
      */
     public function __construct(
         public ActionMail $action,
         public bool $enabled,
         public ?int $bodyId,
-        public bool $layout,
     ) {
     }
 
-    /** @return array{mail: string, label: string, enabled: bool, body_id: ?int, layout: bool} */
+    /** @return array{mail: string, label: string, enabled: bool, body_id: ?int} */
     public function toArray(): array
     {
         return [
@@ -27,7 +25,6 @@ final readonly class ActionMailSetting
             'label' => $this->action->label(),
             'enabled' => $this->enabled,
             'body_id' => $this->bodyId,
-            'layout' => $this->layout,
         ];
     }
 }

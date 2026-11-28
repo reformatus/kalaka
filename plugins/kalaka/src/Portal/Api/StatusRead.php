@@ -14,6 +14,8 @@ use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\PayerSummary;
 use Kalaka\Portal\LineLabels;
+use Kalaka\Pricing\Api\ConfirmationRule;
+use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationRead;
 use Kalaka\Registrations\Api\Registrations;
@@ -24,14 +26,11 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * transfer details, composed from the module Apis (one statement each) and the clock. It writes nothing
  * and never evaluates.
  *
- * Two decision kinds are read by name, before the slices that write them: `confirmation` (S20) with the
- * state `confirmed`, and `payment_hold` (S32) with the state `held`.
+ * Whether the registration is confirmed comes from Pricing's `Confirmations`; the decision kind read by name,
+ * before the slice that writes it, is `payment_hold` (S32) with the state `held`.
  */
 final class StatusRead
 {
-    /** The core confirmation decision (money.md, "Confirmation"). */
-    public const CONFIRMATION = 'confirmation';
-
     /** A pending decision holds payment (money.md, "Core money scope"). */
     public const PAYMENT_HOLD = 'payment_hold';
 
@@ -69,14 +68,13 @@ final class StatusRead
         $confirmation = null;
         $payment = null;
         $transfer = null;
-        if ($registration->status === RegistrationStatus::Registered) {
+        if ($registration->status->isLive()) {
             $now = Runner::current()->clock()->now();
             $decisions = $this->decisions->currentOf($key);
-            $confirmed = isset($decisions[self::CONFIRMATION])
-                && $decisions[self::CONFIRMATION]->state === 'confirmed';
+            $confirmed = Confirmations::confirmedIn($decisions);
             $confirmation = new ConfirmationView(
                 $confirmed,
-                $decisions[self::CONFIRMATION]->effectiveAt ?? null
+                $decisions[ConfirmationRule::KIND]->effectiveAt ?? null
             );
             $held = isset($decisions[self::PAYMENT_HOLD]) && $decisions[self::PAYMENT_HOLD]->state === 'held';
             $payment = $this->payment($registration, $event, $confirmed, $held, $now);

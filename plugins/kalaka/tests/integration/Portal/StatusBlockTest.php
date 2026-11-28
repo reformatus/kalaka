@@ -8,6 +8,7 @@ use Kalaka\Ledger\Api\ChargeLine;
 use Kalaka\Events\Api\Phase;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\LineLabels;
+use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /** The status block and the transfer block over every state of the frozen spec (2026-11-13). */
@@ -49,7 +50,7 @@ final class StatusBlockTest extends PortalTestCase
 
         $html = $this->statusBlock();
         self::assertStringContainsString(
-            '<p>Azonosító: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
+            '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
             . '<p><strong>Fizetésre vár.</strong></p><h3>Pénzügyek</h3><table class="kalaka-money"><tbody>',
             $html
         );
@@ -62,7 +63,7 @@ final class StatusBlockTest extends PortalTestCase
         // Registered 2026-11-30 in Budapest + 7 days.
         self::assertStringContainsString('<p class="kalaka-deadline">Fizetési határidő: 2026. december 7.</p>', $html);
         self::assertSame(
-            'Jelentkezésem állapota Azonosító: 12A3 Fizetésre vár. Pénzügyek Fizetendő összesen 51 000 Ft'
+            'Jelentkezésem állapota Jelentkezési kód: 12A3 Fizetésre vár. Pénzügyek Fizetendő összesen 51 000 Ft'
             . ' Befizetve 20 000 Ft Még fizetendő 31 000 Ft Fizetési határidő: 2026. december 7. ' . self::NOTE,
             self::text($html)
         );
@@ -168,7 +169,7 @@ final class StatusBlockTest extends PortalTestCase
         $key = $this->stored('12A3');
         $this->charge($key, '48000');
         $this->pay($key, '48000');
-        $this->decide($key, StatusRead::CONFIRMATION, 'confirmed');
+        $this->decide($key, ConfirmationRule::KIND, 'confirmed');
         $this->activate($key);
 
         $html = $this->statusBlock();
@@ -192,7 +193,7 @@ final class StatusBlockTest extends PortalTestCase
         $key = $this->stored('12A3');
         $this->charge($key, '48000');
         $this->pay($key, '50000');
-        $this->decide($key, StatusRead::CONFIRMATION, 'confirmed');
+        $this->decide($key, ConfirmationRule::KIND, 'confirmed');
         $this->activate($key);
 
         $html = $this->statusBlock();
@@ -214,7 +215,7 @@ final class StatusBlockTest extends PortalTestCase
         $key = $this->stored('12A3');
         $this->charge($key, '48000');
         $this->pay($key, '48000');
-        $this->decide($key, StatusRead::CONFIRMATION, 'confirmed');
+        $this->decide($key, ConfirmationRule::KIND, 'confirmed');
         $this->charge($key, '3000');
         $this->activate($key);
 
@@ -232,7 +233,7 @@ final class StatusBlockTest extends PortalTestCase
 
         self::assertSame(
             '<section class="kalaka-status"><h2>Jelentkezésem állapota</h2>'
-            . '<p>Azonosító: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
+            . '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
             . '<div class="wp-block-group has-background has-very-light-gray-background-color has-text-color'
             . ' has-black-color"><p><strong>Várólistán vagy.</strong> Amíg nem kerülsz be, nem kell fizetned.</p>'
             . '</div></section>',

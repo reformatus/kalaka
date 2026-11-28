@@ -426,8 +426,7 @@ final class RankingSetTest extends FormsTestCase
             $form = $this->insertChecked($this->ranking(), $this->meta('additional'));
 
             $definition = $this->forms->definition($this->readForm($form));
-            $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
-            $facts = (new EventFormHost())->facts($this->readForm($form), $now);
+            $facts = (new EventFormHost())->facts($this->readForm($form), $this->clock->now());
             self::assertNotNull($facts);
             $availability = $this->forms->availability($definition, [], $facts);
 

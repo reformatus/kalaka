@@ -31,6 +31,7 @@ use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Api\SubmitTokenReused;
+use Kalaka\Registrations\Draft\DraftRepository;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
 use Kalaka\Registrations\Submission\Submission;
@@ -49,7 +50,8 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * `SubmitTokenReused` (N6); the event must still be the version the answers were checked against;
  * the form's requirements at this moment; then the capacity check, the reference code and the rows, and
  * last the action mail of the resulting status (`registered` or `waitlisted`), queued in the same run with
- * the registration as its cause (`ActionMails::due()`; a mail switched off queues nothing).
+ * the registration as its cause (`ActionMails::due()`; a mail switched off queues nothing), and the
+ * person's draft of the form is deleted (S74).
  *
  * Accounts (S15): a guest's submit to a `mandatory` event is one of the form's refusals, checked here under
  * the lock with the others (`account_required`). The owner account was decided before the transaction
@@ -68,10 +70,10 @@ final class SubmitRegistration implements PublicUseCase
      * @param AccountOutcome|null $account the owner account; null for none
      * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
      *     until the token's repeat rule has been applied under the lock, then thrown
-     * @param list<SeatClaim> $seatClaims the limited choices of the answers, each a pool whose seat a
-     *     `registered` submit takes (a waitlisted one may claim no limited pool)
      * @param string|null $fingerprint of the answers as sent (`fingerprint()`); null (not given) never matches an
      *     earlier submit's, so a repeat is refused
+     * @param list<SeatClaim> $seatClaims the limited choices of the answers, each a pool whose seat a
+     *     `registered` submit takes (a waitlisted one may claim no limited pool)
      */
     public function __construct(
         private readonly Form $form,
@@ -92,8 +94,10 @@ final class SubmitRegistration implements PublicUseCase
         private readonly ActionMails $mails = new ActionMails(),
         private readonly ?AccountOutcome $account = null,
         private readonly ?\Throwable $walkFailure = null,
-        private readonly array $seatClaims = [],
         private readonly ?string $fingerprint = null,
+        private readonly ?string $draftClaimHash = null,
+        private readonly DraftRepository $drafts = new DraftRepository(),
+        private readonly array $seatClaims = [],
     ) {
     }
 
@@ -240,14 +244,38 @@ final class SubmitRegistration implements PublicUseCase
             $key,
             Subject::registration($key),
         );
+        $this->deleteDrafts($context);
 
         return SubmitResult::created($key, $status);
     }
 
     /**
+     * S74: the submit ends the person's draft of the form, in its transaction: a logged-in person's own,
+     * and the guest draft of the form the request's cookie names (a guest's from a link or the quiz).
+     */
+    private function deleteDrafts(Context $context): void
+    {
+        // The guest draft first, then the person's own: the order every draft writer locks them in.
+        if ($this->draftClaimHash !== null) {
+            $guest = $this->drafts->ofClaim($this->draftClaimHash, $context);
+            if ($guest !== null && $guest->isGuestOf($this->form->id)) {
+                $this->drafts->delete($guest, $context);
+            }
+        }
+        $actor = $context->actor();
+        if ($actor instanceof AccountActor) {
+            $own = $this->drafts->ofUser($this->form->eventId, $this->form->id, $actor->userId, $context);
+            if ($own !== null) {
+                $this->drafts->delete($own, $context);
+            }
+        }
+    }
+
+    /**
      * A submit that lands on the waitlist may choose nothing limited (owner ruling 2026-11-25, O4/A3): for it
-     * everything limited acts as full, so any claim on a pool with a limit refuses the submit with the "full" text
-     * on that choice, before anything is written. Unlimited pools are not refused. [UNAPPROVED N5]
+     * everything limited acts as full, so any claim on a pool with a limit refuses the submit on that choice, with
+     * the same refusal and text as a full pool (`SeatsFull::TEXT`), before anything is written.
+     * Unlimited pools are not refused.
      *
      * @throws InvalidAnswers
      */

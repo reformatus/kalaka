@@ -61,7 +61,7 @@ final readonly class RegistrationFacts implements Facts
     /**
      * The same facts with computed values added (foundation.md, "Facts, decisions and computed values": computed
      * values are put into the fact source by the caller, never stored), e.g. a fee component's applied price
-     * tier for the later stages. [UNAPPROVED, #200 N12]
+     * tier for the later stages.
      *
      * @param array<string, Value> $computed dotted keys
      * @throws \InvalidArgumentException a key that is not dotted or that the source already has

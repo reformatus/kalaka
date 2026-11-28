@@ -201,7 +201,7 @@ final class SubmitAdditionalForm implements PortalUseCase
         // The pool rows before the registration row in the lock order are locked first, so the registration's status
         // is read plain here and read again under its lock (a difference runs the submit again).
         $moves = !$this->seatMove->isEmpty()
-            && $this->registrations->find($key)?->status === RegistrationStatus::Registered;
+            && $this->registrations->find($key)?->status->isLive() === true;
         $takes = [];
         $full = null;
         if ($moves) {
@@ -229,7 +229,7 @@ final class SubmitAdditionalForm implements PortalUseCase
             $error = new RegistrationNotActive();
             throw $error;
         }
-        if ($registration->status !== RegistrationStatus::Registered) {
+        if (!$registration->status->isLive()) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- an enum case, no input
             throw new FormRefused([AccessRefusal::RegistrationMayNotSubmit]);
         }
@@ -485,8 +485,8 @@ final class SubmitAdditionalForm implements PortalUseCase
 
     /**
      * A field locked after its first write keeps it (B4, D5): a different value, or a clear, is refused. The lock is
-     * the participant field's (`ParticipantFields::lockedAfterFirstWrite()`: the flag its declaration sets, or its
-     * type's own capability), not the form block's.
+     * the participant field's (`ParticipantFields::lockedAfterFirstWrite()`: the declarer's flag, or the type's own
+     * capability), not the form block's alone, so a field the ladder or a charge declared locks too.
      *
      * @param array<string, string> $written field key → the value to write ('' for a clear)
      * @param array<string, FieldValue> $current
@@ -494,17 +494,13 @@ final class SubmitAdditionalForm implements PortalUseCase
      */
     private function refuseLockedOverwrites(array $written, array $current): void
     {
-        $fields = [];
+        $locked = [];
         foreach ($this->participantFields as $field) {
-            $fields[$field->key] = $field;
+            $locked[$field->key] = $this->fieldRules->lockedAfterFirstWrite($field);
         }
         foreach ($written as $fieldKey => $text) {
-            $field = $fields[(string) $fieldKey] ?? null;
             $value = $current[$fieldKey] ?? null;
-            if (
-                $field !== null && $value !== null && $value->value !== $text
-                && $this->fieldRules->lockedAfterFirstWrite($field)
-            ) {
+            if ($value !== null && $value->value !== $text && ($locked[(string) $fieldKey] ?? false)) {
                 $error = new ValueLocked();
                 throw $error;
             }

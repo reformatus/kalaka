@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Money\Money;
 
 /**
- * A line of a payer that is not a payment fact (a charge, an adjustment, a feature line), as stored: the
+ * A line of a payer that is not a payment fact (a charge, a feature line), as stored: the
  * signed amount and its source. A line carries no label; a reader that shows it names it from its source.
  */
 final readonly class ChargeLine

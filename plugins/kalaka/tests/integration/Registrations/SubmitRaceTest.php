@@ -9,6 +9,7 @@ use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Assignments\OptionSeatPool;
 use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\UseCase\Runner;
@@ -180,7 +181,7 @@ final class SubmitRaceTest extends RealTableTestCase
             );
             self::fail('The submit should have been refused.');
         } catch (InvalidAnswers $invalid) {
-            self::assertSame(['modul' => 'Ez a lehetőség időközben betelt. Válassz másikat.'], $invalid->fields);
+            self::assertSame(['modul' => SeatsFull::TEXT], $invalid->fields);
         }
 
         self::assertSame("waited\n", $this->finish($holder), 'The event lock was not waited for.');

@@ -242,7 +242,11 @@ final class AssignmentsTest extends RegistrationsTestCase
         $first = new RegistrationKey($this->event, '00A0');
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
-        $warn = fn (RegistrationKey $key, string $option): array => $this->sets->placementWarnings($key, $set, $option);
+        $warn = fn (RegistrationKey $key, string $option): array => $this->sets->placementWarnings(
+            $key,
+            $set,
+            $option
+        );
 
         // Nobody holds Modul A yet: nothing to warn about, and a registration's own place never makes it full.
         self::assertSame([], $warn($second, 'modul_a'));

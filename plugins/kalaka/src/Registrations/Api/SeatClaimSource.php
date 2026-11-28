@@ -14,12 +14,11 @@ use Kalaka\Forms\Api\ValidatedAnswers;
  * submit asks them for the registration's values before and after it (`SubmitAdditionalForm::seatMove()`). A source
  * reads nothing but the answers, the event and its own pools' identity: it locks nothing, counts nothing and writes
  * nothing; the submit's use case locks the pools, counts their seats and takes them when the registration becomes
- * `registered`, or, for a `registered` registration's additional form, when its choice newly claims a pool
- * ([UNAPPROVED N8]).
+ * `registered`, or, for a `registered` registration's additional form, when its choice newly claims a pool.
  *
  * A source claims only what the registration is entitled to now: a choice that gives it no place at present (an
  * offer whose request was refused, say) makes no claim, whether the answers are a submit's or a registration's
- * stored values asked again at admission or restore ([UNAPPROVED R6]).
+ * stored values asked again at admission or restore.
  */
 interface SeatClaimSource
 {
@@ -33,8 +32,8 @@ interface SeatClaimSource
 
     /**
      * Every pool the source can claim for the event, limited or not: the field a choice is made in, the option
-     * value of the choice, and its pool. The form host serves `seats_left.<field key>.<option value>` from it
-     * ([UNAPPROVED N126]). A plain read; none when the source has no pools in the event.
+     * value of the choice, and its pool. The form host serves `seats_left.<field key>.<option value>` from it.
+     * A plain read; none when the source has no pools in the event.
      *
      * @return list<PoolEntry>
      */
