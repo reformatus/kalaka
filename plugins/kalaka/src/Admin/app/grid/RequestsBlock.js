@@ -5,7 +5,7 @@
  * needs `can.answer_request` (false while the registration is not registered, N655), and an inactive request shows
  * its label with „–” as its state and no button. Answering happens here only (owner 2026-11-27: no awaiting strip
  * above the tabs; the tab's count badge says how many await, `awaitingCount`). One `useAnswering` owns the dialog
- * and the snackbar. [UNAPPROVED N7] [UNAPPROVED N1315]
+ * and the snackbar. [UNAPPROVED N7] [UNAPPROVED N1317]
  *
  * Each button has a screen-reader name that says which request it answers (`REQUESTS.answerLabel`, `changeLabel`).
  * [UNAPPROVED T961] [UNAPPROVED T962]
@@ -60,7 +60,7 @@ export function useAnswering( config, code, reload, onSaved, fallback, currency 
 
 	// Two frames after the dialog closes, so the dialog's own focus return has run first: where focus lands is then
 	// the same every time. It lands on the opener while that button is still there (a cancel, Esc, or an answer),
-	// else on the panel's close button (`returnFocus`, as the other blocks). [UNAPPROVED N1316]
+	// else on the panel's close button (`returnFocus`, as the other blocks). [UNAPPROVED N1318]
 	const focusOpener = () =>
 		window.requestAnimationFrame( () =>
 			window.requestAnimationFrame( () => returnFocus( opener.current, fallback && fallback.current ) )
@@ -128,7 +128,7 @@ const answerButton = ( item, start, can ) =>
  * The title of the „Kérelmek” tab: the name and, with requests awaiting an answer, a count badge. The badge shows
  * only the number and is hidden from a screen reader, which hears the visually hidden „, 2 vár válaszra” instead,
  * so the tab reads „Kérelmek, 2 vár válaszra”. No badge for a count of 0 (and `count` is 0 while the read is
- * stale). [UNAPPROVED N1314] [UNAPPROVED T1309]
+ * stale). [UNAPPROVED N1316] [UNAPPROVED T1309]
  */
 export function RequestsTabTitle( { count } ) {
 	if ( count < 1 ) {

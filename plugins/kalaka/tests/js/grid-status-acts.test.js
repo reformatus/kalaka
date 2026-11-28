@@ -202,8 +202,8 @@ describe( 'focus after the dialog (N1316, through panel.js returnFocus and the p
 	} );
 
 	test( 'after an act the opener is still on screen, focus returns to it', async () => {
-		const props = await mountActs( { current: null } );
-		props.reload = async () => {};
+		// The mount's own reload re-reads nothing, so the opener stays on screen.
+		await mountActs( { current: null } );
 		const opener = await openWithdraw();
 		opener.blur();
 		await submit();

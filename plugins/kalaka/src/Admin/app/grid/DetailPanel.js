@@ -100,7 +100,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	// the money show nothing but their snackbars) and the „Kérelmek” badge is gone (its count is 0), so under the
 	// load-failure message nothing stale remains. [UNAPPROVED N1036] [UNAPPROVED N1037]
 	// The „Kérelmek” tab carries a count badge of the requests that await an answer (owner 2026-11-27; there is no
-	// strip above the tabs). [UNAPPROVED N1314]
+	// strip above the tabs). [UNAPPROVED N1316]
 	// The tab panel shows only the chosen tab, so a tab's snackbar (a saved field, a money act) is gone when another
 	// tab is chosen within its five seconds; the answer's snackbar is not, it lives here. [UNAPPROVED N1040]
 	const stale = !! problem;

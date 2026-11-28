@@ -3,7 +3,7 @@
  * in the slot under the header's status row (N4, the owner's header; N700). After an act the panel re-reads, a snackbar says
  * it was done, the grid re-reads quietly, and focus goes to the control that opened the dialog while it is still
  * there, else to the panel's close button (`returnFocus` with the panel's `closeRef`, as the other blocks).
- * [UNAPPROVED N700] [UNAPPROVED N704] [UNAPPROVED N1316]
+ * [UNAPPROVED N700] [UNAPPROVED N704] [UNAPPROVED N1318]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
