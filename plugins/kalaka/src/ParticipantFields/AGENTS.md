@@ -56,7 +56,8 @@ keeps of what it knows about its participants
   `money_relevant`, the claim that its value is locked after the first write: an extension makes it in its
   declaration, a form field takes it from its block type (`MoneyRelevantFieldType`, passed in by Forms), and no
   declaration lowers it. `lockedAfterFirstWrite()` is that flag or the type's own capability, so a row from before
-  the column needs no backfill. `checkDeclarable()` and the declaration share one rule
+  the column needs no backfill; the additional-form submit's lock reads it (Registrations, D5).
+  `checkDeclarable()` and the declaration share one rule
   (`ParticipantFieldRecord::requireDeclarableBy()`, which throws `Api\FieldKeyHeld`, a `RuleViolation` with the code
   `kalaka_field_key_held`). A declared field is never retired by its declarer: a removed
   item leaves it declared.

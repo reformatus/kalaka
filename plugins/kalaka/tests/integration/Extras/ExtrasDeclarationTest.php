@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Extras;
 
 use Kalaka\Extras\Api\ProposedExtras;
+use Kalaka\Extras\Charges\SetExtraCharges;
 use Kalaka\Extras\Donation\DonationComponent;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
@@ -17,6 +18,8 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Pricing\Cli\SettingsDocument;
+use Kalaka\Registrations\Api\ItemChosen;
+use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * The extras define their participant fields (events-and-forms.md, "Fields"): a charge declares its field with its
@@ -280,6 +283,59 @@ final class ExtrasDeclarationTest extends ExtrasTestCase
         self::assertSame(ParticipantField::SOURCE_EXTENSION, $this->field('ebed')?->source);
         self::assertFalse($this->field('ebed')?->retired);
         self::assertContains(DonationComponent::KEY, $this->keys());
+    }
+
+    public function testAChargeAnOpenRegistrationChoseIsNotTakenOutByThePreviewOrTheSave(): void
+    {
+        $this->applyCharges([self::item('ebed', 'Ebéd', '3500'), self::item('ejjel', 'Éj', '1000', 'number')]);
+        $anna = $this->registerWith('00A0', ['ebed' => '1', 'ejjel' => '0']);
+
+        // The preview refuses it, and so does the save when it is run without the preview.
+        try {
+            $this->extras->propose($this->event, [self::item('ejjel', 'Éj', '1000', 'number')]);
+            self::fail('The preview took out a chosen charge.');
+        } catch (ItemChosen $chosen) {
+            self::assertSame('kalaka_item_chosen', $chosen->errorCode());
+            self::assertCount(2, $this->extras->charges($this->event));
+        }
+        try {
+            $this->runner->run(new SetExtraCharges(), [
+                'event_id' => $this->event,
+                'currency' => 'HUF',
+                'charges' => [self::item('ejjel', 'Éj', '1000', 'number')],
+            ], new CliActor(null));
+            self::fail('The save took out a chosen charge.');
+        } catch (ItemChosen $chosen) {
+            self::assertSame('kalaka_item_chosen', $chosen->errorCode());
+            self::assertCount(2, $this->extras->charges($this->event));
+        }
+        self::assertSame('3500', $this->balance($anna));
+
+        // The charge nobody chose (a quantity of 0) may go, and its declared field stays declared.
+        $this->applyCharges([self::item('ebed', 'Ebéd', '3500')]);
+        self::assertCount(1, $this->extras->charges($this->event));
+        self::assertNotNull($this->field('ejjel'));
+    }
+
+    public function testAQuantityAndAWaitlistedChoiceCountAndAWithdrawnOneDoesNot(): void
+    {
+        $this->applyCharges([self::item('ejjel', 'Éj', '1000', 'number')]);
+        $bela = $this->registerWith('00A0', ['ejjel' => '3']);
+
+        foreach ([RegistrationStatus::Registered, RegistrationStatus::Waitlisted] as $status) {
+            $this->setStatus($bela, $status);
+            try {
+                $this->extras->propose($this->event, []);
+                self::fail('A quantity of 3 on a ' . $status->value . ' registration was not a choice.');
+            } catch (ItemChosen $chosen) {
+                self::assertSame('kalaka_item_chosen', $chosen->errorCode());
+                self::assertCount(1, $this->extras->charges($this->event));
+            }
+        }
+
+        $this->setStatus($bela, RegistrationStatus::Withdrawn);
+        $this->applyCharges([]);
+        self::assertSame([], $this->extras->charges($this->event));
     }
 
     public function testEveryChargeFieldAndTheDonationStoreTheExtrasAsDeclarerAndAreMoneyRelevant(): void

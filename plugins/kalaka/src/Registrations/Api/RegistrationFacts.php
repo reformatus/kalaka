@@ -110,6 +110,58 @@ final readonly class RegistrationFacts implements Facts
         return $types + [self::CODE => ValueType::Text, self::STATUS => ValueType::Choice];
     }
 
+    /**
+     * The `registration.*` keys an additional form's conditions read, with their types: every key the source
+     * declares under that prefix but the code (an identity, no fact to decide on). A key that joins the source
+     * and `declared()` appears here with no change, so an additional form reads it too (D9, CF4).
+     *
+     * @return array<string, ValueType>
+     */
+    public static function formTypes(Event $event): array
+    {
+        $types = [];
+        foreach (self::declared($event, []) as $key => $type) {
+            if (str_starts_with($key, 'registration.') && $key !== self::CODE) {
+                $types[$key] = $type;
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * The values of `formTypes()`: what the one builder says of this registration now. They show the state as it
+     * is before the submit that reads them.
+     *
+     * @return array<string, Value>
+     */
+    public function formValues(): array
+    {
+        $values = [];
+        foreach (array_keys(self::formTypes($this->event)) as $key) {
+            $values[$key] = $this->get($key);
+        }
+
+        return $values;
+    }
+
+    /**
+     * `formValues()` as comparable text: what an additional form's submit compares between its walk's read and
+     * the read under the registration lock, to see whether a fact its conditions read has changed.
+     *
+     * @return array<string, string> key → the value's type, data and text
+     */
+    public function formRead(): array
+    {
+        $read = [];
+        foreach ($this->formValues() as $key => $value) {
+            $read[$key] = (string) wp_json_encode([$value->type->value, $value->data, $value->text]);
+        }
+        ksort($read);
+
+        return $read;
+    }
+
     /** The kind of the participant field with that key; null for a key that is no participant field. */
     public function fieldKind(string $key): ?FieldKind
     {

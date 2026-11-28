@@ -19,6 +19,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
+use Kalaka\Registrations\Api\RegistrationFacts;
 
 /**
  * Reads forms and checks answers against them. It reads WordPress posts, so it runs before or
@@ -409,23 +410,22 @@ final class Forms
     /**
      * The facts a submit's walk reads for the form, built the same way as its page's and re-fetch's
      * (`FormHost::facts()`) but from what the caller read: the account state, the moment, and for an additional
-     * form the registration's field values and status (one read, so the use case can check the same read under
-     * its lock). Reads the database, so it runs before a use case's transaction.
+     * form the registration's facts (one read, so the use case can check the same read under its
+     * lock). Reads the database, so it runs before a use case's transaction.
      *
      * The moment is the caller's, the same one the page's and re-fetch's facts read at.
      *
-     * @param array<string, string>|null $stored the registration's field values by key; null for none
-     * @param string|null $status the registration's status value
+     * @param RegistrationFacts|null $registration the registration's facts, as `Registrations::factsOf()` built
+     *     them; null for none
      */
     public function submitFacts(
         Form $form,
         Event $event,
         ?bool $loggedIn,
         \DateTimeImmutable $now,
-        ?array $stored,
-        ?string $status
+        ?RegistrationFacts $registration
     ): ValueContext {
-        return (new EventFormHost())->factsFor($form, $event, $loggedIn, $now, $stored, $status);
+        return (new EventFormHost())->factsFor($form, $event, $loggedIn, $now, $registration);
     }
 
     /**

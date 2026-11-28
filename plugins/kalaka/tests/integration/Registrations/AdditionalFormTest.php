@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Registrations;
 
+use Kalaka\Assignments\Api\AssignmentSets;
+use Kalaka\Assignments\OptionSeatPool;
+use Kalaka\Events\Api\Event;
 use Kalaka\Events\PublishEvent;
+use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\EventFormHost;
@@ -19,12 +23,23 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Portal\ActiveRegistrationState;
+use Kalaka\Registrations\Api\PoolEntry;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationNotActive;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\SeatClaimSource;
+use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\SeatClaims;
+use Kalaka\Registrations\Api\SeatsFull;
+use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Assignments\SetOptionClaimSource;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Api\SubmitTokenReused;
+use Kalaka\Registrations\Api\ValueLocked;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
@@ -53,7 +68,8 @@ final class AdditionalFormTest extends FormsTestCase
         $this->update($this->event, ['capacity' => 10]);
         $this->transition(new PublishEvent(), $this->event);
         $this->slot = $slot = $this->insertForm(
-            $this->slotFields() . $this->field('text', 'note') . $this->field('text', 'other'),
+            $this->slotFields() . $this->field('text', 'note') . $this->field('text', 'other')
+            . $this->field('text', 'tier'),
             ['kalaka_event_id' => $this->event]
         );
         $this->registration = $this->submitter()->submit(
@@ -270,12 +286,21 @@ final class AdditionalFormTest extends FormsTestCase
         self::assertSame(1, $this->rowCount('kalaka_submissions'));
     }
 
-    public function testAWaitlistedRegistrationMaySubmitAndAWithdrawnOneMayNot(): void
+    public function testAWaitlistedRegistrationIsRefusedNothingIsWrittenAndAWithdrawnOneMayNotEither(): void
     {
+        // A waitlisted registration has no additional forms (owner ruling 2026-11-25).
         $form = $this->additional($this->field('text', 'note'));
+        $submissions = $this->rowCount('kalaka_submissions');
 
         $this->setStatus('waitlisted');
-        self::assertSame('waitlisted', $this->send($form, ['note' => 'várólistán'])['status']);
+        try {
+            $this->send($form, ['note' => 'várólistán']);
+            self::fail('A waitlisted registration submitted an additional form.');
+        } catch (RegistrationNotActive $e) {
+            self::assertSame('kalaka_registration_not_active', $e->errorCode());
+        }
+        self::assertSame('első', $this->values()['note']);
+        self::assertSame($submissions, $this->rowCount('kalaka_submissions'));
 
         $this->setStatus('withdrawn');
         try {
@@ -284,7 +309,42 @@ final class AdditionalFormTest extends FormsTestCase
         } catch (FormRefused $e) {
             self::assertSame([AccessRefusal::RegistrationMayNotSubmit], $e->refusals);
         }
-        self::assertSame('várólistán', $this->values()['note']);
+        self::assertSame('első', $this->values()['note']);
+    }
+
+    public function testAWaitlistedRegistrationsLinkShowsTheFormClosedAsAWithdrawnOnesDoes(): void
+    {
+        // Owner ruling 2026-11-26: no status page and no redirect, the closed state a withdrawn registration gets.
+        $form = $this->additional($this->field('text', 'note'));
+        $this->setStatus('withdrawn');
+        \Kalaka\Foundation\ObjectCache::clear();
+        $withdrawn = $this->render($form);
+
+        $this->setStatus('waitlisted');
+        \Kalaka\Foundation\ObjectCache::clear();
+        $html = $this->render($form);
+
+        self::assertStringContainsString('Ez az űrlap jelenleg nem érhető el.', $html);
+        self::assertStringNotContainsString('class="kalaka-status"', $html);
+        self::assertStringNotContainsString('<form', $html);
+        self::assertStringNotContainsString('data-kalaka-field', $html);
+        self::assertSame($withdrawn, $html);
+    }
+
+    public function testAWaitlistedRegistrationsLinkIsClosedOutsideTheFormsOpenPeriodToo(): void
+    {
+        $form = $this->additional(
+            $this->field('text', 'note'),
+            ['kalaka_closes' => wp_json_encode(['kind' => 'fixed', 'at' => '2000-01-01 00:00:00'])]
+        );
+        $this->setStatus('waitlisted');
+        \Kalaka\Foundation\ObjectCache::clear();
+
+        $html = $this->render($form);
+
+        self::assertStringContainsString('Ez az űrlap jelenleg nem érhető el.', $html);
+        self::assertStringNotContainsString('class="kalaka-status"', $html);
+        self::assertStringNotContainsString('<form', $html);
     }
 
     public function testWithoutAnActiveRegistrationOfTheEventNothingIsWritten(): void
@@ -464,5 +524,273 @@ final class AdditionalFormTest extends FormsTestCase
         );
         self::assertStringNotContainsString('Az űrlap kitöltéséhez nyisd meg', $html);
         self::assertStringNotContainsString('<form', $html);
+    }
+    /**
+     * An extension declares a participant field in a run of its own, as Extras or the price ladder do.
+     *
+     * @param string $type a block name
+     */
+    private function declareLocked(string $key, string $type, bool $moneyRelevant): void
+    {
+        $this->runner->run(
+            new AdminProbe(function (array $input, Context $context) use ($key, $type, $moneyRelevant): void {
+                (new ParticipantFields())->declareExtensionField(
+                    $context,
+                    $this->event,
+                    $key,
+                    $type,
+                    'Cím',
+                    null,
+                    true,
+                    'kalaka-extras',
+                    null,
+                    $moneyRelevant
+                );
+            }),
+            [],
+            new CliActor(null)
+        );
+    }
+
+    public function testAFieldAnExtensionDeclaredMoneyRelevantIsLockedAfterItsFirstWriteWhateverItsBlock(): void
+    {
+        $this->declareLocked('ebed', 'kalaka/consent-field', true);
+        $this->declareLocked('szabad', 'kalaka/text-field', false);
+        $form = $this->additional(
+            $this->field('consent', 'ebed') . $this->field('text', 'szabad') . $this->field('text', 'note')
+        );
+
+        // A first write passes: the registration form never held the field.
+        $this->send($form, ['ebed' => true, 'szabad' => 'egy', 'note' => 'x']);
+        self::assertSame('1', $this->values()['ebed']);
+
+        // The declared money field keeps it, ticked or unticked; the unflagged field and a form field change.
+        try {
+            $this->send($form, ['ebed' => false, 'szabad' => 'kettő', 'note' => 'y']);
+            self::fail('A declared money-relevant field was overwritten.');
+        } catch (ValueLocked $violation) {
+            self::assertSame('kalaka_value_locked', $violation->errorCode());
+            self::assertSame('1', $this->values()['ebed']);
+        }
+        self::assertSame('egy', $this->values()['szabad']);
+        $this->send($form, ['ebed' => true, 'szabad' => 'kettő', 'note' => 'y']);
+        self::assertSame('kettő', $this->values()['szabad']);
+        self::assertSame('y', $this->values()['note']);
+    }
+
+    public function testADeclaredFlagAloneLocksATextFieldAndAnUntickedConsentIsAFirstWrite(): void
+    {
+        $this->declareLocked('adomany', 'kalaka/text-field', true);
+        $this->declareLocked('ebed', 'kalaka/consent-field', true);
+        $form = $this->additional($this->field('text', 'adomany') . $this->field('consent', 'ebed'));
+
+        $this->send($form, ['adomany' => '1000', 'ebed' => false]);
+        self::assertSame('0', $this->values()['ebed']);
+
+        // The `0` was the first write: ticking later is a change, and so is a different amount.
+        foreach ([['adomany' => '1000', 'ebed' => true], ['adomany' => '2000', 'ebed' => false]] as $answers) {
+            try {
+                $this->send($form, $answers);
+                self::fail('A locked value was changed by an additional form.');
+            } catch (ValueLocked $violation) {
+                self::assertSame('kalaka_value_locked', $violation->errorCode());
+                self::assertSame('1000', $this->values()['adomany']);
+                self::assertSame('0', $this->values()['ebed']);
+            }
+        }
+        // The same values again are no change.
+        $this->send($form, ['adomany' => '1000', 'ebed' => false]);
+    }
+
+    /**
+     * A seat claim source over a set's options: the field `tier` claims the pool of the option with its value.
+     *
+     * @return array{int, SeatClaimSource} the set and the source
+     */
+    private function tierSource(int $limit = 5): array
+    {
+        $sets = new AssignmentSets($this->runner);
+        $set = $sets->save([
+            'event_id' => $this->event,
+            'name' => 'Szintek',
+            'required' => false,
+            'published' => false,
+        ], new CliActor(null));
+        foreach (['A', 'B'] as $label) {
+            $sets->saveOption([
+                'set_id' => $set,
+                'label' => $label,
+                'limit' => $limit,
+                'leaders' => '',
+                'place' => '',
+                'position' => 0,
+            ], new CliActor(null));
+        }
+        $source = new class ($this->event, $set) implements SeatClaimSource {
+            public function __construct(private readonly int $event, private readonly int $set)
+            {
+            }
+
+            public function claims(Event $event, ValidatedAnswers $answers): array
+            {
+                $tier = $answers->stored()['tier'] ?? null;
+
+                return $tier === null || $tier === ''
+                    ? []
+                    : [new SeatClaim('tier', new OptionSeatPool($this->event, $this->set, $tier))];
+            }
+
+            public function pools(Event $event): array
+            {
+                return [new PoolEntry('tier', 'a', new OptionSeatPool($this->event, $this->set, 'a'))];
+            }
+        };
+
+        return [$set, $source];
+    }
+
+    /** A registration that chose tier `a` and holds its seat, active for the additional forms. */
+    private function registerInTierA(
+        SeatClaimSource $source,
+        string $tier = 'a',
+        string $email = 'teszt.bela'
+    ): RegistrationKey {
+        $answers = ['name' => 'Teszt Béla', 'email' => $email . '@example.org'];
+        if ($tier !== '') {
+            $answers['tier'] = $tier;
+        }
+        $key = (new RegistrationSubmit($this->runner, seatClaimSources: [$source]))->submit(
+            new SubmitRequest(
+                $this->slot,
+                $this->readForm($this->slot)->version,
+                $answers,
+                SubmitToken::generate()
+            ),
+            new GuestActor()
+        )->registration;
+        ActiveRegistrationState::set($key, false);
+        $this->registration = $key;
+
+        return $key;
+    }
+
+    /** @param array<string, mixed> $answers */
+    private function sendWith(SeatClaimSource $source, int $form, array $answers): array
+    {
+        return (new EventFormHost(registrationSubmit: new RegistrationSubmit(
+            $this->runner,
+            seatClaimSources: [$source]
+        )))->submit(
+            $form,
+            $this->readForm($form)->version,
+            $answers,
+            SubmitToken::generate(),
+            [],
+            false,
+            new GuestActor()
+        );
+    }
+
+    public function testAnAdditionalFormThatClaimsANewPoolTakesItsSeat(): void
+    {
+        [$set, $source] = $this->tierSource();
+        $this->registerInTierA($source, '');
+        $form = $this->additional($this->field('text', 'tier') . $this->field('text', 'note'));
+        $pool = new OptionSeatPool($this->event, $set, 'b');
+        self::assertFalse((new Seats())->holds($pool, $this->registration));
+
+        $this->sendWith($source, $form, ['tier' => 'b', 'note' => 'x']);
+
+        self::assertSame('b', $this->values()['tier']);
+        self::assertTrue((new Seats())->holds($pool, $this->registration));
+    }
+
+    public function testAFullPoolRefusesTheSubmitOnTheFieldWritesNothingAndKeepsTheOldSeat(): void
+    {
+        [$set, $source] = $this->tierSource(1);
+        $this->registerInTierA($source, 'b', 'teszt.masik');
+        $this->registerInTierA($source);
+        $form = $this->additional($this->field('text', 'tier') . $this->field('text', 'note'));
+        $submissions = $this->rowCount('kalaka_submissions');
+        $seats = new Seats();
+
+        try {
+            $this->sendWith($source, $form, ['tier' => 'b', 'note' => 'x']);
+            self::fail('A full pool did not refuse the additional form.');
+        } catch (InvalidAnswers $refused) {
+            self::assertSame(['tier' => SeatsFull::TEXT], $refused->fields);
+        }
+        self::assertSame('a', $this->values()['tier']);
+        self::assertArrayNotHasKey('note', $this->values());
+        self::assertSame($submissions, $this->rowCount('kalaka_submissions'));
+        self::assertFalse($seats->holds(new OptionSeatPool($this->event, $set, 'b'), $this->registration));
+        self::assertTrue($seats->holds(new OptionSeatPool($this->event, $set, 'a'), $this->registration));
+    }
+
+    public function testARechoiceBetweenTwoOptionsMovesTheSeat(): void
+    {
+        [$set, $source] = $this->tierSource();
+        $this->registerInTierA($source);
+        $form = $this->additional($this->field('text', 'tier') . $this->field('text', 'note'));
+
+        $this->sendWith($source, $form, ['tier' => 'b', 'note' => 'x']);
+
+        $seats = new Seats();
+        self::assertSame('b', $this->values()['tier']);
+        self::assertTrue($seats->holds(new OptionSeatPool($this->event, $set, 'b'), $this->registration));
+        self::assertFalse($seats->holds(new OptionSeatPool($this->event, $set, 'a'), $this->registration));
+    }
+
+    public function testAnUnchangedClaimOrAFieldNeverTouchedDoesNothing(): void
+    {
+        [$set, $source] = $this->tierSource();
+        $this->registerInTierA($source);
+        $same = $this->additional($this->field('text', 'tier') . $this->field('text', 'note'));
+        $other = $this->additional($this->field('text', 'note'));
+
+        $this->sendWith($source, $same, ['tier' => 'a', 'note' => 'egy']);
+        $this->sendWith($source, $other, ['note' => 'kettő']);
+
+        $seats = new Seats();
+        self::assertSame('a', $this->values()['tier']);
+        self::assertSame('kettő', $this->values()['note']);
+        self::assertTrue($seats->holds(new OptionSeatPool($this->event, $set, 'a'), $this->registration));
+        self::assertSame(1, $seats->held(new OptionSeatPool($this->event, $set, 'a')));
+    }
+
+    public function testAWaitlistedRegistrationsRechoiceIsRefusedWithNoValueNoSeatAndNoSubmission(): void
+    {
+        [$set, $source] = $this->tierSource();
+        $this->registerInTierA($source, '');
+        $this->setStatus('waitlisted');
+        \Kalaka\Foundation\ObjectCache::clear();
+        $form = $this->additional($this->field('text', 'tier') . $this->field('text', 'note'));
+        $pool = new OptionSeatPool($this->event, $set, 'b');
+        $submissions = $this->rowCount('kalaka_submissions');
+
+        try {
+            $this->sendWith($source, $form, ['tier' => 'b', 'note' => 'x']);
+            self::fail('A waitlisted registration submitted an additional form.');
+        } catch (RegistrationNotActive) {
+            $this->addToAssertionCount(1);
+        }
+
+        self::assertArrayNotHasKey('tier', $this->values());
+        self::assertArrayNotHasKey('note', $this->values());
+        self::assertFalse((new Seats())->holds($pool, $this->registration));
+        self::assertSame($submissions, $this->rowCount('kalaka_submissions'));
+    }
+
+    public function testARequestModeRechoiceClaimsNothingAndStillWorks(): void
+    {
+        $source = new SetOptionClaimSource();
+        $this->registerInTierA($source, '');
+        $form = $this->additional($this->field('text', 'tier'));
+
+        $this->sendWith($source, $form, ['tier' => 'a']);
+        $this->sendWith($source, $form, ['tier' => 'b']);
+
+        self::assertSame('b', $this->values()['tier']);
+        self::assertSame([], (new Seats())->poolsOf($this->registration));
     }
 }

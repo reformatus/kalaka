@@ -5,12 +5,21 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Registrations;
 
 use Kalaka\Assignments\Api\AssignmentSets;
+use Kalaka\Assignments\PlaceRegistration;
+use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Api\Facts;
+use Kalaka\Forms\Api\ValidatedAnswers;
+use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Registrations\Api\PoolEntry;
+use Kalaka\Registrations\Api\RegistrationFacts;
+use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Events\PublishEvent;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Mail\Body\MailValues;
@@ -23,6 +32,7 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\RegistrationNotActive;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SubmitRequest;
@@ -240,10 +250,13 @@ final class FormValuesTest extends FormsTestCase
         self::assertNotNull($event);
         $form = new Form(1, $unlimited, FormPlacement::Registration, null, false, 1);
 
-        $facts = $this->host()->factsFor($form, $event, null, $this->clock->now(), null, null);
+        $facts = $this->host()->factsFor($form, $event, null, $this->clock->now(), null);
 
         self::assertTrue($facts->get('event.seats_left')->isEmpty());
         self::assertSame(ValueType::Number, $facts->get('event.seats_left')->type);
+        foreach (array_keys($this->host()->typesOf($event, FormPlacement::Registration)) as $key) {
+            self::assertStringStartsNotWith('seats_left.', $key);
+        }
     }
 
     public function testACustomPointIsADateByItsId(): void
@@ -324,21 +337,23 @@ final class FormValuesTest extends FormsTestCase
     {
         $form = $this->additional(
             $this->field('text', 'note')
-            . $this->branch('registration.status', 'equals', 'waitlisted', $this->field('text', 'extra', [
+            . $this->branch('registration.status', 'equals', 'registered', $this->field('text', 'extra', [
                 'required' => true,
             ]))
         );
 
-        self::assertSame('registered', $this->send($form, ['note' => 'x'])['status']);
-
-        $this->setStatus('waitlisted');
         try {
             $this->send($form, ['note' => 'x']);
-            self::fail('The required field of the branch for a waitlisted registration was not refused.');
+            self::fail('The required field of the branch for a registered registration was not refused.');
         } catch (InvalidAnswers $refused) {
             self::assertArrayHasKey('extra', $refused->fields);
         }
-        self::assertSame('waitlisted', $this->send($form, ['note' => 'x', 'extra' => 'y'])['status']);
+        self::assertSame('registered', $this->send($form, ['note' => 'x', 'extra' => 'y'])['status']);
+
+        // A waitlisted registration has no additional forms (owner ruling 2026-11-25), whatever the branch reads.
+        $this->setStatus('waitlisted');
+        $this->expectException(RegistrationNotActive::class);
+        $this->send($form, ['note' => 'x', 'extra' => 'y']);
     }
 
     public function testABranchOnAVolatileKeyIsNeverSentToTheBrowserUnlessItHoldsAndSeatsLeftIsOneOfThem(): void
@@ -406,6 +421,7 @@ final class FormValuesTest extends FormsTestCase
      * and the lock.
      *
      * @param \Closure(): void $change
+     * @return Clock&object{calls: int}
      */
     private function changingClock(\Closure $change, bool $always = false): Clock
     {
@@ -432,24 +448,18 @@ final class FormValuesTest extends FormsTestCase
         };
     }
 
-    public function testAStatusChangedBetweenTheWalkAndTheLockRunsTheWalkAgain(): void
+    public function testAStatusChangedToWaitlistedBetweenTheWalkAndTheLockRefusesTheSubmitAndWritesNothing(): void
     {
-        $form = $this->additional(
-            $this->field('text', 'note')
-            . $this->branch('registration.status', 'equals', 'waitlisted', $this->field('text', 'extra', [
-                'required' => true,
-            ]))
-        );
+        $form = $this->additional($this->field('text', 'note'));
         $clock = $this->changingClock(fn () => $this->setStatus('waitlisted'));
         $submitter = new RegistrationSubmit(new Runner($clock, true));
 
-        // The first walk read `registered` and passed; under the lock the status is `waitlisted`, so the
-        // submit runs again, and the second walk reads `waitlisted` and requires `extra`.
+        // The walk read `registered`; under the lock the status is `waitlisted`: no additional forms for it.
         try {
             $this->send($form, ['note' => 'x'], $submitter);
-            self::fail('The second walk did not read the changed status.');
-        } catch (InvalidAnswers $refused) {
-            self::assertArrayHasKey('extra', $refused->fields);
+            self::fail('A waitlisted registration submitted an additional form.');
+        } catch (RegistrationNotActive) {
+            $this->addToAssertionCount(1);
         }
         self::assertArrayNotHasKey('note', (new Registrations())->values($this->registration));
     }
@@ -819,7 +829,6 @@ final class FormValuesTest extends FormsTestCase
             $event,
             null,
             $this->clock->now(),
-            null,
             null
         );
 
@@ -828,5 +837,358 @@ final class FormValuesTest extends FormsTestCase
         self::assertTrue($facts($older)->get('event.points.1')->isEmpty());
         self::assertFalse($facts($current->version)->has('event.points.1'));
         self::assertSame('2026-12-22', $facts($current->version)->get('event.points.2')->data);
+    }
+    /**
+     * An assignment set tied to the request field `modulok`, with the options `modul_a` (a limit of 2) and
+     * `modul_b` (no limit).
+     */
+    private function modulSet(): int
+    {
+        $sets = new AssignmentSets($this->runner);
+        $set = $sets->save([
+            'event_id' => $this->event,
+            'name' => 'Modulok',
+            'required' => false,
+            'published' => false,
+        ], new CliActor(null));
+        $sets->tieRequestField($set, 'modulok', new CliActor(null));
+        foreach (['Modul A' => 2, 'Modul B' => null] as $label => $limit) {
+            $sets->saveOption([
+                'set_id' => $set,
+                'label' => $label,
+                'limit' => $limit,
+                'leaders' => '',
+                'place' => '',
+                'position' => 0,
+            ], new CliActor(null));
+        }
+
+        return $set;
+    }
+
+    public function testEverySetOptionsPlacesLeftIsAFormVariableAndAnUnlimitedOneIsNone(): void
+    {
+        $set = $this->modulSet();
+        $registration = $this->slot;
+        $additional = $this->additional($this->field('text', 'note'));
+
+        foreach ([$registration, $additional] as $form) {
+            $types = $this->host()->factTypes($this->formOf($form));
+            self::assertSame(ValueType::Number, $types['seats_left.modulok.modul_a']);
+            self::assertSame(ValueType::Number, $types['seats_left.modulok.modul_b']);
+        }
+        $facts = $this->facts($additional);
+        self::assertSame('2', $facts->get('seats_left.modulok.modul_a')->data);
+        self::assertTrue($facts->get('seats_left.modulok.modul_b')->isEmpty());
+        self::assertSame(ValueType::Number, $facts->get('seats_left.modulok.modul_b')->type);
+
+        $this->runner->run(new PlaceRegistration(), [
+            'event_id' => $this->registration->eventId,
+            'code' => $this->registration->code,
+            'set_id' => $set,
+            'option' => 'modul_a',
+        ], new CliActor(null));
+        self::assertSame('1', $this->facts($additional)->get('seats_left.modulok.modul_a')->data);
+    }
+
+    public function testAFullEventZeroesEverySeatsLeftVariableOnTheRegistrationFormAndNotOnAnAdditionalForm(): void
+    {
+        $this->modulSet();
+        $additional = $this->additional($this->field('text', 'note'));
+        // Places left: the registration form reads the real counts while the event takes registrations.
+        self::assertSame('2', $this->facts($this->slot)->get('seats_left.modulok.modul_a')->data);
+        self::assertTrue($this->facts($this->slot)->get('seats_left.modulok.modul_b')->isEmpty());
+
+        // The event's last place goes (capacity 2, one registered already): the next registrant is waitlisted.
+        $this->register(['name' => 'Teszt Béla', 'email' => 'teszt.bela@example.org', 'szint' => 'kezdo']);
+        self::assertSame('0', $this->facts($this->slot)->get('event.seats_left')->data);
+
+        $registration = $this->facts($this->slot);
+        self::assertSame('0', $registration->get('seats_left.modulok.modul_a')->data);
+        self::assertSame('0', $registration->get('seats_left.modulok.modul_b')->data);
+        $extra = $this->facts($additional);
+        self::assertSame('2', $extra->get('seats_left.modulok.modul_a')->data);
+        self::assertTrue($extra->get('seats_left.modulok.modul_b')->isEmpty());
+    }
+
+    /**
+     * Runs the body with one more contributed seat claim source, as an extension's tiers or offers would be.
+     *
+     * @param \Closure(): void $body
+     */
+    private function withSource(SeatClaimSource $source, \Closure $body): void
+    {
+        $before = Contributions::current();
+        $with = clone $before;
+        $with->seatClaimSource($source);
+        Contributions::record($with);
+        try {
+            $body();
+        } finally {
+            Contributions::record($before);
+        }
+    }
+
+    private function listing(PoolEntry ...$entries): SeatClaimSource
+    {
+        return new class ($entries) implements SeatClaimSource {
+            /** @param list<PoolEntry> $entries */
+            public function __construct(private readonly array $entries)
+            {
+            }
+
+            public function claims(Event $event, ValidatedAnswers $answers): array
+            {
+                return [];
+            }
+
+            public function pools(Event $event): array
+            {
+                return $this->entries;
+            }
+        };
+    }
+
+    public function testAnExtensionsPoolIsServedWithNoCodeHereAndARemovedOneReadsZero(): void
+    {
+        $this->modulSet();
+        $pool = new TestQuotaPool($this->event, 'tier.1', 'kalaka_test_items', 1, 3);
+        $source = $this->listing(new PoolEntry('price_tier', 'felnott', $pool));
+        $content = $this->slotFields()
+            . $this->field('choice', 'szint', ['options' => [['value' => 'halado', 'label' => 'Haladó']]])
+            . $this->branch('seats_left.price_tier.felnott', 'greaterThan', '0', $this->field('text', 'extra'));
+        $form = $this->insertForm($content, ['kalaka_event_id' => $this->event]);
+
+        $this->withSource($source, function () use ($form, $content): void {
+            self::assertSame(
+                ValueType::Number,
+                $this->host()->factTypes($this->formOf($form))['seats_left.price_tier.felnott']
+            );
+            self::assertSame('3', $this->facts($form)->get('seats_left.price_tier.felnott')->data);
+            // The save accepts a key that is served now.
+            self::assertNull(DefinitionCheck::problem($content, $form, FormPlacement::Registration, $this->event));
+        });
+
+        // The source is gone (the tier was removed): the stored revision still parses, and the pool reads 0,
+        // never none, so "more than 0" never reads it as open. A save refuses the key.
+        $facts = $this->facts($form);
+        self::assertSame('0', $facts->get('seats_left.price_tier.felnott')->data);
+        self::assertSame(ValueType::Number, $facts->get('seats_left.price_tier.felnott')->type);
+        self::assertSame(
+            ['condition_key_not_earlier', 'seats_left.price_tier.felnott'],
+            DefinitionCheck::problem($content, $form, FormPlacement::Registration, $this->event)
+        );
+        self::assertSame(
+            ['seats_left.price_tier.felnott' => ValueType::Number],
+            $this->host()->goneTypes($this->formOf($form), ['seats_left.price_tier.felnott', 'szint', 'seats_left'])
+        );
+    }
+
+    public function testEveryTimeValueIsReadAtTheMomentTheFactsAreBuiltFor(): void
+    {
+        $this->now('2026-11-30 08:00:00');
+        $form = $this->additional($this->field('text', 'note'));
+        $event = $this->events->find($this->event);
+        self::assertNotNull($event);
+
+        $facts = $this->host()->factsFor(
+            $this->formOf($form),
+            $event,
+            null,
+            new \DateTimeImmutable('2026-12-05 09:00:00', new \DateTimeZone('UTC')),
+            null
+        );
+
+        // `time.now` is an instant (a datetime in the site's time zone): its day is the given moment's, not the
+        // clock's (2026-11-30).
+        self::assertSame('2026-12-05', substr((string) $facts->get(Facts::NOW)->data, 0, 10));
+    }
+
+    public function testAnAdditionalFormReadsEveryRegistrationKeyTheOneBuilderDeclaresAndNotTheCode(): void
+    {
+        $event = $this->events->find($this->event);
+        self::assertNotNull($event);
+        $form = $this->additional($this->field('text', 'note'));
+        $builder = (new Registrations())->factsOf($this->registration, $event, $this->runner->clock()->now());
+        self::assertNotNull($builder);
+        $types = $this->host()->factTypes($this->formOf($form));
+        $facts = $this->facts($form);
+
+        self::assertArrayNotHasKey(RegistrationFacts::CODE, $types);
+        self::assertNotSame([], RegistrationFacts::formTypes($event));
+        foreach (RegistrationFacts::formTypes($event) as $key => $type) {
+            self::assertSame($type, $types[$key]);
+            self::assertEquals($builder->get($key), $facts->get($key), $key);
+        }
+        self::assertSame(['registered'], $facts->get('registration.status')->data);
+    }
+
+    public function testAPoolsPlacesMovingBetweenTheWalkAndTheLockIsNoChangedRead(): void
+    {
+        $set = $this->modulSet();
+        $form = $this->additional($this->field('text', 'note'));
+        $pool = new \Kalaka\Assignments\OptionSeatPool($this->event, $set, 'modul_a');
+        $seats = new \Kalaka\Registrations\Api\Seats();
+        $other = $this->register(['name' => 'Teszt Cili', 'email' => 'teszt.cili@example.org', 'szint' => 'kezdo']);
+
+        // One attempt without any change: the clock is read this many times.
+        $idle = $this->changingClock(static function (): void {
+        });
+        $this->send($form, ['note' => 'x'], new RegistrationSubmit(new Runner($idle, true)));
+        $single = $idle->calls;
+
+        // The pool's places move after the walk read them; a changed read would run the submit again and
+        // read the clock again.
+        $clock = $this->changingClock(function () use ($set, $other): void {
+            $this->runner->run(new PlaceRegistration(), [
+                'event_id' => $other->eventId,
+                'code' => $other->code,
+                'set_id' => $set,
+                'option' => 'modul_a',
+            ], new CliActor(null));
+        });
+        $this->send($form, ['note' => 'y'], new RegistrationSubmit(new Runner($clock, true)));
+
+        self::assertTrue($seats->holds($pool, $other), 'The pool did move.');
+        self::assertSame($single, $clock->calls, 'One attempt only.');
+        self::assertSame('y', (new Registrations())->values($this->registration)['note']);
+    }
+
+    /** A source whose listing, or whose pool, fails. */
+    private function failing(bool $listing, ?PoolEntry $entry = null): SeatClaimSource
+    {
+        return new class ($listing, $entry) implements SeatClaimSource {
+            public function __construct(private readonly bool $listing, private readonly ?PoolEntry $entry)
+            {
+            }
+
+            public function claims(Event $event, ValidatedAnswers $answers): array
+            {
+                return [];
+            }
+
+            public function pools(Event $event): array
+            {
+                if ($this->listing) {
+                    throw new \RuntimeException('A listing that fails.');
+                }
+
+                return $this->entry === null ? [] : [$this->entry];
+            }
+        };
+    }
+
+    public function testASourceThatThrowsIsSkippedAndNoFormBreaks(): void
+    {
+        $this->modulSet();
+        $content = $this->slotFields()
+            . $this->field('choice', 'szint', ['options' => [['value' => 'halado', 'label' => 'Haladó']]])
+            . $this->branch('seats_left.price_tier.felnott', 'greaterThan', '0', $this->field('text', 'extra'));
+        $other = $this->slotFields()
+            . $this->field('choice', 'szint', ['options' => [['value' => 'halado', 'label' => 'Haladó']]]);
+        $reading = $this->insertForm($content, ['kalaka_event_id' => $this->event]);
+        $additional = $this->additional($this->field('text', 'note'));
+        $pool = new TestQuotaPool($this->event, 'tier.1', 'kalaka_test_items', 1, 3);
+        $dead = new TestQuotaPool($this->event, 'tier.2', 'kalaka_test_items', 2, null);
+        $throwing = new class ($this->event) implements \Kalaka\Registrations\Api\SeatPool {
+            public function __construct(private readonly int $event)
+            {
+            }
+
+            public function eventId(): int
+            {
+                return $this->event;
+            }
+
+            public function key(): string
+            {
+                return 'tier.3';
+            }
+
+            public function lockLevel(): \Kalaka\Foundation\Api\UseCase\LockLevel
+            {
+                return \Kalaka\Foundation\Api\UseCase\LockLevel::Quota;
+            }
+
+            public function lockRow(): array
+            {
+                return ['kalaka_test_items', [3]];
+            }
+
+            public function limit(): ?int
+            {
+                throw new \RuntimeException('A pool whose limit cannot be read.');
+            }
+
+            public function lock(\Kalaka\Foundation\Api\UseCase\Context $context): ?int
+            {
+                return null;
+            }
+        };
+        $ok = $this->listing(new PoolEntry('price_tier', 'kulfoldi', $pool), new PoolEntry('Bad Key', 'x', $dead));
+        $bad = $this->listing(new PoolEntry('price_tier', 'rossz', $throwing));
+        $this->withSource($ok, function () use ($bad, $reading, $additional, $other): void {
+            $this->withSource($bad, function () use ($reading, $additional, $other): void {
+                $this->withSource($this->failing(true), function () use ($reading, $additional, $other): void {
+                    $host = $this->host();
+                    $types = $host->factTypes($this->formOf($additional));
+                    // The throwing listing is skipped, the malformed entry dropped, the others served.
+                    self::assertArrayNotHasKey('seats_left.Bad Key.x', $types);
+                    foreach (array_keys($types) as $key) {
+                        self::assertTrue(ValueContext::isKey($key), $key);
+                    }
+                    self::assertSame(ValueType::Number, $types['seats_left.price_tier.kulfoldi']);
+                    self::assertSame('3', $this->facts($additional)->get('seats_left.price_tier.kulfoldi')->data);
+                    // A pool whose read throws is declared and reads 0, like a removed one.
+                    self::assertSame('0', $this->facts($additional)->get('seats_left.price_tier.rossz')->data);
+                    // The page, the re-fetch and a save of a form that reads a skipped source's key still work:
+                    // a stored revision reads 0.
+                    self::assertSame('0', $this->facts($reading)->get('seats_left.price_tier.felnott')->data);
+                    self::assertNotSame('', $this->render($reading));
+                    self::assertNull(
+                        DefinitionCheck::problem($other, $reading, FormPlacement::Registration, $this->event)
+                    );
+                    // The submit's walk and the registration go through.
+                    $registered = $this->submitter()->submit(
+                        new SubmitRequest(
+                            $reading,
+                            $this->readForm($reading)->version,
+                            ['name' => 'Teszt Dóra', 'email' => 'teszt.dora@example.org', 'szint' => 'halado'],
+                            SubmitToken::generate()
+                        ),
+                        new GuestActor()
+                    );
+                    self::assertSame('registered', $registered->status->value);
+                });
+            });
+        });
+    }
+
+    public function testAnOptionValueWithAHyphenIsAPoolVariableAndAConditionMayReadIt(): void
+    {
+        $this->update($this->event, ['capacity' => 10]);
+        $pool = new TestQuotaPool($this->event, 'tier.1', 'kalaka_test_items', 1, 3);
+        $source = $this->listing(new PoolEntry('price_tier', 'gyerek-5_12', $pool));
+        $content = $this->slotFields()
+            . $this->field('choice', 'szint', ['options' => [['value' => 'halado', 'label' => 'Haladó']]])
+            . $this->branch('seats_left.price_tier.gyerek-5_12', 'greaterThan', '0', $this->field('text', 'extra'));
+        $form = $this->insertForm($content, ['kalaka_event_id' => $this->event]);
+
+        $this->withSource($source, function () use ($form, $content): void {
+            self::assertSame('3', $this->facts($form)->get('seats_left.price_tier.gyerek-5_12')->data);
+            self::assertNull(DefinitionCheck::problem($content, $form, FormPlacement::Registration, $this->event));
+            // The condition holds (3 places), so the field it shows is part of the form's walk.
+            $this->submitter()->submit(
+                new SubmitRequest(
+                    $form,
+                    $this->readForm($form)->version,
+                    ['name' => 'Teszt Éva', 'email' => 'teszt.eva@example.org', 'szint' => 'halado', 'extra' => 'x'],
+                    SubmitToken::generate()
+                ),
+                new GuestActor()
+            );
+        });
+        // With the source gone the stored revision reads 0, so the branch no longer shows.
+        self::assertSame('0', $this->facts($form)->get('seats_left.price_tier.gyerek-5_12')->data);
     }
 }

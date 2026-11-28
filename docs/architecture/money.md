@@ -238,13 +238,17 @@ Tier places of the price ladder and support-offer places are seats, under the
 one seat rule
 ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 
-- **Taken** at submit, admission or restore, under a `FOR UPDATE` lock on the
-  tier or offer row. Waitlisted registrations hold no place.
+- **Taken** at submit, admission or restore, or when a `registered`
+  registration's additional form makes a new choice of a limited option, under
+  a `FOR UPDATE` lock on the tier or offer row. Waitlisted registrations hold
+  no place (and have no additional forms).
 - **A full one cannot be chosen:** the submit is refused, as for a full set
   option. Staff can still place a registration by hand, warned that the pool
   is full.
 - **Released** on withdrawal or removal, and when an answer refuses the
-  offer (a partner approves or refuses through the same act as staff).
+  offer (a partner approves or refuses through the same act as staff). A tier
+  or an offer, once written, is locked like every money-relevant value, so an
+  additional form never changes it away.
 - **A restored or admitted registration** keeps what it chose and takes its
   places, over the limit where a pool is full, with the "full" warning to
   staff, as the one seat rule says for every staff act.

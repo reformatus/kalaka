@@ -14,7 +14,6 @@ use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\AccountActor;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -22,7 +21,18 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PortalUseCase;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
+use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\SeatClaims;
+use Kalaka\Registrations\Api\SeatClaimSource;
+use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\SeatsFull;
+use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Registrations\Api\ValueLocked;
+use Kalaka\Events\Api\Event;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationNotActive;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -42,15 +52,27 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * transaction. Inside, in this order: the event row `FOR UPDATE` (the lock order's first level); a repeat
  * (the same token with the same answers, for the same registration) writes nothing; the event must still be
  * the version the answers were checked against; the form's requirements at this moment (its open period
- * among them); then the registration row `FOR UPDATE`, which must be `registered` or `waitlisted`, and whose
- * values and status must be what the walk read (else `VersionConflict`: the submit is run again).
+ * among them); then the registration row `FOR UPDATE`, which must be `registered` (a waitlisted registration has no
+ * additional forms, owner ruling 2026-11-25: `RegistrationNotActive`, nothing written), and whose values and facts
+ * must be what the walk read (else `VersionConflict`: the submit is run again).
+ *
+ * An additional form may take seats (owner ruling 2026-11-25), as the registration form does, only for a
+ * `registered` registration: the seat claims (`SeatClaimSource`) of its values as they would be after the submit
+ * are compared with those of its values now, and in one run under the pools' locks (`SubmitRegistration::
+ * lockedClaims()`, the lock order) the new pools' seats are taken and the pools it no longer claims are freed. A
+ * full pool refuses the submit as the registration form's does (`InvalidAnswers` on that field with
+ * `SeatsFull::TEXT`), nothing is written and the old seat stays; it is said only after the registration is locked
+ * and the walk's read is checked again (a stale read runs the submit again, never says "full"). A request-mode set
+ * choice claims nothing at submit, so re-choosing a request still works. A tier or an offer, written once, stays
+ * (D5, below), so a price never changes through this form.
  *
  * Every submit appends a submission (the next number), and the latest write wins (owner B9). Only the
  * fields that showed are written (B8): an answered one stores its answer, and one left blank clears its
  * value when the form showed that value (a type that refuses prefill opened it empty, so its value stays). A
  * shown consent left unticked is not blank: it stores `0` (the answer no), so a consent given earlier is
  * overwritten with `0`, never cleared (the owner's ruling 2026-11-18, truthiness R3).
- * A money-relevant field's value, once written, is never overwritten here (B4: the organizer's unlock is
+ * A field the participant field locks after its first write (`ParticipantFields::lockedAfterFirstWrite()`: money
+ * relevant, declared so by its extension or by its type) is never overwritten here (B4: the organizer's unlock is
  * not built). Each written or cleared value is audited as `field:<key>`.
  */
 final class SubmitAdditionalForm implements PortalUseCase
@@ -63,11 +85,13 @@ final class SubmitAdditionalForm implements PortalUseCase
      * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
      * @param array<string, array<string, bool>> $clearable field key → a value it held before the transaction →
      *     whether the field's type opens it with that value (`clearable()`), so no field type runs inside it
-     * @param array{values: array<string, string>, status: string|null}|null $read the registration's field
-     *     values and status the walk read (its conditions may read them): checked again under the registration
-     *     lock, and a difference runs the submit again (`VersionConflict`)
+     * @param array{values: array<string, string>, facts: array<string, string>}|null $read the registration's
+     *     field values and facts the walk read (its conditions may read them, `RegistrationFacts::formRead()`):
+     *     checked again under the registration lock, and a difference runs the submit again (`VersionConflict`)
      * @param string|null $fingerprint of the answers as sent (`SubmitRegistration::fingerprint()`); null (not
      *     given) never matches an earlier submit's, so a repeat is refused
+     * @param SeatMove $seatMove the seats the submit moves (`seatMove()`, asked before the transaction): the
+     *     pools it newly claims and the ones it no longer claims; made only for a `registered` registration
      * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
      *     until the token's repeat rule has been applied under the lock, then thrown
      */
@@ -88,6 +112,10 @@ final class SubmitAdditionalForm implements PortalUseCase
         private readonly RegistrationRepository $registrations = new RegistrationRepository(),
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
+        private readonly Registrations $facts = new Registrations(),
+        private readonly Seats $seats = new Seats(),
+        private readonly ParticipantFields $fieldRules = new ParticipantFields(),
+        private readonly SeatMove $seatMove = new SeatMove(),
         private readonly ?string $fingerprint = null,
     ) {
     }
@@ -170,17 +198,46 @@ final class SubmitAdditionalForm implements PortalUseCase
             throw new FormRefused($refusals);
         }
 
+        // The pool rows before the registration row in the lock order are locked first, so the registration's status
+        // is read plain here and read again under its lock (a difference runs the submit again).
+        $moves = !$this->seatMove->isEmpty()
+            && $this->registrations->find($key)?->status->isLive() === true;
+        $takes = [];
+        $full = null;
+        if ($moves) {
+            try {
+                $takes = SubmitRegistration::lockedClaims(
+                    $this->seats,
+                    $this->seatMove->takes,
+                    $context,
+                    $this->seatMove->frees
+                );
+            } catch (InvalidAnswers $refusal) {
+                // A full pool is said only once the registration is locked and its read is checked again: the
+                // walk may have read facts that moved, and then the submit is run again instead.
+                $full = $refusal;
+            }
+        }
+
         $registration = $this->registrations->findForUpdate($key, $context);
         if ($registration === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- an enum case, no input
             throw new FormRefused([AccessRefusal::NoActiveRegistration]);
         }
-        if (
-            $registration->status !== RegistrationStatus::Registered
-            && $registration->status !== RegistrationStatus::Waitlisted
-        ) {
+        if ($registration->status === RegistrationStatus::Waitlisted) {
+            // A waitlisted registration has no additional forms (owner ruling 2026-11-25); nothing is written.
+            $error = new RegistrationNotActive();
+            throw $error;
+        }
+        if (!$registration->status->isLive()) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- an enum case, no input
             throw new FormRefused([AccessRefusal::RegistrationMayNotSubmit]);
+        }
+
+        // The registration is `registered` now: a seat move asked for a registration read as something else is stale.
+        if (!$this->seatMove->isEmpty() && !$moves) {
+            $error = new VersionConflict();
+            throw $error;
         }
 
         $stored = SubmitRegistration::declared(
@@ -192,14 +249,20 @@ final class SubmitAdditionalForm implements PortalUseCase
         foreach ($this->values->forRegistration($key) as $value) {
             $current[$value->fieldKey] = $value;
         }
-        $this->refuseChangedRead($registration->status, $current);
+        $this->refuseChangedRead($key, $event, $current, $context->now());
         // The answers' walk failed before the transaction: said now, after the repeat rule, the event version
         // and the re-read of what the walk read (a failure on facts that moved is run again, not said).
         if ($this->walkFailure !== null) {
             throw $this->walkFailure;
         }
+        if ($full !== null) {
+            throw $full;
+        }
         $cleared = $this->cleared($current);
         $this->refuseLockedOverwrites($stored, $current);
+        if ($moves) {
+            $this->moveSeats($key, $takes, $context);
+        }
 
         $this->submissions->insert(new Submission(
             $key,
@@ -228,29 +291,132 @@ final class SubmitAdditionalForm implements PortalUseCase
     }
 
     /**
-     * The values and the status the walk read must still be what the locked registration holds (CF2): a staff
+     * The values and the facts the walk read must still be what the locked registration holds (CF2, D9): a staff
      * write between the walk and the lock may change what the form's conditions showed, so the submit is run
-     * again and the walk reads them anew. The values are compared as they are, not by a version marker.
+     * again and the walk reads them anew. The facts are the one builder's (`RegistrationFacts::formRead()`, as the
+     * mails read them), compared with the stored field values as they are, not by a version marker. A pool's
+     * places left are no part of the read: a seat count moving is not a changed read.
      *
      * @param array<string, FieldValue> $current the registration's values by field key, read under the lock
+     * @param \DateTimeImmutable $now the act's moment
      * @throws VersionConflict
      */
-    private function refuseChangedRead(RegistrationStatus $status, array $current): void
-    {
+    private function refuseChangedRead(
+        RegistrationKey $key,
+        Event $event,
+        array $current,
+        \DateTimeImmutable $now
+    ): void {
         if ($this->read === null) {
             return;
         }
-        $now = [];
+        $held = [];
         foreach ($current as $fieldKey => $value) {
-            $now[$fieldKey] = $value->value;
+            $held[$fieldKey] = $value->value;
         }
         $before = $this->read['values'];
-        ksort($now);
+        ksort($held);
         ksort($before);
-        if ($this->read['status'] !== $status->value || $before !== $now) {
+        $facts = $this->facts->factsOf($key, $event, $now)?->formRead() ?? [];
+        if ($this->read['facts'] !== $facts || $before !== $held) {
             $error = new VersionConflict();
             throw $error;
         }
+    }
+
+    /**
+     * The seat move of a submit, asked before the transaction (a seat claim source is an outside point): the claims
+     * of the registration's values after this submit (the stored ones, the blanks the form clears taken out, the
+     * written answers over them) that its values now do not make are taken, and those its values now make that
+     * they would no longer are freed. A request-mode set choice makes no claim at submit. [UNAPPROVED N304]
+     *
+     * @param list<SeatClaimSource> $sources
+     * @param array<string, FieldValue> $current the registration's values by field key, as read before the
+     *     transaction (checked again under the lock)
+     * @param array<string, array<string, bool>> $clearable `clearable()`
+     */
+    public static function seatMove(
+        array $sources,
+        Event $event,
+        ValidatedAnswers $answers,
+        array $current,
+        array $clearable
+    ): SeatMove {
+        if ($sources === []) {
+            return new SeatMove();
+        }
+        $stored = $answers->stored();
+        $before = [];
+        foreach ($current as $fieldKey => $value) {
+            $before[$fieldKey] = $value->value;
+        }
+        $after = $before;
+        foreach ($answers->shown() as $fieldKey) {
+            $blanked = isset($before[$fieldKey]) && !array_key_exists($fieldKey, $stored);
+            if ($blanked && ($clearable[$fieldKey][$before[$fieldKey]] ?? false)) {
+                unset($after[$fieldKey]);
+            }
+        }
+        $after = $stored + $after;
+        $held = [];
+        $frees = [];
+        foreach (SeatClaims::of($sources, $event, self::answersOf($before)) as $claim) {
+            $held[self::poolId($claim)] = $claim;
+        }
+        $takes = [];
+        $kept = [];
+        foreach (SeatClaims::of($sources, $event, self::answersOf($after)) as $claim) {
+            $id = self::poolId($claim);
+            $kept[$id] = true;
+            if (!isset($held[$id])) {
+                $takes[] = $claim;
+            }
+        }
+        foreach ($held as $id => $claim) {
+            if (!isset($kept[$id])) {
+                $frees[] = $claim;
+            }
+        }
+
+        return new SeatMove($takes, $frees);
+    }
+
+    /**
+     * Takes the new pools' seats first, in lock order (a full pool refuses the submit on that field with the
+     * registration form's text, and the run rolls back with the old seat kept), then frees the pools it no longer
+     * claims. The registration's row is held; the quota pools were locked before it.
+     *
+     * @param list<SeatClaim> $takes the new claims in lock order
+     * @throws InvalidAnswers
+     */
+    private function moveSeats(RegistrationKey $key, array $takes, Context $context): void
+    {
+        foreach ($takes as $claim) {
+            try {
+                $this->seats->take($claim->pool, $key, SeatAct::Submit, $context);
+            } catch (SeatsFull) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a field key and a fixed text
+                throw new InvalidAnswers([$claim->fieldKey => SeatsFull::TEXT]);
+            }
+        }
+        foreach ($this->seatMove->frees as $claim) {
+            $this->seats->release($claim->pool, $key, $context);
+        }
+    }
+
+    /**
+     * The values as answers a source reads: stored and shown alike.
+     *
+     * @param array<string, string> $values
+     */
+    private static function answersOf(array $values): ValidatedAnswers
+    {
+        return new ValidatedAnswers($values, $values, array_keys($values));
+    }
+
+    private static function poolId(SeatClaim $claim): string
+    {
+        return $claim->pool->eventId() . '/' . $claim->pool->key();
     }
 
     /**
@@ -318,25 +484,24 @@ final class SubmitAdditionalForm implements PortalUseCase
     }
 
     /**
-     * A money-relevant field keeps its first write (B4): a different value, or a clear, is refused. The lock is the
-     * participant field's (`ParticipantFields::lockedAfterFirstWrite()`: the declarer's flag, or the type's own
+     * A field locked after its first write keeps it (B4, D5): a different value, or a clear, is refused. The lock is
+     * the participant field's (`ParticipantFields::lockedAfterFirstWrite()`: the declarer's flag, or the type's own
      * capability), not the form block's alone, so a field the ladder or a charge declared locks too.
      *
      * @param array<string, string> $written field key → the value to write ('' for a clear)
      * @param array<string, FieldValue> $current
-     * @throws RuleViolation
+     * @throws ValueLocked
      */
     private function refuseLockedOverwrites(array $written, array $current): void
     {
         $locked = [];
-        $fields = new ParticipantFields();
         foreach ($this->participantFields as $field) {
-            $locked[$field->key] = $fields->lockedAfterFirstWrite($field);
+            $locked[$field->key] = $this->fieldRules->lockedAfterFirstWrite($field);
         }
         foreach ($written as $fieldKey => $text) {
             $value = $current[$fieldKey] ?? null;
             if ($value !== null && $value->value !== $text && ($locked[(string) $fieldKey] ?? false)) {
-                $error = new RuleViolation();
+                $error = new ValueLocked();
                 throw $error;
             }
         }

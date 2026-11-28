@@ -114,8 +114,9 @@ flowchart TB
 - **An additional form never creates a registration** and never counts
   toward capacity. It writes to the active registration
   ([Registrations](registrations-and-identity.md#access)) or to the one its
-  form link targets, and only a `registered` or `waitlisted` registration
-  may submit it
+  form link targets, and only a `registered` registration may submit it: a
+  waitlisted registration has no additional forms, and its link shows the
+  form closed, as for a withdrawn or removed one
   ([Changing participant fields after submit](#changing-participant-fields-after-submit)).
 - **The event's capacity is the only capacity on registrations**
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
@@ -336,6 +337,8 @@ flowchart TB
     decision record stays the source of truth
     ([Foundation](foundation.md#facts-decisions-and-computed-values)); no
     field value is ever written for it, so nothing can shadow the decision.
+    A registration's own state (its status, whether it awaits an answer) is
+    no such field: it is a `registration.*` fact of the fact source.
 - **A participant field's title and option labels are its own,** separate
   from the labels the forms show. Each is set when it is first declared (an
   option is matched by its value) and is never overwritten by a form's label,
@@ -471,9 +474,12 @@ is no other participant-side edit.
     logged in (`account.logged_in`, „Bejelentkezve”): yes or no where the
     form has an account step, and none where it has none (the event's off
     account mode, an additional form), never no there.
-    An additional form's conditions also read its registration's status
-    (`registration.status`). Every form's conditions read the places the
-    event has left (`event.seats_left`) and the event's own points
+    An additional form's conditions also read its registration's facts
+    (`registration.*`, such as `registration.status`). Every form's conditions
+    read the places the event has left (`event.seats_left`), the places left
+    of a set option, price tier or support offer
+    (`seats_left.<field key>.<option value>`; no value means unlimited, and
+    a removed one reads 0) and the event's own points
     (`event.points.<id>`). Whatever decides what a form shows is such a
     value; the backend keeps no rule of its own on who sees what.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
@@ -495,13 +501,16 @@ is no other participant-side edit.
 - **The server renders them** in mails and participant blocks.
 - **One availability base.** Whatever is shown or selectable is decided by
   one condition in this format, through one evaluator in PHP that reads a
-  **fact source**: form fields and branches, pages and sections, a choice
-  field's options (the options a ranking takes from an assignment set
-  included), offers and the adjudicated aid. An
-  assignment-set option carries no condition of its own: the form's ranking
-  field decides who may pick it. In a form it reads the draft answers and
-  the event's values, on every render and again at submit; in the fee components and the materializer it reads the
-  registration's facts. It never runs the materializer on a draft. Computed facts such as free seats
+  **fact source**: form fields and branches, pages and sections, and a
+  choice field's options (the options a ranking takes from an assignment set
+  included). Set options, price tiers, support offers, extra charges and aid
+  carry no condition of their own: the form decides what is shown and
+  offered, and the server re-walks the form at submit. In a form it reads
+  the draft answers and the event's values, on every render and again at
+  submit; the fee components and the materializer read the registration's
+  facts and evaluate no condition. The evaluator never runs the materializer
+  on a draft. The backend keeps only the hard rules: seats, windows and
+  locked fields. Computed facts such as free seats
   are put into the fact source by the caller; a congregation answer carries
   its ancestors in its own value, a snapshot of its path.
 - **Forms are rendered by the server; the page's script holds no
@@ -534,7 +543,7 @@ is no other participant-side edit.
   the submit. The submit's walk reads them as they are then: a field that now shows is checked
   like any shown field, and an answer that no longer shows or is no longer
   offered is dropped. An additional form's submit reads the registration's
-  stored values and status once for its walk and reads them again under the
+  stored values and facts once for its walk and reads them again under the
   registration lock; if they differ, the walk is run again. Places are still
   taken only under the lock, by the rules that own them.
 

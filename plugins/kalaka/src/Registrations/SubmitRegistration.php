@@ -202,7 +202,9 @@ final class SubmitRegistration implements PublicUseCase
         }
 
         // The pool rows come before the registration row in the lock order; a full pool refuses the submit.
-        $claims = $status === RegistrationStatus::Registered ? $this->lockedClaims($context) : [];
+        $claims = $status === RegistrationStatus::Registered
+            ? self::lockedClaims($this->seats, $this->seatClaims, $context)
+            : [];
 
         $now = $context->now();
         $key = new RegistrationKey($eventId, $this->codes->generate($eventId));
@@ -293,29 +295,39 @@ final class SubmitRegistration implements PublicUseCase
 
     /**
      * Orders the submit's seat claims as their pool rows may be locked (`Seats::inLockOrder()`: by level, table
-     * and key as the runner's lock guard compares them), locks the pool rows that sit before the registration row
-     * in the lock order (quota rows), and refuses the submit when one of them is full: the form comes back with
-     * the message on that choice and nothing is saved. The other pools are locked and checked by `Seats::take()`
-     * once the registration row is in, in the same order.
+     * and key as the runner's lock guard compares them, never by pool key), locks the pool rows that sit before
+     * the registration row in the lock order (quota rows), and refuses the submit when one of them is full: the
+     * form comes back with the message on that choice and nothing is saved. The other pools are locked and
+     * checked by `Seats::take()` once the registration row is in, in the same order. The additional form's seat
+     * move uses it too (`SubmitAdditionalForm`): `$freed` are the claims whose seats it gives up, locked in the
+     * same order but never refused for being full.
      *
-     * @return list<SeatClaim>
+     * @param list<SeatClaim> $claims
+     * @param list<SeatClaim> $freed
+     * @return list<SeatClaim> the claims in lock order, the freed ones left out
      * @throws InvalidAnswers
      */
-    private function lockedClaims(Context $context): array
+    public static function lockedClaims(Seats $seats, array $claims, Context $context, array $freed = []): array
     {
-        $claims = $this->seats->inLockOrder($this->seatClaims);
-        foreach ($claims as $claim) {
+        $freedIds = array_map('spl_object_id', $freed);
+        $ordered = $seats->inLockOrder([...$claims, ...$freed]);
+        $taking = [];
+        foreach ($ordered as $claim) {
+            $isFreed = in_array(spl_object_id($claim), $freedIds, true);
+            if (!$isFreed) {
+                $taking[] = $claim;
+            }
             if ($claim->pool->lockLevel()->value >= LockLevel::Registration->value) {
                 continue;
             }
-            $left = $this->seats->lock($claim->pool, $context);
-            if ($left !== null && $left < 1) {
+            $left = $seats->lock($claim->pool, $context);
+            if (!$isFreed && $left !== null && $left < 1) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a field key and a fixed text
                 throw new InvalidAnswers([$claim->fieldKey => SeatsFull::TEXT]);
             }
         }
 
-        return $claims;
+        return $taking;
     }
 
     /**
