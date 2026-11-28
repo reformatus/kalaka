@@ -20,6 +20,22 @@ final class RegistrationTables
     /** The submissions, append-only, keyed `event_id`, `code`, `number`. */
     public const SUBMISSIONS = 'kalaka_submissions';
 
+    /** The SQL list of the live statuses: `RegistrationStatus::liveValues()`, a test holds the two together. */
+    public const LIVE_STATUSES_SQL = "'registered'";
+
+    /**
+     * The condition that a row is a live registration (`RegistrationStatus::isLive()`).
+     *
+     * @param literal-string $alias the registrations table's alias, or '' for none
+     * @return literal-string
+     */
+    public static function isLive(string $alias = ''): string
+    {
+        $column = $alias === '' ? '' : $alias . '.';
+
+        return "{$column}status IN (" . self::LIVE_STATUSES_SQL . ')';
+    }
+
     /**
      * The instant the sorszám orders by: `registered_at` for a registered row, `created_at` otherwise.
      *

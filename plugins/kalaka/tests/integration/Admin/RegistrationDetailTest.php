@@ -30,14 +30,16 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
     private function decisions(): Decisions
     {
         $rules = new DecisionRules();
-        $rules->add(
-            new TestRule(
-                'confirmation',
-                ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
-                label: 'Visszaigazolás'
-            ),
-            true
+        $confirmation = new TestRule(
+            'confirmation',
+            ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
+            label: 'Visszaigazolás'
         );
+        $confirmation->marks = [
+            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+        ];
+        $rules->add($confirmation, true);
         $rules->add(new TestRule('payment_hold', ['held' => 'Zárolva'], label: 'Fizetési zárolás'), true);
 
         return new Decisions(rules: $rules);
@@ -106,6 +108,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Visszaigazolás',
                         'state' => 'unconfirmed',
                         'state_label' => 'Nincs visszaigazolva',
+                        'marks' => [
+                            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                        ],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                     [
@@ -113,6 +119,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Fizetési zárolás',
                         'state' => 'held',
                         'state_label' => 'Zárolva',
+                        'marks' => [],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                 ],
@@ -337,6 +344,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'label' => 'Visszaigazolás',
                     'state' => 'unconfirmed',
                     'state_label' => 'Nincs visszaigazolva',
+                    'marks' => [
+                        'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                        'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                    ],
                     'effective_at' => '2026-11-30T08:00:00Z',
                 ]],
                 'confirmed' => false,
@@ -876,8 +887,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
     }
 
-    /** T6, appended to T5a, T5b or T5c only while the event's confirmed mail is on (the ruling 2026-11-23, Q4). */
-    public function testTheMailNoteIsAppendedOnlyWhileTheConfirmedMailIsOn(): void
+    /** The warning is T5a, T5b or T5c only: the confirmed mail's sentence (T6) is not part of it (owner 2026-11-27). */
+    public function testTheWarningSaysNothingOfTheMailEvenWhileTheConfirmedMailIsOn(): void
     {
         $this->addRegistration('00A0');
         $this->addDecision('00A0', 'confirmation', 'confirmed');
@@ -891,7 +902,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ['kalaka_confirm_manually', 'kalaka_view_money']
         );
         $warning = fn (int $user): ?string => $this->detail($user)['registration']['unconfirm_warning'];
-        $note = ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.';
+        $note = 'levél';
         $generic = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
         $nothingDue = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra '
             . 'visszaigazolt lesz.';
@@ -905,12 +916,15 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
         ObjectCache::clear();
 
-        self::assertSame($generic . $note, $warning($blind), 'T5c and T6.');
-        self::assertSame($nothingDue . $note, $warning($seeing), 'T5b and T6.');
+        // The mail is on, and the warning still says nothing of it.
+        self::assertSame($generic, $warning($blind), 'T5c only.');
+        self::assertSame($nothingDue, $warning($seeing), 'T5b only.');
+        self::assertStringNotContainsString($note, (string) $warning($blind));
+        self::assertStringNotContainsString($note, (string) $warning($seeing));
 
         $wpdb->update(
             $wpdb->prefix . 'kalaka_action_mails',
@@ -918,7 +932,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ['event_id' => $this->event, 'mail' => 'confirmed']
         );
         ObjectCache::clear();
-        self::assertSame($generic, $warning($blind), 'Off again: the note goes.');
+        self::assertSame($generic, $warning($blind), 'Off again: unchanged.');
     }
 
     public function testTheReconfirmsKeyTellsTheReasonToAMoneyViewHolderAndOnlyYesToOthers(): void

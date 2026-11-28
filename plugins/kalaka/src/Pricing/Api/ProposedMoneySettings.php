@@ -7,12 +7,26 @@ namespace Kalaka\Pricing\Api;
 use Kalaka\Foundation\Api\Money\Money;
 
 /**
- * Money settings proposed for an event, for a preview and an apply. A setting left null stays as it is.
- * S19 has the fixed price only; each money extension adds its own settings (S25 the ladder, …).
+ * Money settings proposed for an event, for a preview and an apply. A setting left null or not given stays
+ * as it is. Core's fixed price, and each money extension's own settings as `ProposedComponentSettings` (S25
+ * the price ladder, …), at most one per component.
  */
 final readonly class ProposedMoneySettings
 {
-    public function __construct(public ?Money $fixedPrice = null)
+    /** @param list<ProposedComponentSettings> $components */
+    public function __construct(public ?Money $fixedPrice = null, public array $components = [])
     {
+    }
+
+    /** The proposed settings for that component, or null when it keeps its stored ones. */
+    public function forComponent(string $id): ?ProposedComponentSettings
+    {
+        foreach ($this->components as $settings) {
+            if ($settings->componentId() === $id) {
+                return $settings;
+            }
+        }
+
+        return null;
     }
 }

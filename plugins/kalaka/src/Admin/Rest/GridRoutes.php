@@ -238,21 +238,12 @@ final class GridRoutes
      */
     private static function held(\WP_REST_Request $request): HeldView
     {
-        $eventId = self::event($request);
-        $viewId = (int) $request->get_param('view');
-        $grant = (int) $request->get_param('grant');
-        $actor = self::actor();
-        $access = new Access();
-        if ($access->isFull($actor)) {
-            return $viewId === 0 ? $access->master($actor, $eventId) : $access->fullView($actor, $eventId, $viewId);
-        }
-        foreach ($access->heldViews($actor, $eventId) as $held) {
-            if ($held->grantId === $grant && ($held->viewId ?? 0) === $viewId) {
-                return $held;
-            }
-        }
-
-        throw new PermissionDenied();
+        return (new Access())->viewOf(
+            self::actor(),
+            self::event($request),
+            (int) $request->get_param('view'),
+            (int) $request->get_param('grant')
+        );
     }
 
     /**

@@ -19,8 +19,6 @@ use Kalaka\Ledger\Api\LedgerEntry;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Ledger\Api\Side;
-use Kalaka\Mail\Api\ActionMail;
-use Kalaka\Mail\Api\ActionMails;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
@@ -48,7 +46,6 @@ final class RegistrationDetail
         private readonly PayerKinds $payerKinds = new PayerKinds(),
         private readonly LineNames $lineNames = new LineNames(),
         private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
-        private readonly ActionMails $actionMails = new ActionMails(),
         private readonly Confirmations $confirmations = new Confirmations(),
     ) {
     }
@@ -206,6 +203,7 @@ final class RegistrationDetail
                 'label' => $declaredKind->label,
                 'state' => $current->state,
                 'state_label' => $declaredKind->states[$current->state] ?? $current->state,
+                'marks' => $declaredKind->marks,
                 'effective_at' => self::instant($current->effectiveAt),
             ];
         }
@@ -233,9 +231,8 @@ final class RegistrationDetail
      * The warning to show before staff's unconfirm: the text when confirmation would decide `confirmed` again
      * at once, null otherwise. A holder with money-view gets the reason, payments or nothing due; a holder
      * without it gets one text that names neither a reason nor money, so the read never tells them what the
-     * payments are. While the event's confirmed mail is on, one sentence is appended: the registrant gets that
-     * mail again (the owner's ruling 2026-11-23, topic 15, Q4). It reads and writes nothing else.
-     * [UNAPPROVED N11, Q4, T5a, T5b, T5c, T6]
+     * payments are. It says nothing of the mail that may follow (owner 2026-11-27: T6 is not part of the
+     * warning). It reads and writes nothing else. [UNAPPROVED N11, Q4, T5a, T5b, T5c]
      */
     private function unconfirmWarning(RegistrationKey $key, bool $viewMoney, ?string $reconfirms): ?string
     {
@@ -253,9 +250,7 @@ final class RegistrationDetail
             $text = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
         }
 
-        return $this->actionMails->isOn($key->eventId, ActionMail::Confirmed)
-            ? $text . ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.' // [UNAPPROVED T6]
-            : $text;
+        return $text;
     }
 
     /**

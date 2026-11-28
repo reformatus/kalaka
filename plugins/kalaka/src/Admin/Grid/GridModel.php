@@ -32,7 +32,13 @@ final class GridModel
     /** The display name field's type: its column comes third. */
     private const NAME_TYPE = 'kalaka/name-field';
 
-    /** @var array<string, array{label: string, states: array<string, string>}> by event and kind */
+    /**
+     * @var array<string, array{
+     *     label: string,
+     *     states: array<string, string>,
+     *     marks: array<string, array{icon: string, tone: string}>
+     * }> by event and kind
+     */
     private array $kinds = [];
 
     public function __construct(
@@ -95,26 +101,36 @@ final class GridModel
      * A decision kind as the grid shows it: the label and the states' labels its module declares; for a
      * kind nothing declares, the kind's key and the states recorded in the event, each by its key.
      *
-     * @return array{label: string, states: array<string, string>}
+     * @return array{
+     *     label: string,
+     *     states: array<string, string>,
+     *     marks: array<string, array{icon: string, tone: string}>
+     * }
      */
     private function decision(int $eventId, string $kind): array
     {
         return $this->kinds[$eventId . ':' . $kind] ??= $this->describeKind($eventId, $kind);
     }
 
-    /** @return array{label: string, states: array<string, string>} */
+    /**
+     * @return array{
+     *     label: string,
+     *     states: array<string, string>,
+     *     marks: array<string, array{icon: string, tone: string}>
+     * }
+     */
     private function describeKind(int $eventId, string $kind): array
     {
         $declared = $this->decisions->kind($kind);
         if ($declared !== null) {
-            return ['label' => $declared->label, 'states' => $declared->states];
+            return ['label' => $declared->label, 'states' => $declared->states, 'marks' => $declared->marks];
         }
         $states = [];
         foreach ($this->decisions->statesIn($eventId, $kind) as $state) {
             $states[$state] = $state;
         }
 
-        return ['label' => $kind, 'states' => $states];
+        return ['label' => $kind, 'states' => $states, 'marks' => []];
     }
 
     /**
@@ -457,7 +473,7 @@ final class GridModel
      */
     private function meta(string $column, array $fields, int $eventId): array
     {
-        // Kód carries the default order and sorts both ways; Szám is a plain number sort. [UNAPPROVED N60]
+        // Kód carries the default order and sorts both ways; Szám is a plain number sort.
         // The two times are display-only.
         $displayOnly = in_array($column, ['registered_at', 'submitted_at'], true);
         $meta = ['column' => $column, 'sortable' => !$displayOnly, 'numeric' => false];
@@ -491,6 +507,7 @@ final class GridModel
                 'label' => $kind['label'],
                 'type' => 'decision',
                 'states' => $kind['states'],
+                'marks' => $kind['marks'],
                 'members' => $this->members($column, $fields, $eventId) ?? [],
             ] + ($kind['states'] === [] ? [] : ['empty' => true]);
         }
@@ -516,7 +533,7 @@ final class GridModel
         }
         // „Nincs válasz” in the filter of every list-type field column, required or not: a required field can still
         // be empty (behind a condition, in an additional form not yet sent, on a registration made before the field
-        // existed). [UNAPPROVED N66]
+        // existed).
         if ($type === 'choice' || $type === 'consent') {
             $meta['empty'] = true;
         }

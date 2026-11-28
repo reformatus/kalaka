@@ -7,7 +7,11 @@ namespace Kalaka\Admin;
 use Kalaka\Admin\Api\Abilities;
 use Kalaka\Admin\Cli\AdminSeeder;
 use Kalaka\Admin\Cli\FullAccessCommand;
+use Kalaka\Admin\Cli\RegistrationCommand;
+use Kalaka\Admin\Event\TimesPage;
 use Kalaka\Admin\FullAccess\GrantFullAccess;
+use Kalaka\Admin\FullAccess\LastHolderGuard;
+use Kalaka\Admin\FullAccess\OwnCapability;
 use Kalaka\Admin\FullAccess\ProfileField;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;
 use Kalaka\Admin\FullAccess\UsersColumn;
@@ -15,6 +19,7 @@ use Kalaka\Admin\Grant\DeleteGrant;
 use Kalaka\Admin\Grant\SaveGrant;
 use Kalaka\Admin\Grid\GridPage;
 use Kalaka\Admin\Grid\Texts as GridTexts;
+use Kalaka\Admin\Mail\MailPages;
 use Kalaka\Admin\Rest\GridRoutes;
 use Kalaka\Admin\View\DeleteView;
 use Kalaka\Admin\View\SaveView;
@@ -108,6 +113,13 @@ SQL;
 
     public function boot(): void
     {
+        // Full access counts as the user's own capability, never a role's; WordPress cannot delete its
+        // last holder (foundation.md, "Views and grants"). Registered first, so an ability that throws
+        // later cannot leave a role-carried capability unguarded.
+        add_filter('user_has_cap', [OwnCapability::class, 'filter'], PHP_INT_MAX, 4);
+        add_filter('map_meta_cap', [LastHolderGuard::class, 'metaCaps'], 10, 4);
+        add_action('delete_user', [LastHolderGuard::class, 'deleting']);
+
         Abilities::registerCategory();
         // The labels of the abilities.
         Abilities::register(
@@ -148,10 +160,18 @@ SQL;
         add_action('admin_enqueue_scripts', [GridPage::class, 'enqueue']);
         // The page fills the window like a spreadsheet (topic 6a G9).
         add_filter('admin_body_class', [GridPage::class, 'bodyClass']);
+        // The mail screens: the event's „Levelek” page and the site's „Levelezés” page (prototype).
+        add_action('admin_menu', [MailPages::class, 'menu'], 20);
+        add_action('admin_enqueue_scripts', [MailPages::class, 'enqueue']);
+        add_action('admin_head', [MailPages::class, 'menuStyle']);
         add_action('rest_api_init', [GridRoutes::class, 'register']);
+        // The event's own „Esemény adatai” page: full access, a server-rendered form, the existing update use case.
+        add_action('admin_menu', [TimesPage::class, 'menu']);
+        add_action('admin_post_' . TimesPage::ACTION, [TimesPage::class, 'save']);
 
         if (defined('WP_CLI') && WP_CLI) {
             FullAccessCommand::register();
+            RegistrationCommand::register();
         }
     }
 

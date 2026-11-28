@@ -15,10 +15,13 @@ use Kalaka\Foundation\Api\Evaluation\Evaluations;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
+use Kalaka\Pricing\FixedPrice;
+use Kalaka\Pricing\FixedPriceRepository;
 use Kalaka\Pricing\SetFixedPrice;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -47,7 +50,14 @@ final class MoneySettings
         private readonly ConfirmationRule $confirmation = new ConfirmationRule(),
         private readonly Confirmations $confirmations = new Confirmations(),
         private readonly ActionMails $mails = new ActionMails(),
+        private readonly FixedPriceRepository $prices = new FixedPriceRepository(),
     ) {
+    }
+
+    /** The event's current fixed price; null when it has none. A plain read. */
+    public function fixedPrice(int $eventId): ?Money
+    {
+        return $this->prices->find($eventId)?->amount;
     }
 
     /**
@@ -61,14 +71,15 @@ final class MoneySettings
      * @return list<PreviewRow>
      * @throws PermissionDenied when the actor lacks full access, as the apply's use case refuses it
      * @throws NotFound when there is no such event
-     * @throws InvalidInput when a proposed setting is one the apply would refuse (a negative price)
+     * @throws InvalidInput when a proposed setting is one the apply would refuse (a negative price, a
+     *                       component ID that repeats another's or that no registered component has)
      */
     public function preview(int $eventId, ProposedMoneySettings $proposed, Actor $actor): array
     {
         if ($actor->side() !== Side::Admin || !AdminAccess::isFull($actor)) {
             throw new PermissionDenied();
         }
-        self::check($proposed);
+        $this->check($proposed);
         $event = $this->events->find($eventId) ?? throw new NotFound();
         $now = $this->runner()->clock()->now();
         $current = $this->components->list();
@@ -80,7 +91,7 @@ final class MoneySettings
 
         $rows = [];
         foreach ($keys as $key) {
-            $facts = $this->registrations->factsOf($key, $event);
+            $facts = $this->registrations->factsOf($key, $event, $now);
             if ($facts === null) {
                 continue;
             }
@@ -105,16 +116,24 @@ final class MoneySettings
     }
 
     /**
-     * Saves the proposed settings in one use case, then re-evaluates each open registration in a use case
-     * of its own. Registrations submitted since the preview are included: the list is read after the save.
-     * One failing registration never stops the others.
+     * Saves the proposed settings, the fixed price first, then each component's settings in its own use case
+     * in the order given; a failing save stops the apply before any registration is touched, and the saves
+     * before it stay. Then it re-evaluates each open registration in a use case of its own. Registrations
+     * submitted since the preview are included: the list is read after the save. One failing registration
+     * never stops the others.
      *
-     * @throws \Kalaka\Foundation\Api\Error\KalakaException when the settings cannot be saved; nothing is
-     *                                                       saved and no registration is touched
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException when a setting cannot be saved; no registration
+     *                                                       is touched
      */
     public function apply(int $eventId, ProposedMoneySettings $proposed, Actor $actor): ApplyReport
     {
-        self::check($proposed);
+        $this->check($proposed);
+        // Every component's save is asked for before anything is written: a settings object may refuse there (it
+        // reads what a transaction may not), and then nothing of the apply is written.
+        $saves = [];
+        foreach ($proposed->components as $settings) {
+            $saves[] = $settings->save();
+        }
         if ($proposed->fixedPrice !== null) {
             $this->runner()->run(
                 new SetFixedPrice(),
@@ -126,6 +145,17 @@ final class MoneySettings
                 $actor
             );
         }
+
+        foreach ($saves as $save) {
+            $this->runner()->run($save->useCase, $save->input, $actor);
+        }
+
+        // A component's save can close published forms: declaring the ladder's `price_tier` a required field
+        // leaves every form of the event without it closed on serve (`required_field_missing`). The list the
+        // broken-form warning shows is stored, so it is recomputed here, after the saves committed (Events,
+        // "update": the same refresh after a mode change). A fixed price closes nothing, so there is no read
+        // to pass in front of the save: the ladder never refuses, it closes and names the forms.
+        (new Forms())->refreshBrokenList();
 
         $items = [];
         foreach ($this->registrations->openOf($eventId) as $key) {
@@ -150,11 +180,28 @@ final class MoneySettings
         return new ApplyItem($key);
     }
 
-    /** @throws InvalidInput on a negative proposed price, so the preview never shows what the apply refuses */
-    private static function check(ProposedMoneySettings $proposed): void
+    /**
+     * @throws InvalidInput on a negative proposed price, a component ID that repeats another's, or one no
+     *                       registered component has, so the preview never shows what the apply refuses
+     */
+    private function check(ProposedMoneySettings $proposed): void
     {
         if ($proposed->fixedPrice !== null && $proposed->fixedPrice->isNegative()) {
             throw new InvalidInput();
+        }
+
+        $registered = [];
+        foreach ($this->components->list() as $component) {
+            $registered[$component->id()] = true;
+        }
+        unset($registered[FixedPrice::ID]);
+        $seen = [];
+        foreach ($proposed->components as $settings) {
+            $id = $settings->componentId();
+            if (isset($seen[$id]) || !isset($registered[$id])) {
+                throw new InvalidInput();
+            }
+            $seen[$id] = true;
         }
     }
 

@@ -26,16 +26,6 @@ final class AssignmentRepository extends EntityRepository
         );
     }
 
-    /**
-     * The assignments to one option of a set, in one statement.
-     *
-     * @return list<AssignmentRecord>
-     */
-    public function holding(int $eventId, int $setId, string $optionKey): array
-    {
-        return $this->findWhere('event_id = %d AND set_id = %d AND option_key = %s', [$eventId, $setId, $optionKey]);
-    }
-
     protected function table(): string
     {
         return 'kalaka_assignments';
