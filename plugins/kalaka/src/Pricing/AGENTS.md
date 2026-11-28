@@ -12,7 +12,8 @@ retention and the materializer
   the split per payer that [Ledger](../../../../docs/architecture/money.md#ledger)'s invoices show,
   the composition order that [Congregation share](../../../../docs/architecture/money.md#congregation-share)
   relies on, [Confirmation](../../../../docs/architecture/money.md#confirmation).
-  Retention comes later (S23).
+  [Withdrawal, removal and substitution](../../../../docs/architecture/money.md#withdrawal-removal-and-substitution)'s
+  retention.
 - foundation.md: the money phase of [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
   [Bulk changes](../../../../docs/architecture/foundation.md#bulk-changes) for money settings.
 - modules-and-extensions.md: the fee component of
@@ -41,6 +42,15 @@ retention and the materializer
 - Lines of components not registered now are never touched. A line of a registered
   component that the composition no longer names (a withdrawal) owes zero,
   so the materializer reverses it.
+- The event's retention rule is read in one place, `Api\EventRetention` (the stored ID, the default when none). A
+  stored ID that no rule is registered under now (its extension is off) fails the composition of the registrations
+  that left as `FeeComponentFailed('retention')`, so the evaluation flags them as it does any failing component, and
+  never as a bare exception; `money-settings show` prints the stored ID with a warning, and applying a registered
+  rule fixes it. A rule's input carries the fee the registration would owe if it were still `registered` (`fee`, null when
+  a component cannot say, so leaving does not fail on it; a rule that needs the fee decides what null means). A rule
+  that throws, or returns anything but Money in the event's currency per payer, fails as
+  `FeeComponentFailed('retention')`. The ID `retention` is core's line key:
+  `Contributions::feeComponent()` refuses it.
 - The `manual` component composes only the Ledger's manual fee facts, one
   item per entry; nobody writes its `charge` lines but the materializer.
 - A fee component returns a value and writes nothing. Core composes the
@@ -66,7 +76,17 @@ retention and the materializer
   place of the registered one; the apply runs its `save()` use case before
   re-evaluating anything.
 - Only a `registered` registration composes; every other status owes zero
-  (retention is an empty step until S23).
+  except retention: a `withdrawn` or `removed` registration owes, per payer, what the event's rule
+  (a `RetentionRule`, a typed inside point like `ConfirmationThreshold`: core's `everything_paid` (the default) and
+  `nothing`, others contributed through `Contributions::retentionRule()` and listed by `Api\RetentionRules`; its ID
+  is stored in `kalaka_retention`, set by `kalaka/set-retention` or a money settings apply, an unknown ID refused)
+  keeps of that payer's own net payments, asked once for every payer together with the net payments (read from
+  payment facts only) and the fee the registration would owe if it were still registered, from its own
+  registration time (`fee`; null when a fee component cannot say, which does not fail the leaving), by
+  `Api\FeeComposition`, as one `retention` line per payer (label
+  `Retention::LABEL`). The kept amount is held to the payer's own payments: it never owes more than was paid and
+  refunds nothing. A restore makes the line read zero and the materializer reverses it; a
+  change of the rule re-evaluates the registrations that left too.
 - The money phase runs first in the evaluation, before the decision rules,
   with the registration's row lock held.
 - A money settings change goes preview → apply: the preview writes nothing;
@@ -80,7 +100,9 @@ retention and the materializer
   confirmed now, whether it would be confirmed under the proposed composition
   (`ConfirmationRule::wouldConfirm()`, a dry run that reads payment facts and
   the manual flag and writes nothing) and whether the event's "confirmed" mail
-  would go; a confirmed one is never counted.
+  would go; a confirmed one is never counted. A proposed retention rule adds the withdrawn and removed registrations
+  to the preview and to the apply, and retention is applied in one place, `FeeComposition::withRetention()`, which
+  the materializer's composition and the preview share.
 - A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings
   as plain data and reads them back (`settingsToArray()`, `settingsFromArray()`
   into `ProposedComponentSettings`), so `wp kalaka money-settings show|preview|apply`
@@ -123,7 +145,9 @@ retention and the materializer
   the portal's `Portal\Api\StatusRead`) name them only through the constants of
   `Api\ConfirmationRule` (`KIND`, `CONFIRMED`), never as string literals.
 - The manual flag is a fact in `kalaka_manual_confirmations`, set only by
-  `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
+  `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm` or by the leaving of its registration
+  (`Api\ManualConfirmations::revokeOnLeaving()`, which Registrations' withdraw and remove call inside their
+  transaction; a restore does not bring the flag back).
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
   registration), written only by `kalaka/unconfirm`. Both use cases take the
   per-event action `kalaka_confirm_manually` and an optional reason. [UNAPPROVED R352] Setting a

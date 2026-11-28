@@ -48,6 +48,11 @@ final class TestQuotaPool implements SeatPool
         return [$this->table, [$this->id]];
     }
 
+    public function label(): string
+    {
+        return 'Teszt ' . $this->key();
+    }
+
     public function limit(): ?int
     {
         return $this->limit;

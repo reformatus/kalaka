@@ -475,7 +475,11 @@ deprecation period and the compatibility-check tool are chosen then.
   only repeats writes nothing but the option's last-failure time, at most
   once an hour.
 - A contribution **inside** the transaction that throws rolls back the use
-  case like any error.
+  case like any error. One exception: when a fee component throws while a
+  withdrawal or removal composes the fee for its retention rule, the rule
+  gets no fee ("cannot say") and the leaving goes through. A rule that needs
+  the fee decides what that means; a rule that throws fails the composition
+  as `money/retention`.
 - **No point writes to our tables:** a point returns a value, and core writes
   it.
 - **If anything fails to load** (an extension out of range or unbooted, a

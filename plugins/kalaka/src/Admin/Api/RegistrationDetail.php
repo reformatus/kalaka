@@ -30,6 +30,8 @@ use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestState;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\StatusAct;
+use Kalaka\Registrations\Api\StatusActs;
 
 /**
  * The admin detail read of one registration (the data of `GET kalaka-admin/v1/events/{event}/registrations/{code}`).
@@ -55,6 +57,7 @@ final class RegistrationDetail
         private readonly Confirmations $confirmations = new Confirmations(),
         private readonly Requests $requests = new Requests(),
         private readonly Seats $seats = new Seats(),
+        private readonly StatusActs $statusActs = new StatusActs(),
     ) {
     }
 
@@ -106,7 +109,7 @@ final class RegistrationDetail
         };
         // The owner's ruling 2026-11-18: money-write includes money-view.
         $record = $carried(Ledger::RECORD_MONEY);
-        $viewMoney = $carried(Ledger::VIEW_MONEY) || $record;
+        $viewMoney = $this->access->mayViewMoney($actor, $key);
         // [UNAPPROVED A1] one money-write action carries a payment, a refund, a correction, a manual charge
         // and a manual discount.
         // The owner's topic 1 ruling, H3: confirmation applies only to a registered registration.
@@ -136,6 +139,9 @@ final class RegistrationDetail
         if ($answer) {
             $read['requests'] = $this->requestsPart($key, $event->currency->value, $registered, $viewMoney);
         }
+        // The status acts: the grant carries the act's action and the status allows it now (the server decides, the
+        // panel keeps no status logic).
+        $statusActs = $this->statusActs->allowedFor($key);
         $read['can'] = [
             // A request is answerable only while the registration is registered, as the grid column says (N655).
             'answer_request' => $answer && $registered,
@@ -147,6 +153,12 @@ final class RegistrationDetail
             'confirm_manually' => $confirmable,
             'unconfirm' => $canUnconfirm,
         ];
+        foreach (StatusAct::cases() as $act) {
+            // A restore carries no grant action: full access only.
+            $action = $act->action();
+            $held = $action === null ? $full : $carried($action);
+            $read['can'][$act->value] = $held && in_array($act, $statusActs, true);
+        }
 
         return $read;
     }

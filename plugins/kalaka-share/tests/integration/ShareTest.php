@@ -27,6 +27,7 @@ use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
+use Kalaka\Pricing\KeepNothing;
 use Kalaka\Pricing\SetManualConfirmation;
 use Kalaka\Registrations\Answer\AnswerRequest;
 use Kalaka\Registrations\Api\AidAbovePrice;
@@ -490,6 +491,13 @@ final class ShareTest extends ShareTestCase
     public function testOnlyARegisteredRegistrationHasAPairAndWithdrawalReversesItKeepingThePayments(): void
     {
         $this->applyShare();
+        // The default retention keeps what a leaver paid; only a rule that keeps nothing leaves the payments standing.
+        $report = $this->settings->apply(
+            $this->event,
+            new ProposedMoneySettings(retention: KeepNothing::ID),
+            new CliActor(null)
+        );
+        self::assertSame([], $report->failed());
         $waitlisted = $this->register('00A0', RegistrationStatus::Waitlisted);
         $this->answerShare($waitlisted, 'full');
         self::assertSame([], $this->shareLines($waitlisted));

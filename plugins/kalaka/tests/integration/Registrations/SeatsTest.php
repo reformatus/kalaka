@@ -82,6 +82,11 @@ final class SeatsTest extends RegistrationsTestCase
                 return $this->level;
             }
 
+            public function label(): string
+            {
+                return 'Teszt ' . $this->key();
+            }
+
             public function limit(): ?int
             {
                 return $this->limit;

@@ -14,8 +14,11 @@ use Kalaka\Foundation\Api\Money\Money;
 final readonly class ProposedMoneySettings
 {
     /** @param list<ProposedComponentSettings> $components */
-    public function __construct(public ?Money $fixedPrice = null, public array $components = [])
-    {
+    public function __construct(
+        public ?Money $fixedPrice = null,
+        public array $components = [],
+        public ?string $retention = null,
+    ) {
     }
 
     /** The proposed settings for that component, or null when it keeps its stored ones. */

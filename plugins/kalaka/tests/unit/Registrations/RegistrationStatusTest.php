@@ -14,7 +14,7 @@ final class RegistrationStatusTest extends TestCase
     public function testEveryStatusHasItsWord(): void
     {
         self::assertSame(
-            ['rögzített', 'várólistás', 'visszavont', 'törölt'],
+            ['rögzített', 'várólistás', 'lemondott', 'törölt'],
             array_map(static fn (RegistrationStatus $status): string => $status->word(), RegistrationStatus::cases())
         );
     }

@@ -10,7 +10,7 @@ use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the tables of the module (S15's three, #247's seats, #232's answers and S74's drafts, schema 8). */
+/** AC1: the tables of the module (S15's three, #247's seats, #232's answers and S74's drafts, schema 9). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -22,6 +22,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'secret' => 'varchar(22)',
             'created_at' => 'datetime(6)',
             'registered_at' => 'datetime(6) null',
+            'registered_by' => 'varchar(20) null',
             'owner_user_id' => 'bigint(20) unsigned null',
         ],
         'kalaka_field_values' => [
@@ -100,7 +101,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(8, (int) get_option('kalaka_schema_registrations'));
+        self::assertSame(9, (int) get_option('kalaka_schema_registrations'));
         self::assertSame([], LoadState::current()->failures);
 
         foreach (self::COLUMNS as $table => $expected) {
@@ -198,7 +199,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     }
 
     /**
-     * A site at schema 3 (S15's `owner_user_id`) upgrades to 8: #247's seats, #232's answers and S74's drafts
+     * A site at schema 3 (S15's `owner_user_id`) upgrades to 9: #247's seats, #232's answers and S74's drafts
      * are created and the registrations keep their owner. Real tables under a prefix of their own, dropped
      * after; creating them commits the harness transaction, so the version option is put back by hand.
      */
@@ -229,7 +230,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
 
             $upgrader->upgrade($module);
 
-            self::assertSame(8, (int) get_option($option));
+            self::assertSame(9, (int) get_option($option));
             foreach (['kalaka_seats', 'kalaka_answers', 'kalaka_drafts'] as $table) {
                 self::assertSame(
                     $wpdb->prefix . $table,

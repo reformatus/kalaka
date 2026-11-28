@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Foundation\Api\UseCase\PreviewableUseCase;
 use Kalaka\Registrations\Api\FieldCorrections;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -26,11 +27,11 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * evaluates the registration (decisions, money, confirmation, mail); the edit sends no mail of its own.
  * With `preview` the act does everything but the write and the seat moves: the right, the conflict and the unchanged
  * value are checked as in the real run, and it returns what the real run would report, so a caller can warn before
- * it asks. A preview is an audited run too, with no changes.
+ * it asks. The runner writes no audit entry for a preview that succeeded.
  *
  * Lock order: the pools of the seats to take (quota level), then the registration, then the value.
  */
-final class EditFieldValue implements AdminUseCase
+final class EditFieldValue implements AdminUseCase, PreviewableUseCase
 {
     public function __construct(
         private readonly PreparedEdit $edit,
@@ -64,6 +65,11 @@ final class EditFieldValue implements AdminUseCase
             'required' => ['event_id', 'code', 'field'],
             'additionalProperties' => false,
         ];
+    }
+
+    public function isPreview(array $input): bool
+    {
+        return ($input['preview'] ?? false) === true;
     }
 
     /** A field change: no action; the grant's view and the column decide. */
@@ -121,7 +127,7 @@ final class EditFieldValue implements AdminUseCase
         if ($unchanged) {
             return ['changed' => false, 'over_limit' => []];
         }
-        if (($input['preview'] ?? false) === true) {
+        if ($this->isPreview($input)) {
             return [
                 'changed' => true,
                 'over_limit' => $this->corrections->wouldOverfill($plan, $key, $status, $context),

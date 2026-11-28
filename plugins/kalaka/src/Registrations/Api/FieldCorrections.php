@@ -267,12 +267,10 @@ final class FieldCorrections
      */
     private function claimsOf(Event $event, array $values): array
     {
-        $answers = new ValidatedAnswers($values, $values);
+        $sources = $this->seatClaimSources ?? Contributions::current()->seatClaimSources();
         $claims = [];
-        foreach ($this->seatClaimSources ?? Contributions::current()->seatClaimSources() as $source) {
-            foreach ($source->claims($event, $answers) as $claim) {
-                $claims[$claim->pool->key()] ??= $claim;
-            }
+        foreach (SeatClaims::of($sources, $event, new ValidatedAnswers($values, $values)) as $claim) {
+            $claims[$claim->pool->key()] = $claim;
         }
 
         return $claims;

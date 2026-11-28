@@ -44,6 +44,11 @@ final class OptionSeatPool implements SeatPool
         return ['kalaka_assignment_options', [$this->setId, $this->optionKey]];
     }
 
+    public function label(): string
+    {
+        return ($this->options->find($this->row()) ?? throw new NotFound())->label;
+    }
+
     public function limit(): ?int
     {
         return ($this->options->find($this->row()) ?? throw new NotFound())->limit;

@@ -22,10 +22,12 @@ use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
 use Kalaka\Pricing\FixedPrice;
 use Kalaka\Pricing\FixedPriceRepository;
+use Kalaka\Pricing\RetentionRepository;
 use Kalaka\Pricing\SetFixedPrice;
+use Kalaka\Pricing\SetRetention;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
-use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * How a change of an event's money settings reaches its registrations: preview → confirm → apply, with a
@@ -51,6 +53,8 @@ final class MoneySettings
         private readonly Confirmations $confirmations = new Confirmations(),
         private readonly ActionMails $mails = new ActionMails(),
         private readonly FixedPriceRepository $prices = new FixedPriceRepository(),
+        private readonly RetentionRepository $retention = new RetentionRepository(),
+        private readonly FeeComposition $composition = new FeeComposition(),
     ) {
     }
 
@@ -60,13 +64,27 @@ final class MoneySettings
         return $this->prices->find($eventId)?->amount;
     }
 
+    /** The ID of the event's retention rule (what it keeps when a registration leaves); the default when none. */
+    public function retentionId(int $eventId): string
+    {
+        return (new EventRetention($this->retention))->idOf($eventId);
+    }
+
+    /** The event's retention rule; null when the stored ID has no registered rule now (its extension is off). */
+    public function retention(int $eventId): ?RetentionRule
+    {
+        return (new EventRetention($this->retention))->find($eventId);
+    }
+
     /**
-     * Composes every open registration of the event under the current and the proposed settings, without
-     * writing. Plain reads, outside any use case. Each row also says whether the registration would be confirmed
-     * after the apply, by a dry run of the confirmation rule over the proposed composition, and whether the
-     * "confirmed" mail would go: one statement for every current confirmation state, then the payment facts and
-     * the manual flag of each registration that is `registered` and not confirmed. It reads payment-derived
-     * flags of every registration, so it takes the actor and needs what the apply needs: full access.
+     * Composes the registrations the apply would re-evaluate (`keysOf()`) under the current and the proposed
+     * settings, without writing: retention included, through the one `FeeComposition::withRetention()`, so a
+     * proposed retention rule shows on the registrations that left too. Plain reads, outside any use case. Each row
+     * also says whether the registration would be confirmed after the apply, by a dry run of the confirmation rule
+     * over the proposed composition, and whether the "confirmed" mail would go: one statement for every current
+     * confirmation state, then the payment facts and the manual flag of each registration that is `registered` and
+     * not confirmed. It reads payment-derived flags of every registration, so it takes the actor and needs what the
+     * apply needs: full access.
      *
      * @return list<PreviewRow>
      * @throws PermissionDenied when the actor lacks full access, as the apply's use case refuses it
@@ -85,7 +103,7 @@ final class MoneySettings
         $current = $this->components->list();
         $next = $this->components->list($proposed);
 
-        $keys = $this->registrations->openOf($eventId);
+        $keys = $this->keysOf($eventId, $proposed);
         $confirmed = $this->confirmations->confirmedOf($eventId, $keys);
         $mailed = $this->mails->isOn($eventId, ActionMail::Confirmed);
 
@@ -96,8 +114,21 @@ final class MoneySettings
                 continue;
             }
             try {
-                $before = $this->composer->compose($facts, $event->currency, $now, $current);
-                $composedAfter = $this->composer->compose($facts, $event->currency, $now, $next);
+                $before = $this->composition->withRetention(
+                    $facts,
+                    $event->currency,
+                    $this->composer->compose($facts, $event->currency, $now, $current),
+                    $current,
+                    $now
+                );
+                $composedAfter = $this->composition->withRetention(
+                    $facts,
+                    $event->currency,
+                    $this->composer->compose($facts, $event->currency, $now, $next),
+                    $next,
+                    $now,
+                    $proposed->retention === null ? null : RetentionRules::find($proposed->retention)
+                );
                 $before = self::byPayer($before, $event->currency);
                 $after = self::byPayer($composedAfter, $event->currency);
                 $confirms = $facts->status === RegistrationStatus::Registered
@@ -116,7 +147,8 @@ final class MoneySettings
     }
 
     /**
-     * Saves the proposed settings, the fixed price first, then each component's settings in its own use case
+     * Saves the proposed settings, the fixed price and the retention rule first, then each component's settings in
+     * its own use case
      * in the order given; a failing save stops the apply before any registration is touched, and the saves
      * before it stay. Then it re-evaluates each open registration in a use case of its own. Registrations
      * submitted since the preview are included: the list is read after the save. One failing registration
@@ -146,6 +178,14 @@ final class MoneySettings
             );
         }
 
+        if ($proposed->retention !== null) {
+            $this->runner()->run(
+                new SetRetention(),
+                ['event_id' => $eventId, 'retention' => $proposed->retention],
+                $actor
+            );
+        }
+
         foreach ($saves as $save) {
             $this->runner()->run($save->useCase, $save->input, $actor);
         }
@@ -158,11 +198,27 @@ final class MoneySettings
         (new Forms())->refreshBrokenList();
 
         $items = [];
-        foreach ($this->registrations->openOf($eventId) as $key) {
+        foreach ($this->keysOf($eventId, $proposed) as $key) {
             $items[] = $this->retry($key, $actor);
         }
 
         return new ApplyReport($items);
+    }
+
+    /**
+     * The registrations an apply of the proposed settings re-evaluates, and the preview shows: the open ones, and,
+     * when a new retention rule is proposed, the withdrawn and removed ones too, since it changes what they owe.
+     *
+     * @return list<RegistrationKey>
+     */
+    private function keysOf(int $eventId, ProposedMoneySettings $proposed): array
+    {
+        $keys = $this->registrations->openOf($eventId);
+        if ($proposed->retention !== null) {
+            $keys = [...$keys, ...$this->registrations->leftOf($eventId)];
+        }
+
+        return $keys;
     }
 
     /**
@@ -181,12 +237,16 @@ final class MoneySettings
     }
 
     /**
-     * @throws InvalidInput on a negative proposed price, a component ID that repeats another's, or one no
+     * @throws InvalidInput on a negative proposed price, a retention rule no one registered, a component ID
+     *                       that repeats another's, or one no
      *                       registered component has, so the preview never shows what the apply refuses
      */
     private function check(ProposedMoneySettings $proposed): void
     {
         if ($proposed->fixedPrice !== null && $proposed->fixedPrice->isNegative()) {
+            throw new InvalidInput();
+        }
+        if ($proposed->retention !== null && RetentionRules::find($proposed->retention) === null) {
             throw new InvalidInput();
         }
 

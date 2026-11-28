@@ -21,6 +21,7 @@ use Kalaka\Mail\Body\MailValues;
 use Kalaka\Registrations\Account\SignUpPage;
 use Kalaka\Registrations\Api\Accounts;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Status\AdmitRegistration;
 use Kalaka\Tests\Integration\LogCapture;
 use Kalaka\Tests\Integration\Mail\MailBodyTestCase;
 
@@ -261,6 +262,42 @@ final class AccountMailKeysTest extends MailBodyTestCase
         // The newest link wins: rendering again makes a new key, and the first stops working.
         $this->render($event, $key);
         self::assertInstanceOf(\WP_Error::class, check_password_reset_key((string) $query['key'], $user->user_login));
+    }
+
+    /**
+     * S23: a waitlisted sign-up gets its set-password link only at admission. The admission queues „Jelentkezés
+     * rögzítve”, and its render gives the unverified owner a working link, exactly as a submit's does.
+     */
+    public function testAnAdmittedUnverifiedOwnerGetsAWorkingLinkInTheRegisteredMail(): void
+    {
+        $event = $this->event('mandatory');
+        $this->switchOn($event, 'registered', $this->document($event, $this->withLink()));
+        $key = $this->registration(
+            $event,
+            '12A3',
+            ['name' => 'Teszt Elek', 'email' => 'teszt@example.test', 'camps' => '["ff"]'],
+            'waitlisted'
+        );
+        $user = get_userdata($this->user(true));
+        $this->own($key, $user->ID);
+
+        $this->exec(new AdmitRegistration([]), ['event_id' => $event, 'code' => $key->code]);
+
+        $queued = array_values(array_filter(
+            $this->deliveries(),
+            static fn (array $row): bool => $row['mail'] === 'registered' && $row['code'] === $key->code
+        ));
+        self::assertCount(1, $queued);
+        $html = $this->render($event, $key);
+        $pattern = '/Jelszó: <span[^>]*>([^<]+action=rp[^<]+)</';
+        self::assertSame(1, preg_match($pattern, html_entity_decode($html), $match));
+        parse_str((string) wp_parse_url($match[1], PHP_URL_QUERY), $query);
+        self::assertSame($user->user_login, $query['login']);
+        // As the submit's link: it carries the registration's form, so the login after the reset returns to it.
+        $formId = SignUp::formIdOf($query[SignUp::MARKER] ?? null);
+        self::assertNotNull($formId);
+        self::assertSame($event, (new Forms())->form($formId)?->eventId);
+        self::assertInstanceOf(\WP_User::class, check_password_reset_key((string) $query['key'], $user->user_login));
     }
 
     public function testTheLinkIsBuiltOnWordPressLostPasswordAddress(): void

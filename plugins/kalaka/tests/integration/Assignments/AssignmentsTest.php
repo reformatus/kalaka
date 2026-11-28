@@ -590,6 +590,60 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame(0, $seats->left($pool));
     }
 
+    public function testTheStatusActsFreeAnOptionSeatAndTakeItAgainOverTheLimitWhileTheAssignmentStays(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', ['limit' => 1]);
+        $key = new RegistrationKey($this->event, '00A0');
+        $other = new RegistrationKey($this->event, '00A2');
+        $this->seedRegistrations($key, $other);
+        // A registered registration has its `registered_at` (what a restore reads to return it as registered).
+        global $wpdb;
+        $wpdb->query($wpdb->prepare(
+            'UPDATE %i SET registered_at = created_at WHERE event_id = %d',
+            $wpdb->prefix . 'kalaka_registrations',
+            $this->event
+        ));
+        $seats = new Seats();
+        $pool = $this->sets->seatPool($set, 'modul_a');
+        self::assertNotNull($pool);
+        $this->place($key, $set, 'modul_a');
+        $input = ['event_id' => $this->event, 'code' => '00A0'];
+        $actor = new CliActor(null);
+
+        $this->runner->run(new \Kalaka\Registrations\Status\WithdrawRegistration([]), $input, $actor);
+
+        self::assertFalse($seats->holds($pool, $key));
+        self::assertSame(1, $this->sets->assignment($key, $set)?->optionKey === 'modul_a' ? 1 : 0);
+        // The freed seat goes to nobody; another registration takes it by its own act.
+        $this->place($other, $set, 'modul_a');
+        self::assertTrue($seats->holds($pool, $other));
+
+        $result = $this->runner->run(new \Kalaka\Registrations\Status\RestoreRegistration([]), $input, $actor);
+
+        self::assertIsArray($result);
+        self::assertTrue($seats->holds($pool, $key));
+        self::assertSame(1, $seats->over($pool));
+        self::assertContains(
+            ['pool' => $pool->key(), 'label' => 'Modul A', 'field' => null, 'outcome' => 'over'],
+            $result['seats']
+        );
+        $preview = $this->runner->run(
+            new \Kalaka\Registrations\Status\WithdrawRegistration([]),
+            $input + ['preview' => true],
+            $actor
+        );
+        // A leaving act lists the seats it frees: the option's count after is the other registration's alone.
+        $released = array_values(array_filter(
+            $preview['seats'],
+            static fn (array $seat): bool => $seat['pool'] === $pool->key()
+        ));
+        self::assertSame([['released', 1, 1]], array_map(
+            static fn (array $seat): array => [$seat['outcome'], $seat['taken'], $seat['taken_after']],
+            $released
+        ));
+    }
+
     private function place(RegistrationKey $key, int $set, string $option): void
     {
         $this->runner->run(new PlaceRegistration(), [

@@ -42,6 +42,11 @@ final class AnswerPool implements SeatPool
         return ['kalaka_stand_in', [$this->key]];
     }
 
+    public function label(): string
+    {
+        return 'Teszt ' . $this->key;
+    }
+
     public function limit(): ?int
     {
         return $this->limit;
