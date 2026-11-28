@@ -123,6 +123,62 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 }
 
 /*
+ * The claim popup (S74, owner ruling 2026-11-17): WordPress's Modal (`claim.js`), with the components'
+ * own look; only the layout of its texts and choices is set here. The alert line takes the form's error
+ * colour (`claim.js` copies it), otherwise the fixed red. The notice after the choice is one bold line
+ * above the form.
+ */
+.kalaka-claim-modal {
+	max-width: 560px;
+}
+
+.kalaka-claim p {
+	margin: 0 0 12px;
+	padding-bottom: 0;
+}
+
+.kalaka-claim__warning,
+.kalaka-claim-notice {
+	font-weight: 600;
+}
+
+.kalaka-claim__choices {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-top: 16px;
+}
+
+/* A label that wraps grows the button; it never goes below WordPress's 40 px size. */
+.kalaka-claim__choice .components-button {
+	white-space: normal;
+	text-align: left;
+	height: auto;
+	min-height: 40px;
+}
+
+.kalaka-claim .kalaka-claim__line {
+	font-size: 0.9em;
+	margin: 4px 0 0;
+}
+
+.kalaka-claim__error {
+	color: var(--kalaka-error-color, #cc1818);
+}
+
+.kalaka-claim__error:empty {
+	display: none;
+}
+
+.kalaka-claim__confirm {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	justify-content: flex-end;
+	margin-top: 16px;
+}
+
+/*
  * The neutral base (owner 2026-11-17): Kaláka's own controls look right on any sane theme by themselves,
  * with no look of their own beyond it: fonts and colours inherited, borders a faded text colour, no
  * shadows, outlines or big radii, and never the browser's default buttons. Every rule is in the `kalaka`
@@ -143,6 +199,10 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
  * - `--kalaka-disabled-opacity`: a disabled button, and a control that does nothing now, such as the
  *   ranking's edge move buttons (0.4). The form's own buttons stay `aria-disabled` while a request runs,
  *   and are dimmed then with the form, not by this.
+ * - `--kalaka-number-affix-colour`: a number field's affix text colour (the field's own text colour,
+ *   muted by its opacity; a theme adapter may set a lighter grey);
+ * - `--kalaka-number-prefix-room`, `--kalaka-number-suffix-room`: the room the form's script measures for
+ *   each affix, as the input's left and right padding.
  */
 @layer kalaka {
 	:where(form[data-wp-interactive="kalaka/form"]) :where(
@@ -181,5 +241,42 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 		opacity: var(--kalaka-disabled-opacity, 0.4);
 		cursor: default;
 	}
-}
+	/* The number field's optional prefix and suffix (owner, 2026-11-21): muted, stuck to the input's ends,
+	   non-interactive. Minimal on the theme's own colour; UX fixes the placement next to the spinner later.
+	   */
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number) {
+		position: relative;
+		display: block;
+	}
 
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number input) {
+		width: 100%;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number__affix) {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		color: var(--kalaka-number-affix-colour, currentColor);
+		opacity: 0.6;
+		pointer-events: none;
+		user-select: none;
+		z-index: 1;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number__prefix) {
+		left: 0.75rem;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number__suffix) {
+		right: 2rem;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number--prefix input) {
+		padding-left: var(--kalaka-number-prefix-room, 0);
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number--suffix input) {
+		padding-right: var(--kalaka-number-suffix-room, 0);
+	}
+}

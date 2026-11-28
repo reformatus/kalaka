@@ -115,7 +115,7 @@ final class MoneyMailTest extends MailBodyTestCase
         $body = $this->document($this->event, $inner);
         $this->switchOn($this->event, $mail, $body);
 
-        return (new MailRenderer())->render($this->event, $mail, $this->key(), $line)->html;
+        return (new MailRenderer())->render($this->event, $mail, $this->key(), self::now(), $line)->html;
     }
 
     private function keys(): string
@@ -147,7 +147,8 @@ final class MoneyMailTest extends MailBodyTestCase
         );
 
         $online = $this->line('payment', '-2000');
-        $html = (new MailRenderer())->render($this->event, 'payment_recorded', $this->key(), $online)->html;
+        $html = (new MailRenderer())
+            ->render($this->event, 'payment_recorded', $this->key(), self::now(), $online)->html;
         self::assertSame('Befizetés 2 000 Ft Online 2026. november 29.', self::text($html));
     }
 
@@ -441,7 +442,7 @@ final class MoneyMailTest extends MailBodyTestCase
             self::alone('{{money_table}}') . "\n" . self::alone('{{transfer_details}}')
         );
 
-        $html = (new MailRenderer())->renderBody($this->event, $body, $this->key())->html;
+        $html = (new MailRenderer())->renderBody($this->event, $body, $this->key(), self::now())->html;
 
         self::assertSame(
             self::text($this->render('<!-- wp:kalaka/mail-money /--><!-- wp:kalaka/mail-transfer /-->', 'confirmed')),
@@ -475,7 +476,7 @@ final class MoneyMailTest extends MailBodyTestCase
 
         $this->switchOn($this->event, 'confirmed', $this->brokenDocument($this->event, $inner));
         try {
-            (new MailRenderer())->render($this->event, 'confirmed', $this->key());
+            (new MailRenderer())->render($this->event, 'confirmed', $this->key(), self::now());
             self::fail('Expected a failure.');
         } catch (BodyUnusable $e) {
             self::assertStringStartsWith('unknown_placeholder {{', $e->problem);

@@ -27,6 +27,7 @@ use Kalaka\Mail\Cli\MailCommand;
 use Kalaka\Mail\Cli\ManualMailBatchesCommand;
 use Kalaka\Mail\Cli\ManualMailCommand;
 use Kalaka\Mail\Manual\SendManualMail;
+use Kalaka\Mail\Pause\BudgetSetting;
 use Kalaka\Mail\Pause\PauseCause;
 use Kalaka\Mail\Pause\PauseMail;
 use Kalaka\Mail\Pause\PauseWarning;
@@ -219,6 +220,8 @@ SQL;
         });
         add_action('init', [$this, 'register']);
         add_action('rest_api_init', [MailRoutes::class, 'register']);
+        // The hourly budget as a WordPress setting over the sender's state row. [UNAPPROVED N1188]
+        add_action('admin_init', [BudgetSetting::class, 'register']);
         $this->registerAbilities();
         if (defined('WP_CLI') && WP_CLI) {
             ActionMailCommand::register();

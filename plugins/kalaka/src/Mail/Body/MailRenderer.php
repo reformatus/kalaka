@@ -35,6 +35,7 @@ final class MailRenderer
 
     /**
      * @param string $mail the mail's key: an action mail's key
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @param ?int $lineId the ledger line that caused a "payment recorded" mail (its `payment.*` keys read it)
      * @throws SystemFailure an unknown mail (`unknown_mail`), a body without a revision, a stored layout
      *         without its one placeholder (`layout`), or
@@ -47,6 +48,7 @@ final class MailRenderer
         int $eventId,
         string $mail,
         RegistrationKey $registration,
+        \DateTimeImmutable $now,
         ?int $lineId = null,
     ): RenderedMail {
         $action = ActionMail::tryFrom($mail);
@@ -66,6 +68,7 @@ final class MailRenderer
             $eventId,
             $setting->bodyId,
             $registration,
+            $now,
             $action === ActionMail::PaymentRecorded ? $lineId : null
         );
     }
@@ -74,6 +77,7 @@ final class MailRenderer
      * Renders one published body of the event for a registration, whether or not an action mail uses it: what
      * `render()` does once it has found the body, and what a manual mail (`Manual\MailBatch`) renders.
      *
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @param ?int $lineId the ledger line behind a "payment recorded" mail (its `payment.*` keys read it)
      * @throws SystemFailure a body without a revision, a stored layout without its one placeholder (`layout`),
      *         or what `Values::render()` and the context throw
@@ -83,6 +87,7 @@ final class MailRenderer
         int $eventId,
         int $bodyId,
         RegistrationKey $registration,
+        \DateTimeImmutable $now,
         ?int $lineId = null,
     ): RenderedMail {
         $body = $this->posts->published($bodyId, $eventId);
@@ -97,6 +102,7 @@ final class MailRenderer
         }
         $context = $this->values->context(
             $registration,
+            $now,
             MailValues::readsPasswordLink($body->content),
             MailValues::pageLinks($body->content),
             $lineId

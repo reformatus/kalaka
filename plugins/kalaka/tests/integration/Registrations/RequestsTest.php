@@ -214,14 +214,15 @@ final class RequestsTest extends RegistrationsTestCase
         Contributions::record($contributions);
         $event = $this->event();
 
-        $facts = (new Registrations())->factsOf($key, $event);
+        $now = new \DateTimeImmutable('2026-11-30 08:00:00', new \DateTimeZone('UTC'));
+        $facts = (new Registrations())->factsOf($key, $event, $now);
         self::assertInstanceOf(RegistrationFacts::class, $facts);
         self::assertSame(['yes'], $facts->get(RegistrationFacts::AWAITS_ANSWER)->data);
         self::assertSame('', $facts->get(RegistrationFacts::AWAITS_ANSWER)->text);
         self::assertSame('rögzített', $facts->get(RegistrationFacts::STATUS)->text);
 
         $this->answer($key, true);
-        $facts = (new Registrations())->factsOf($key, $event);
+        $facts = (new Registrations())->factsOf($key, $event, $now);
         self::assertInstanceOf(RegistrationFacts::class, $facts);
         self::assertSame(['no'], $facts->get(RegistrationFacts::AWAITS_ANSWER)->data);
     }

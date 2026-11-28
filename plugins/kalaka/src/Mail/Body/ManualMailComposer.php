@@ -25,9 +25,10 @@ final class ManualMailComposer
     }
 
     /**
+     * @param \DateTimeImmutable $now the sender's moment for this run: the one clock the body's `time.now` reads
      * @throws BodyUnusable no such batch (`no_batch <id>`), or the body's own problem (`MailRenderer`)
      */
-    public function compose(Delivery $delivery): MailMessage
+    public function compose(Delivery $delivery, \DateTimeImmutable $now): MailMessage
     {
         $registration = $delivery->registration;
         $id = $delivery->causeType === MailBatch::CAUSE ? (int) $delivery->causeKey : 0;
@@ -36,7 +37,7 @@ final class ManualMailComposer
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
             throw new BodyUnusable('no_batch ' . $delivery->causeKey);
         }
-        $mail = $this->renderer->renderBody($registration->eventId, $batch->bodyId, $registration);
+        $mail = $this->renderer->renderBody($registration->eventId, $batch->bodyId, $registration, $now);
 
         return new MailMessage($mail->subject, $mail->html, ['Content-Type: text/html; charset=UTF-8'], $mail->version);
     }

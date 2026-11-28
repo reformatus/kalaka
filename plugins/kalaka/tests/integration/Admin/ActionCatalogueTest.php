@@ -56,7 +56,6 @@ final class ActionCatalogueTest extends RunnerTestCase
                 'kalaka_withdraw_registration',
                 'kalaka_remove_registration',
                 'kalaka_admit_registration',
-                'kalaka_regenerate_link',
                 'kalaka_answer_request',
                 'kalaka_confirm_manually',
                 'kalaka_record_money',

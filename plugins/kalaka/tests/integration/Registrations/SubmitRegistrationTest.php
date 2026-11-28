@@ -16,7 +16,6 @@ use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -726,7 +725,7 @@ final class SubmitRegistrationTest extends FormsTestCase
         $this->submit(999999);
     }
 
-    public function testAnAdditionalFormCreatesNoRegistration(): void
+    public function testAnAdditionalFormWithoutATargetCreatesNoRegistration(): void
     {
         $event = $this->create();
         $this->update($event);
@@ -736,8 +735,13 @@ final class SubmitRegistrationTest extends FormsTestCase
             ['kalaka_event_id' => $event, 'kalaka_placement' => 'additional']
         );
 
-        $this->expectException(RuleViolation::class);
-        $this->submit($form, ['note' => 'Teszt']);
+        try {
+            $this->submit($form, ['note' => 'Teszt']);
+            self::fail('An additional form without a registration to write to was submitted.');
+        } catch (FormRefused $e) {
+            self::assertSame([AccessRefusal::NoActiveRegistration], $e->refusals);
+        }
+        $this->assertNothingWritten($event);
     }
 
     public function testAnAnswerInABranchThatDoesNotHoldIsDroppedFromTheSubmissionAndTheValues(): void
@@ -794,6 +798,7 @@ final class SubmitRegistrationTest extends FormsTestCase
             $version - 1,
             [],
             false,
+            fingerprint: SubmitRegistration::fingerprint($form->id, self::ANSWERS),
         );
 
         try {
@@ -814,6 +819,7 @@ final class SubmitRegistrationTest extends FormsTestCase
             $this->versionOf($form->eventId),
             [],
             false,
+            fingerprint: SubmitRegistration::fingerprint($form->id, self::ANSWERS),
         );
 
         $this->expectException(\Kalaka\Foundation\Api\Error\SystemFailure::class);

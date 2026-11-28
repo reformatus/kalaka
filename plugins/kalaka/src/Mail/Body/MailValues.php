@@ -206,6 +206,7 @@ final class MailValues
     }
 
     /**
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @param bool $passwordLink whether the body reads `account.password_link`: only then is a link made
      * @param list<int> $pages the pages whose link the body places (`pageLinks()`): only those links are made
      * @param ?int $lineId the ledger line that caused a "payment recorded" mail: the `payment.*` keys read it
@@ -214,6 +215,7 @@ final class MailValues
      */
     public function context(
         RegistrationKey $key,
+        \DateTimeImmutable $now,
         bool $passwordLink = false,
         array $pages = [],
         ?int $lineId = null
@@ -230,7 +232,7 @@ final class MailValues
             throw new SystemFailure('no_event ' . $key->eventId);
         }
         // The registration's own facts (code, status and its word, awaits_answer) come from the one builder.
-        $facts = $this->registrations->factsOf($key, $event);
+        $facts = $this->registrations->factsOf($key, $event, $now);
         if ($facts === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw new SystemFailure('no_registration ' . $key->eventId . ' ' . $key->code);
@@ -262,6 +264,7 @@ final class MailValues
             ...$pageLinks,
             ...$this->forms->participantValues($key->eventId, $record['values']),
             ...EventValues::of($event),
+            ...EventValues::now($now),
             self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record['values'][$email] ?? '')),
             self::RECIPIENT_NAME => self::text($name === null ? '' : ($record['values'][$name] ?? '')),
             self::CODE => $facts->get(RegistrationFacts::CODE),

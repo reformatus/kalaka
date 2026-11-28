@@ -53,7 +53,7 @@ final class StatusBlockTest extends PortalTestCase
 
         $html = $this->statusBlock();
         self::assertStringContainsString(
-            '<p>Azonosító: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
+            '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
             . '<p><strong>Fizetésre vár.</strong></p><h3>Pénzügyek</h3><table class="kalaka-money"><tbody>',
             $html
         );
@@ -68,7 +68,7 @@ final class StatusBlockTest extends PortalTestCase
         // Registered 2026-11-30 in Budapest + 7 days.
         self::assertStringContainsString('<p class="kalaka-deadline">Fizetési határidő: 2026. december 7.</p>', $html);
         self::assertSame(
-            'Jelentkezésem állapota Azonosító: 12A3 Fizetésre vár. Pénzügyek Részvételi díj + 51 000 Ft'
+            'Jelentkezésem állapota Jelentkezési kód: 12A3 Fizetésre vár. Pénzügyek Részvételi díj + 51 000 Ft'
             . ' Fizetendő összesen 51 000 Ft Befizetés + 20 000 Ft 2026. 11. 29. ⓘBefizetés · 2026. 11. 29.'
             . ' Befizetve összesen 20 000 Ft Még fizetendő 31 000 Ft Fizetési határidő: 2026. december 7. '
             . self::NOTE,
@@ -345,7 +345,7 @@ final class StatusBlockTest extends PortalTestCase
 
         self::assertSame(
             '<section class="kalaka-status"><h2>Jelentkezésem állapota</h2>'
-            . '<p>Azonosító: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
+            . '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">12A3</span></p>'
             . '<div class="wp-block-group has-background has-very-light-gray-background-color has-text-color'
             . ' has-black-color"><p><strong>Várólistán vagy.</strong> Amíg nem kerülsz be, nem kell fizetned.</p>'
             . '</div></section>',

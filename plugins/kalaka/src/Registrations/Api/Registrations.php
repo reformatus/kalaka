@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Api;
 
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantField;
@@ -28,6 +29,7 @@ final class Registrations
         private readonly RegistrationList $list = new RegistrationList(),
         private readonly Requests $requests = new Requests(),
         private readonly ParticipantFields $participantFields = new ParticipantFields(),
+        private readonly Forms $forms = new Forms(),
     ) {
     }
 
@@ -76,21 +78,29 @@ final class Registrations
     }
 
     /**
-     * The registration's fact source, from a plain read without a lock (inside the evaluation the run already
-     * holds the row). Null when there is no such registration.
+     * The registration's fact source, from plain reads without a lock (inside the evaluation the run already
+     * holds the row): the row, its field values (`values()`, one statement) typed over the event's participant
+     * fields (`Forms::participantFacts()`: one statement and the block registry, no post). Null when there is
+     * no such registration. `$now` is the moment of the act that reads (`time.now`): the caller's one clock.
      */
-    public function factsOf(RegistrationKey $key, Event $event): ?RegistrationFacts
+    public function factsOf(RegistrationKey $key, Event $event, \DateTimeImmutable $now): ?RegistrationFacts
     {
         $registration = $this->repository->find($key);
         if ($registration === null) {
             return null;
         }
 
+        $fields = $this->forms->participantFacts($key->eventId, $this->values($key));
+
         return new RegistrationFacts(
             $key,
             $registration->status,
             $registration->registeredAt,
             $event,
+            $now,
+            $fields->values,
+            [],
+            $fields->kinds,
             $this->requests->awaits($key, $registration->status),
             $this->requests->lastAnsweredAt($key),
         );
@@ -176,24 +186,81 @@ final class Registrations
     }
 
     /**
-     * The statuses of an event's registrations, by code, in one statement and without a lock. With `$codes` only
-     * those: a code that is no registration of the event is absent from the result. A plain read.
+     * The statuses of some of an event's registrations, in one statement and without a lock; a code that is no
+     * registration of the event is absent from the result. A plain read.
      *
-     * @param list<string>|null $codes null: every registration of the event
+     * @param list<string> $codes
      * @return array<string, RegistrationStatus> code → status
      */
-    public function statusesOf(int $eventId, ?array $codes = null): array
+    public function statusesOf(int $eventId, array $codes): array
     {
-        if ($codes !== null) {
-            return $this->list->statusesOf($eventId, $codes);
+        return $this->list->statusesOf($eventId, $codes);
+    }
+
+    /**
+     * Whether an open (`registered` or `waitlisted`) registration of the event holds the value in the field: two
+     * statements however many registrations there are. A plain read.
+     */
+    public function openHolds(int $eventId, string $fieldKey, string $value): bool
+    {
+        $rows = $this->values->withValue($eventId, $fieldKey, $value);
+        if ($rows === []) {
+            return false;
+        }
+        $open = [];
+        foreach ($this->openOf($eventId) as $key) {
+            $open[$key->code] = true;
+        }
+        foreach ($rows as $row) {
+            if (isset($open[$row->registration->code])) {
+                return true;
+            }
         }
 
-        $statuses = [];
-        foreach ($this->list->forEvent($eventId) as $row) {
-            $statuses[$row['code']] = $row['status'];
+        return false;
+    }
+
+    /**
+     * Refuses removing a chosen item: `ItemChosen` when an open registration of the event holds the value in the
+     * field, or, with no value, has chosen the field at all (a positive number: a charge's consent or quantity,
+     * `openChose()`). Staff and settings saves that remove a tier, an option, an offer or a charge call it, so one
+     * refusal and one code reach every surface. A plain read.
+     */
+    public function refuseRemovingChosen(int $eventId, string $fieldKey, ?string $value): void
+    {
+        $chosen = $value === null
+            ? $this->openChose($eventId, $fieldKey)
+            : $this->openHolds($eventId, $fieldKey, $value);
+        if ($chosen) {
+            throw new ItemChosen();
+        }
+    }
+
+    /**
+     * Whether an open (`registered` or `waitlisted`) registration of the event chose the field: holds a positive
+     * number in it, which is a consent's `1` and a quantity of one or more (an unticked consent is `0`). The read
+     * for a charge, whose "yes" is any positive value where `openHolds()` names one value; two statements however
+     * many registrations there are. A plain read. [UNAPPROVED N307]
+     */
+    public function openChose(int $eventId, string $fieldKey): bool
+    {
+        $rows = $this->values->ofField($eventId, $fieldKey);
+        $chosen = [];
+        foreach ($rows as $row) {
+            if (is_numeric($row->value) && (float) $row->value > 0) {
+                $chosen[$row->registration->code] = true;
+            }
+        }
+        if ($chosen === []) {
+            return false;
+        }
+        foreach ($this->openOf($eventId) as $key) {
+            if (isset($chosen[$key->code])) {
+                return true;
+            }
         }
 
-        return $statuses;
+        return false;
     }
 
     /**
