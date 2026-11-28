@@ -8,7 +8,8 @@ use Kalaka\Forms\Api\DraftClaimChoice;
 
 /**
  * The texts of the claim popup (S74), approved by the owner on 2026-11-17 word for word, and its title and
- * intro also on 2026-11-27 (T1100-T1103, since the guest draft may hold the guest's own typing, N965): the
+ * intro also on 2026-11-27 (T1100, T1101; the guest's popup takes the 2026-11-17 link texts, T1102, T1103, and no
+ * text names the quiz, owner 2026-11-28; since the guest draft may hold the guest's own typing, N965): the
  * popup that asks the person's choice when a guest draft's answers meet their draft, its second confirmation
  * before keep_link, the button that reloads the page after a refused claim, and the one-line notice on the
  * load after the choice. The refused claim's own text is `Registrations\Api\DraftClaimRefused`'s
@@ -27,14 +28,14 @@ final class DraftClaimTexts
     {
         return [
             'title' => $guest
-                ? 'Mentett és előre kitöltött válaszok'
+                ? 'Előre kitöltött linkből bejövő válaszok'
                 : 'Bejelentkezés előtti válaszok',
             'intro' => $guest
                 ? 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
-                    . 'Most előre kitöltött válaszok is érkeztek: egy linkből vagy a kvízből. Hogyan folytassuk?'
+                    . 'Most egy előre kitöltött linkből is érkeztek válaszok. Hogyan folytassuk?'
                 : 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
                     . 'Ezen az eszközön bejelentkezés előtt is érkeztek válaszok: amelyeket beírtál, '
-                    . 'vagy amelyek egy előre kitöltött linkből vagy a kvízből jöttek. Hogyan folytassuk?',
+                    . 'vagy amelyek egy előre kitöltött linkből jöttek. Hogyan folytassuk?',
             'warning' => 'Egyesítéskor a bejövő válaszok miatt az űrlap későbbi részén kérdések tűnhetnek el '
                 . 'vagy jelenhetnek meg. Egy eltűnt kérdésre adott válaszod nem kerül be a jelentkezésedbe, '
                 . 'így az egyesítés a későbbi válaszaidat is megváltoztathatja. '

@@ -839,7 +839,7 @@ final class DraftPageTest extends FormsTestCase
             'title' => 'Bejelentkezés előtti válaszok',
             'intro' => 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. Ezen az eszközön '
                 . 'bejelentkezés előtt is érkeztek válaszok: amelyeket beírtál, vagy amelyek egy előre kitöltött '
-                . 'linkből vagy a kvízből jöttek. Hogyan folytassuk?',
+                . 'linkből jöttek. Hogyan folytassuk?',
             'warning' => 'Egyesítéskor a bejövő válaszok miatt az űrlap későbbi részén kérdések tűnhetnek el vagy '
                 . 'jelenhetnek meg. Egy eltűnt kérdésre adott válaszod nem kerül be a jelentkezésedbe, így az '
                 . 'egyesítés a későbbi válaszaidat is megváltoztathatja. Beküldés előtt nézd át az egész űrlapot.',
@@ -1038,8 +1038,14 @@ final class DraftPageTest extends FormsTestCase
         self::assertArrayNotHasKey('draftClaimNotice', $context);
         // The guest's own draft opens, not the link's.
         self::assertStringContainsString('gépelt', $this->render());
-        // A guest's popup says nothing of a login (T1102, T1103: lektored); the other texts are the popup's.
-        self::assertSame('Mentett és előre kitöltött válaszok', $context['draftClaimTexts']['title']);
+        // A guest's popup says nothing of a login or the quiz: the 2026-11-17 link texts (T1102, T1103);
+        // the other texts are the popup's.
+        self::assertSame('Előre kitöltött linkből bejövő válaszok', $context['draftClaimTexts']['title']);
+        self::assertSame(
+            'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. Most egy előre kitöltött linkből is '
+                . 'érkeztek válaszok. Hogyan folytassuk?',
+            $context['draftClaimTexts']['intro']
+        );
         self::assertStringNotContainsString('bejelentkezés', $context['draftClaimTexts']['intro']);
         self::assertSame('Egyesítés', $context['draftClaimTexts']['merge']);
         self::assertSame(DraftClaimTexts::popup(2, true), $context['draftClaimTexts']);
