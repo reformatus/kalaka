@@ -47,19 +47,19 @@ final class StatusMarkup
     public const WITHDRAW_PAID = 'Befizetve:';
 
     /** [UNAPPROVED T1303] Case (a): nothing was paid (registered; a waitlisted one shows no line). */
-    public const WITHDRAW_NOTHING_PAID = 'Még nem fizettél be semmit, ezért a lemondás után nem kell fizetned.';
+    public const WITHDRAW_NOTHING_PAID = 'Még nem fizettél be semmit, és a lemondás után már nem kell fizetned.';
 
     /** [UNAPPROVED T1304] Case (b): paid, and all of it is kept; follows „Befizetve: X.”. */
     public const WITHDRAW_KEPT_ALL = 'Ezt az összeget megtartjuk.';
 
     /** [UNAPPROVED T1305] Case (c): paid, part kept; follows „Befizetve: X.”, then the kept amount and a full stop. */
-    public const WITHDRAW_KEPT_PART = 'Ebből megtartunk:';
+    public const WITHDRAW_KEPT_PART = 'Ebből ennyit megtartunk:';
 
     /** [UNAPPROVED T1305] Case (c), second sentence: then the surplus amount and a full stop. */
-    public const WITHDRAW_SURPLUS_REST = 'A többi túlfizetés lesz:';
+    public const WITHDRAW_SURPLUS_REST = 'Túlfizetésed lesz:';
 
     /** [UNAPPROVED T1306] Case (d): paid, nothing kept; follows „Befizetve: X.”. */
-    public const WITHDRAW_KEPT_NONE = 'Ebből semmit nem tartunk meg, az egész összeg túlfizetés lesz.';
+    public const WITHDRAW_KEPT_NONE = 'Ebből semmit nem tartunk meg, az egész összeg túlfizetésed lesz.';
 
     /** [UNAPPROVED T772] Stands in the confirmation of a registered one when the preview gave nothing. */
     public const WITHDRAW_NO_MONEY = 'A befizetett összeget most nem tudjuk megmutatni.';

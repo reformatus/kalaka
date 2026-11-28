@@ -501,8 +501,8 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         );
         // (c) part kept: the two parts are the preview's, and add up to what was paid.
         self::assertSame(
-            "Befizetve: 30{$nbsp}000{$nbsp}Ft. Ebből megtartunk: 10{$nbsp}000{$nbsp}Ft. "
-            . "A többi túlfizetés lesz: 20{$nbsp}000{$nbsp}Ft.",
+            "Befizetve: 30{$nbsp}000{$nbsp}Ft. Ebből ennyit megtartunk: 10{$nbsp}000{$nbsp}Ft. "
+            . "Túlfizetésed lesz: 20{$nbsp}000{$nbsp}Ft.",
             self::line('30000', '10000', '20000')
         );
         // (d) nothing kept: the whole payment is a surplus.
