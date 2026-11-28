@@ -806,6 +806,23 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         }
     }
 
+    /**
+     * `can.answer_request` holds only while the registration is registered, as the answer act refuses any other
+     * status; the grant alone is not enough.
+     *
+     * @dataProvider statuses
+     */
+    public function testAnswerRequestIsOfferedOnlyOnARegisteredRegistration(string $status): void
+    {
+        $this->addRegistration('00A0', $status);
+        $partner = $this->plainUser();
+        $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $registered = $status === 'registered';
+
+        self::assertSame($registered, $this->detail($partner)['can']['answer_request']);
+        self::assertSame($registered, $this->detail($this->admin->userId)['can']['answer_request']);
+    }
+
     /** D14: `registration.confirmed` is always there, for a holder without the money-view too. */
     public function testTheDetailAlwaysCarriesWhetherTheRegistrationIsConfirmed(): void
     {
