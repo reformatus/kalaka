@@ -8,7 +8,7 @@ use Kalaka\Forms\Api\SlotRequirement;
 
 /**
  * An event with tiers requires `price_tier` in its registration form (the owner's ruling 2026-11-19): without
- * the field a registration could not choose a tier. [UNAPPROVED, #200 N16]
+ * the field a registration could not choose a tier.
  */
 final class LadderSlotRequirement implements SlotRequirement
 {

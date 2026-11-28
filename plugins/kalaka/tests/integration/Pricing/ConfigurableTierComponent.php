@@ -62,7 +62,7 @@ final class ConfigurableTierComponent implements ConfigurableFeeComponent
             throw new class extends RuleViolation {
                 public function errorCode(): string
                 {
-                    return 'kalaka_offer_selected';
+                    return 'kalaka_item_chosen';
                 }
             };
         }

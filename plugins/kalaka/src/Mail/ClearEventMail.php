@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Kalaka\Mail;
 
 use Kalaka\Events\Api\Events;
-use Kalaka\Events\Api\EventState;
+use Kalaka\Events\Api\Event;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Mail\Api\MailHold;
 
 /**
  * Drops one event's held deliveries: the pending ones of an event that is not published, which the sender
@@ -57,18 +57,28 @@ final class ClearEventMail implements AdminUseCase
     }
 
     /**
+     * The one check that the event's mail is held: the use case runs it, and the command line before it asks.
+     *
+     * @throws EventMailNotHeld while the event is published
+     */
+    public static function refuse(Event $event, ?Events $events = null): void
+    {
+        if (!MailHold::isHeld($event, $events)) {
+            throw new EventMailNotHeld();
+        }
+    }
+
+    /**
      * @return int the deliveries deleted
      * @throws NotFound when there is no such event
-     * @throws RuleViolation while the event is published
+     * @throws EventMailNotHeld while the event is published
      */
     public function execute(array $input, Context $context): int
     {
         $eventId = (int) $input['event_id'];
         $event = $this->events->find($eventId) ?? throw new NotFound();
         $context->touch(Subject::event($eventId));
-        if ($event->state() === EventState::Published) {
-            throw new RuleViolation();
-        }
+        self::refuse($event, $this->events);
 
         $pending = $this->deliveries->pendingOfEventForUpdate($eventId, $context);
         foreach ($pending as $delivery) {

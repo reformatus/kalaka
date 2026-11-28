@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Divi4;
 
+use Kalaka\Forms\Api\ContentFrame;
 use Kalaka\Forms\Api\FieldWrapper;
 use Kalaka\Forms\Api\ThemeAdaptation;
 use Kalaka\Forms\Api\ThemeAdapter;
@@ -12,7 +13,8 @@ use Kalaka\Forms\Api\ThemeAdapterInput;
 /**
  * Divi 4's contact-form look on Kaláka's form markup (modules-and-extensions.md, "Extensions in view"):
  * Divi's contact-form classes, `p` wrappers, which Divi's input rules (`.et_pb_contact p input`) need, and
- * Divi's form red. Labels stay visible (Divi's own label class hides them) and radio buttons and
+ * Divi's form red, and, for the card return page core renders itself, the classic page frame with Divi's full-width
+ * body class. Labels stay visible (Divi's own label class hides them) and radio buttons and
  * checkboxes stay the browser's own: a choice and a consent sit in a `div`, where Divi's rules that hide
  * them for its drawn ones do not reach.
  *
@@ -53,9 +55,14 @@ final class DiviThemeAdapter implements ThemeAdapter
                 // `et_pb_contact_message` gives a textarea Divi's height; it matches only a textarea.
                 'text_control' => ['input', 'et_pb_contact_message'],
                 'submit_button' => ['et_pb_contact_submit', 'et_pb_button'],
+                // The card return page (core's own markup) is a full-width Divi page: `page.php`'s frame under
+                // `et_full_width_page`, not the sidebar layout. [UNAPPROVED N820]
+                'page_body' => ['et_full_width_page'],
             ],
             FieldWrapper::P,
-            self::ERROR_COLOUR
+            self::ERROR_COLOUR,
+            ContentFrame::Page,
+            ['et_left_sidebar', 'et_right_sidebar']
         );
     }
 

@@ -7,9 +7,11 @@ namespace Kalaka\Tests\Integration\Forms;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\BrokenFormsWarning;
+use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Tests\Integration\LogCapture;
 
@@ -48,6 +50,11 @@ final class DefinitionCheckTest extends FormsTestCase
         return $this->block('kalaka/nope-field', ['key' => 'nope']);
     }
 
+    private function paragraph(string $text): string
+    {
+        return '<!-- wp:paragraph --><p>' . $text . '</p><!-- /wp:paragraph -->';
+    }
+
     public function testTheEditorCannotPublishABrokenFormAndIsToldWhy(): void
     {
         $response = $this->rest('/wp/v2/kalaka_form', [
@@ -68,6 +75,116 @@ final class DefinitionCheckTest extends FormsTestCase
         self::assertSame([], get_posts(['post_type' => 'kalaka_form', 'post_status' => 'any']));
     }
 
+    /**
+     * A typed placeholder the form page's own context does not declare is refused at the form's save (owner
+     * 2026-11-27, walkthrough 8.11 a and 8.13): the form page fills every block on load, so a form saved with
+     * one would show every participant the system failure.
+     */
+    public function testAPlaceholderTheFormPageCannotFillIsRefusedAndAKnownOnePasses(): void
+    {
+        $help = $this->paragraph('Írd be: {{nincs_ilyen}}');
+        $response = $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $help,
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]);
+
+        self::assertSame(422, $response->get_status());
+        $error = $response->as_error();
+        self::assertInstanceOf(\WP_Error::class, $error);
+        self::assertSame('kalaka_unknown_placeholder', $error->get_error_code());
+        $data = $error->get_error_data();
+        self::assertIsArray($data);
+        self::assertSame(['{{nincs_ilyen}}'], $data['keys']);
+        self::assertStringContainsString(
+            'Ismeretlen jelölő: {{nincs_ilyen}}. A mentéshez javítani vagy törölni kell.',
+            $error->get_error_message()
+        );
+        self::assertSame([], get_posts(['post_type' => 'kalaka_form', 'post_status' => 'any']));
+
+        // The keys a form page fills pass: the event's values and the account fact.
+        $known = $this->paragraph('{{event.name}} – {{account.logged_in}}');
+        $made = $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $known,
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]);
+        self::assertSame(201, $made->get_status());
+
+        // Any other save path keeps the published form working and tells its editor why.
+        $madeData = $made->get_data();
+        self::assertIsArray($madeData);
+        $id = (int) $madeData['id'];
+        $stored = (string) get_post_field('post_content', $id);
+        wp_update_post(['ID' => $id, 'post_content' => $this->slotFields() . $help]);
+        self::assertSame($stored, (string) get_post_field('post_content', $id));
+        self::assertSame(
+            'A művelet nem hajtható végre. Ismeretlen jelölő: {{nincs_ilyen}}.'
+            . ' A mentéshez javítani vagy törölni kell.',
+            get_transient(DefinitionCheck::NOTICE . get_current_user_id())
+        );
+    }
+
+    /**
+     * The after-submit section has its own keys (`Api\AfterSubmit::TYPES`: the event's and the new registration's
+     * code and status), so `{{registration.code}}` passes there; the same key in the form's other blocks is the
+     * form page's, which does not declare it. [UNAPPROVED N1182]
+     */
+    public function testTheAfterSubmitSectionHasItsOwnPlaceholderKeys(): void
+    {
+        $after = '<!-- wp:kalaka/after-submit -->'
+            . $this->paragraph('Köszönjük! Kódod: {{registration.code}} ({{registration.status}}, {{event.name}})')
+            . '<!-- /wp:kalaka/after-submit -->';
+        $made = $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $after,
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]);
+        self::assertSame(201, $made->get_status());
+
+        $response = $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $this->paragraph('Kódod: {{registration.code}}'),
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]);
+
+        self::assertSame(422, $response->get_status());
+        $error = $response->as_error();
+        self::assertInstanceOf(\WP_Error::class, $error);
+        self::assertSame('kalaka_unknown_placeholder', $error->get_error_code());
+        $data = $error->get_error_data();
+        self::assertIsArray($data);
+        self::assertSame(['{{registration.code}}'], $data['keys']);
+    }
+
+    /**
+     * The placeholder check is the definition check's own, so a stored form holding one is found by the
+     * broken-form pass, closed and named, like any other definition problem. [UNAPPROVED N1182]
+     */
+    public function testAFormWithATypedPlaceholderItsPagesCannotFillIsNamedBrokenAndClosed(): void
+    {
+        $broken = $this->insertForm(
+            $this->slotFields() . $this->paragraph('{{nincs_ilyen}}'),
+            [],
+            ['post_title' => 'Jelölős űrlap']
+        );
+
+        self::assertSame('publish', get_post_status($broken));
+        self::assertSame(
+            ['#' . $broken . ' Jelölős űrlap: unknown_placeholder {{nincs_ilyen}}'],
+            BrokenForms::stored()
+        );
+        $shown = (new BrokenFormsWarning())->check();
+        self::assertNotNull($shown);
+        self::assertStringContainsString('unknown_placeholder {{nincs_ilyen}}', (string) $shown->details);
+        $this->expectException(SystemFailure::class);
+        $this->forms->definition($this->readForm($broken));
+    }
+
     public function testASlotFormWithoutItsContactEmailCannotBePublished(): void
     {
         $response = $this->rest('/wp/v2/kalaka_form', [
@@ -81,6 +198,32 @@ final class DefinitionCheckTest extends FormsTestCase
         $data = $response->get_data();
         self::assertIsArray($data);
         self::assertStringContainsString('contact_email_count', (string) $data['message']);
+    }
+
+    /** modules-and-extensions.md, "Failure isolation": an outside requirement that throws is skipped. */
+    public function testAThrowingSlotRequirementIsSkippedAndTheFormStillRenders(): void
+    {
+        $id = $this->insertChecked($this->slotFields());
+        $before = Contributions::current();
+        // The field types stay, so the form still parses; the failing requirement joins them.
+        $contributions = new Contributions();
+        foreach ($before->fieldTypes() as $type) {
+            $contributions->fieldType($type);
+        }
+        $contributions->slotRequirement(new ThrowingSlotRequirement());
+        Contributions::record($contributions);
+        try {
+            [$log] = $this->captureLog(function () use ($id): void {
+                $definition = $this->forms->definition($this->readForm($id), null, true);
+                self::assertCount(2, $definition->fields);
+            });
+            self::assertStringContainsString('slot requirement', $log);
+            self::assertStringContainsString('lejárt a kérés', $log);
+            // The page serves the form rather than closing it with `required_field_missing`.
+            self::assertNotNull($this->forms->form($id));
+        } finally {
+            Contributions::record($before);
+        }
     }
 
     public function testABrokenDraftCanBeSaved(): void

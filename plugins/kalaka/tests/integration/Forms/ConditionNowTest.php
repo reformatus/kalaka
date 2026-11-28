@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Forms;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Facts;
 use Kalaka\Forms\Api\ValueContext;
+use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
@@ -52,12 +53,14 @@ final class ConditionNowTest extends FormsTestCase
         return new ValueContext(EventValues::form($event, null, Runner::current()->clock()->now()));
     }
 
-    public function testTheFormFactsCarryTheDayOfTheRunnersClockInTheSitesTimeZone(): void
+    public function testTheFormFactsCarryTheRunnersClockInTheSitesTimeZoneToTheSecond(): void
     {
         update_option('timezone_string', 'Pacific/Auckland');
-        $this->withClockAt('2026-11-30 20:00:00');
+        $this->withClockAt('2026-11-30 20:00:07');
 
-        self::assertSame('2026-12-01', $this->facts()->get(Facts::NOW)->data);
+        $now = $this->facts()->get(Facts::NOW);
+        self::assertSame(ValueType::Datetime, $now->type);
+        self::assertSame('2026-12-01T09:00:07+13:00', $now->data);
     }
 
     public function testAChainReadingNowIsWithheldLikeAnEventValue(): void
@@ -108,7 +111,64 @@ final class ConditionNowTest extends FormsTestCase
         $this->withClockAt('2026-11-30 08:00:00');
         $given = new \DateTimeImmutable('2027-01-05 08:00:00', new \DateTimeZone('UTC'));
 
-        self::assertSame('2027-01-05', EventValues::now($given)[Facts::NOW]->data);
+        self::assertSame('2027-01-05', substr((string) EventValues::now($given)[Facts::NOW]->data, 0, 10));
+    }
+
+    /** The registration is open while it closes after now: the branch holds up to the closing instant. */
+    private function whileOpenForm(): int
+    {
+        $open = [
+            'match' => 'all',
+            'items' => [
+                ['key' => 'event.registration_closes', 'operator' => 'greaterThan', 'value' => ['ref' => 'now']],
+            ],
+        ];
+
+        return $this->slotForm(
+            '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => $open]) . ' -->'
+            . $this->field('text', 'motivation', ['required' => true])
+            . '<!-- /wp:kalaka/if -->'
+        );
+    }
+
+    public function testAFormOpenedBeforeAnInstantIsJudgedAtSubmitWithTheNewInstant(): void
+    {
+        update_option('timezone_string', 'Europe/Budapest');
+        $definition = $this->forms->definition($this->readForm($this->whileOpenForm()));
+        $answers = ['name' => 'Teszt Elek', 'email' => 'teszt@example.org', 'motivation' => 'Teszt'];
+
+        // The registration closes at 2026-12-15 20:00 (+01:00, 19:00 UTC). Rendered a minute before, the branch shows.
+        $this->withClockAt('2026-12-15 18:59:00');
+        self::assertTrue($this->forms->availability($definition, [], $this->facts())->shows('motivation'));
+        self::assertArrayHasKey('motivation', $this->forms->validate($definition, $answers, $this->facts())->stored());
+
+        // Submitted a minute after the instant (the same calendar day): the branch is gone, the answer dropped,
+        // no error for it.
+        $this->withClockAt('2026-12-15 19:01:00');
+        self::assertFalse($this->forms->availability($definition, [], $this->facts())->shows('motivation'));
+        $stored = $this->forms->validate($definition, $answers, $this->facts())->stored();
+        self::assertArrayNotHasKey('motivation', $stored);
+    }
+
+    public function testADayOnlyConditionKeepsItsWholeDayMeaningAtSubmit(): void
+    {
+        update_option('timezone_string', 'Europe/Budapest');
+        $started = [
+            'match' => 'all',
+            'items' => [['key' => 'event.start', 'operator' => 'greaterOrEqual', 'value' => ['ref' => 'now']]],
+        ];
+        $form = $this->slotForm(
+            '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => $started]) . ' -->'
+            . $this->field('text', 'motivation', ['required' => true])
+            . '<!-- /wp:kalaka/if -->'
+        );
+        $definition = $this->forms->definition($this->readForm($form));
+
+        // The event starts on 2027-07-05 (10:00): the whole day counts as "not yet started past the day".
+        $this->withClockAt('2027-07-05 21:59:00');
+        self::assertTrue($this->forms->availability($definition, [], $this->facts())->shows('motivation'));
+        $this->withClockAt('2027-07-05 22:00:00');
+        self::assertFalse($this->forms->availability($definition, [], $this->facts())->shows('motivation'));
     }
 
     public function testTheNowKeyIsNoKeyAConditionMayNameOnItsOwn(): void

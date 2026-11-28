@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Engine;
 
 use Kalaka\Foundation\Api\Actor\AccountActor;
+use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
@@ -38,8 +39,14 @@ final class SubmitGuard
 
     private readonly RateLimiter $addresses;
 
+    private readonly RateLimiter $handoffAccounts;
+
+    private readonly RateLimiter $handoffAddresses;
+
     public function __construct()
     {
+        $this->handoffAccounts = new RateLimiter('handoff', self::ACCOUNT_LIMIT, self::WINDOW);
+        $this->handoffAddresses = new RateLimiter('handoff', self::ADDRESS_LIMIT, self::WINDOW);
         $this->accounts = new RateLimiter('submit', self::ACCOUNT_LIMIT, self::WINDOW);
         $this->addresses = new RateLimiter('submit', self::ADDRESS_LIMIT, self::WINDOW);
     }
@@ -56,11 +63,31 @@ final class SubmitGuard
         $limiter->hit($client, Runner::current()->clock()->now());
     }
 
+    /**
+     * Returns when a link's or the quiz's handoff may keep its answers as a draft (S74, N6: a request that
+     * writes a row counts like a submit, with the same budget per client, in a scope of its own); refuses it
+     * by throwing a `KalakaException`.
+     *
+     * @throws \Kalaka\Forms\Api\RateLimited
+     */
+    public function checkHandoff(Actor $actor): void
+    {
+        $client = self::clientOf($actor);
+        $limiter = str_starts_with($client, 'account:') ? $this->handoffAccounts : $this->handoffAddresses;
+        $limiter->hit($client, Runner::current()->clock()->now());
+    }
+
     /** Whom an attempt counts for (N2, owner 2026-11-18): the account when logged in, else the address. */
     public static function client(SubmitAttempt $attempt): string
     {
-        if ($attempt->actor instanceof AccountActor) {
-            return 'account:' . $attempt->actor->userId;
+        return self::clientOf($attempt->actor);
+    }
+
+    /** The same, for an actor alone. */
+    public static function clientOf(Actor $actor): string
+    {
+        if ($actor instanceof AccountActor) {
+            return 'account:' . $actor->userId;
         }
 
         return 'address:' . (ClientAddress::current() ?? 'unknown');

@@ -11,8 +11,8 @@ use Kalaka\PriceLadder\Api\Tier;
 
 /**
  * Reads a ladder as sent (`kalaka/set-price-ladder`'s `tiers`) into tiers, for the preview and the save
- * alike: keys unique and amounts in the event's currency. A tier's `limit` is optional: the most people (0 or
- * more), or none (absent or null).
+ * alike: keys unique and amounts in the event's currency. A tier's `limit` is optional: the most people (0 up to
+ * 4294967295, the `int unsigned` column's range), or none (absent or null).
  */
 final class LadderInput
 {
@@ -23,7 +23,7 @@ final class LadderInput
             'key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]{0,63}$'],
             'label' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 191],
             'amount' => ['type' => 'string', 'pattern' => '^[0-9]{1,18}(\\.[0-9]{1,8})?$'],
-            'limit' => ['type' => ['integer', 'null'], 'minimum' => 0],
+            'limit' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 4294967295],
         ],
         'required' => ['key', 'label', 'amount'],
         'additionalProperties' => false,

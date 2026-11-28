@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Pricing;
 
+use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Pricing\Api\ApplyReport;
 use Kalaka\Pricing\Api\PreviewRow;
@@ -200,10 +203,33 @@ final class MoneySettingsTest extends PricingTestCase
         return $this->settings->apply($this->event, $proposed, new CliActor(null));
     }
 
+    /** The preview takes the actor and needs what the apply needs: full access (a read of payment-derived flags). */
+    public function testThePreviewNeedsFullAccessLikeTheApply(): void
+    {
+        $this->setPrice('40000');
+        $this->register('00A0');
+        $proposed = new ProposedMoneySettings($this->huf('45000'));
+
+        $plain = self::factory()->user->create();
+        try {
+            $this->settings->preview($this->event, $proposed, new UserActor($plain));
+            self::fail('A user without full access previewed.');
+        } catch (PermissionDenied) {
+            $this->addToAssertionCount(1);
+        }
+
+        $full = self::factory()->user->create();
+        get_userdata($full)->add_cap(AdminAccess::FULL_ACCESS);
+        self::assertCount(1, $this->settings->preview($this->event, $proposed, new UserActor($full)));
+        self::assertCount(1, $this->settings->preview($this->event, $proposed, new CliActor(null)));
+    }
+
     /** @return list<PreviewRow> */
     private function preview(string $price): array
     {
-        return $this->settings->preview($this->event, new ProposedMoneySettings($this->huf($price)));
+        $proposed = new ProposedMoneySettings($this->huf($price));
+
+        return $this->settings->preview($this->event, $proposed, new CliActor(null));
     }
 
     /** @param array<string, mixed> $input */

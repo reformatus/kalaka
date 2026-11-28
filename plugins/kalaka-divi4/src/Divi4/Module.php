@@ -52,8 +52,8 @@ final class Module extends AbstractModule
         . 'pointer-events:none;user-select:none}'
         . '.et_pb_contact_form .kalaka-number__prefix{left:.75rem}'
         . '.et_pb_contact_form .kalaka-number__suffix{right:2rem}'
-        . '.et_pb_contact_form .kalaka-number input{padding-left:var(--kalaka-number-prefix-room,0);'
-        . 'padding-right:var(--kalaka-number-suffix-room,0)}';
+        . '.et_pb_contact_form .kalaka-number--prefix input{padding-left:var(--kalaka-number-prefix-room,0)}'
+        . '.et_pb_contact_form .kalaka-number--suffix input{padding-right:var(--kalaka-number-suffix-room,0)}';
 
     /**
      * What the variables cannot reach in Divi:
@@ -91,6 +91,35 @@ final class Module extends AbstractModule
         . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-dragging] [data-kalaka-row]'
         . '{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}';
 
+    /**
+     * The registrant's money table (`kalaka/status`) in Divi's look: Divi gives a table cell `td` a `#eee` line on
+     * its top edge and a row header `th` none, so the first column gets the same line and the rows read as one
+     * (every row but the ones with core's own darker separator, `kalaka-rule`). Core keeps the structure (the
+     * columns, the info mark) and the emphasis (`em`, `strong`); nothing else of the table is styled here.
+     */
+    public const MONEY_TABLE = '.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}';
+
+    /**
+     * Divi's button icon (an arrow glyph from its icon font, shown on hover) is a pseudo-element's `content`,
+     * which a screen reader announces ("Küldés 5"). The same `content` Divi sets, with an empty text
+     * alternative after the slash: the glyph looks the same, speech skips it. The plain declaration first, so
+     * a browser without the alternative syntax keeps it as before. Kaláka's own buttons only: the form's
+     * (back, next, send) and the status block's card payment button.
+     */
+    public const BUTTON_ICON = '.et_pb_contact_form[data-wp-interactive="kalaka/form"] .et_pb_button:after,'
+        . '.kalaka-pay-card .et_pb_button:after{content:"\35";content:"\35" / ""}';
+
+    /**
+     * Kaláka's own buttons (the form's and the card payment's), beyond the icon:
+     * - the same dark focus ring as the ranking's controls, because Divi's `:focus { outline: 0 }` (unlayered)
+     *   removes the keyboard focus that core's layered rule draws;
+     * - the card payment button without the left margin Divi gives a contact form's submit
+     *   (`.et_pb_contact_submit`): on the status page it is not in a form, and lines up with the text above it.
+     */
+    public const BUTTONS = '.et_pb_contact_form[data-wp-interactive="kalaka/form"] .et_pb_button:focus-visible,'
+        . '.kalaka-pay-card .et_pb_button:focus-visible{outline:2px solid #333;outline-offset:2px}'
+        . '.kalaka-pay-card .et_pb_button{margin-left:0}';
+
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
     public function __construct(private readonly DiviThemeAdapter $adapter = new DiviThemeAdapter())
     {
@@ -113,12 +142,18 @@ final class Module extends AbstractModule
     }
 
     /**
-     * Loads Divi's form styles where a form appears, through Divi's own mechanism: its dynamic assets load
-     * a module's styles only on pages that use the module, unless `et_required_module_assets` asks for them.
+     * Loads Divi's form styles where a form or the status block appears, through Divi's own mechanism: its
+     * dynamic assets load a module's styles only on pages that use the module, unless
+     * `et_required_module_assets` asks for them. The status block's card payment button wears the form's
+     * button class, so it needs the same styles. Divi (Dynamic and Critical CSS, both on by default) prints the
+     * styles of the modules above the fold inline and defers the rest with a script (no stylesheet without
+     * JavaScript), and a module added through `et_required_module_assets` is never above the fold by its
+     * own detection: so the same module is also named above the fold, after Divi's own list (priority 11).
      */
     public function boot(): void
     {
         add_filter('et_required_module_assets', [$this, 'requiredAssets'], 10, 2);
+        add_filter('et_dynamic_assets_modules_atf', [$this, 'aboveTheFoldAssets'], 11, 2);
         add_action('wp_enqueue_scripts', [$this, 'enqueue']);
     }
 
@@ -132,7 +167,8 @@ final class Module extends AbstractModule
     {
         if (
             is_array($assets) && is_string($content) && $this->isDivi()
-            && self::holdsForm($content) && !in_array(self::DIVI_ASSETS, $assets, true)
+            && (self::holdsForm($content) || self::holdsMoneyTable($content))
+            && !in_array(self::DIVI_ASSETS, $assets, true)
         ) {
             $assets[] = self::DIVI_ASSETS;
         }
@@ -140,18 +176,37 @@ final class Module extends AbstractModule
         return $assets;
     }
 
+    /**
+     * @internal the `et_dynamic_assets_modules_atf` filter (Divi 4.10 and later): the modules whose styles
+     * go inline into the page's critical CSS. Divi's own callback replaces the list (priority 10), so this
+     * one runs after it and appends.
+     * @param mixed $modules
+     * @param mixed $content
+     * @return mixed
+     */
+    public function aboveTheFoldAssets($modules, $content = '')
+    {
+        return $this->requiredAssets($modules, $content);
+    }
+
     /** @internal the `wp_enqueue_scripts` action */
     public function enqueue(): void
     {
         $post = get_post();
-        if (!$this->isDivi() || !is_singular() || $post === null || !self::holdsForm($post->post_content)) {
+        if (!$this->isDivi() || !is_singular() || $post === null) {
+            return;
+        }
+        $css = (self::holdsForm($post->post_content)
+            ? self::DIV_FIELDS . self::IPHONE_CONTROLS . self::BASE . self::NUMBER . self::RANKING : '')
+            . (self::holdsMoneyTable($post->post_content) ? self::MONEY_TABLE : '');
+        if ($css !== '') {
+            $css .= self::BUTTON_ICON . self::BUTTONS;
+        }
+        if ($css === '') {
             return;
         }
         wp_register_style('kalaka-divi4', false, [], KALAKA_VERSION);
-        wp_add_inline_style(
-            'kalaka-divi4',
-            self::DIV_FIELDS . self::IPHONE_CONTROLS . self::BASE . self::NUMBER . self::RANKING
-        );
+        wp_add_inline_style('kalaka-divi4', $css);
         wp_enqueue_style('kalaka-divi4');
     }
 
@@ -162,6 +217,12 @@ final class Module extends AbstractModule
     public static function holdsForm(string $content): bool
     {
         return has_block('kalaka/form', $content) || str_contains($content, '[kalaka_form');
+    }
+
+    /** Whether the content places the registrant's status block, which holds the money table: block or shortcode. */
+    public static function holdsMoneyTable(string $content): bool
+    {
+        return has_block('kalaka/status', $content) || str_contains($content, '[kalaka_status');
     }
 
     /** Whether the active theme is Divi 4 (the adapter's own rule). */

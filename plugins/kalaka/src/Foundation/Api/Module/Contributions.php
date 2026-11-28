@@ -11,9 +11,15 @@ use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
+use Kalaka\Ledger\Api\Payer;
+use Kalaka\Ledger\Api\PayerKind;
+use Kalaka\Ledger\Api\PayerKindInput;
+use Kalaka\Ledger\Api\PayerKindSource;
+use Kalaka\Payments\Api\OnlineRefs;
+use Kalaka\Payments\Api\PaymentProvider;
+use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\SeatClaimSource;
-use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\Retention;
 use Kalaka\Pricing\Api\RetentionRule;
 
@@ -46,13 +52,20 @@ final class Contributions
     /** @var list<RequestSource> */
     private array $requestSources = [];
 
-    /** @var list<SeatClaimSource> */
-    private array $seatClaimSources = [];
+    /** @var array<string, PaymentProvider> */
+    private array $paymentProviders = [];
+
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
 
     /** @var array<string, RetentionRule> */
     private array $retentionRules = [];
+
+    /** @var list<SeatClaimSource> */
+    private array $seatClaimSources = [];
+
+    /** @var array<string, PayerKindSource> by payer-kind ID */
+    private array $payerKindSources = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -211,12 +224,38 @@ final class Contributions
     }
 
     /**
-     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
-     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     * In contribution order.
+     *
+     * @return list<RequestSource>
      */
-    public function seatClaimSource(SeatClaimSource $source): void
+    public function requestSources(): array
     {
-        $this->seatClaimSources[] = $source;
+        return $this->requestSources;
+    }
+
+    /**
+     * A payment provider is an outside point, the payments port (money.md, "Payments"). Which one a site uses is
+     * `Payments\Api\PaymentProviders::active()`: the first contributed. One ID per provider; a second
+     * contribution with the same ID fails the contributing module.
+     */
+    public function paymentProvider(PaymentProvider $provider): void
+    {
+        $id = $provider->id();
+        if (preg_match(OnlineRefs::PROVIDER_PATTERN, $id) !== 1 || isset($this->paymentProviders[$id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a provider ID, never output
+            throw new \InvalidArgumentException('Payment provider ID invalid or already contributed: ' . $id . '.');
+        }
+        $this->paymentProviders[$id] = $provider;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<PaymentProvider>
+     */
+    public function paymentProviders(): array
+    {
+        return array_values($this->paymentProviders);
     }
 
     /**
@@ -271,11 +310,20 @@ final class Contributions
     /**
      * In contribution order.
      *
-     * @return list<RequestSource>
+     * @return list<FeeComponent>
      */
-    public function requestSources(): array
+    public function feeComponents(): array
     {
-        return $this->requestSources;
+        return array_values($this->feeComponents);
+    }
+
+    /**
+     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
+     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     */
+    public function seatClaimSource(SeatClaimSource $source): void
+    {
+        $this->seatClaimSources[] = $source;
     }
 
     /**
@@ -289,12 +337,35 @@ final class Contributions
     }
 
     /**
-     * In contribution order.
-     *
-     * @return list<FeeComponent>
+     * A payer kind is declared (modules-and-extensions.md, "The extension surface"; money.md, "Ledger"): the source
+     * gives its kind, an ID of the form `Payer::isValid()` and a Hungarian label, and says per event whether it
+     * applies there (`PayerKindSource::appliesTo()`, a plain read of the module's own setting that runs inside the
+     * record use cases, in the admin detail read and in the participant status read, fires no hooks and writes
+     * nothing; a throw rolls the use case back, and in the two reads it is contained: the kind is treated as not
+     * applying and logged); the source runs no other code. The participant is core's and cannot be declared again; a
+     * repeated ID fails the contributing module. [UNAPPROVED N149, N366]
      */
-    public function feeComponents(): array
+    public function payerKindSource(PayerKindSource $source): void
     {
-        return array_values($this->feeComponents);
+        $kind = $source->kind();
+        if (!Payer::isValid($kind->id) || $kind->id === Payer::PARTICIPANT || $kind->label === '') {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a payer-kind ID, never output
+            throw new \InvalidArgumentException('Invalid payer kind ' . $kind->id . '.');
+        }
+        if (isset($this->payerKindSources[$kind->id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a payer-kind ID, never output
+            throw new \InvalidArgumentException('Payer kind already contributed: ' . $kind->id . '.');
+        }
+        $this->payerKindSources[$kind->id] = $source;
+    }
+
+    /**
+     * Every contributed payer-kind source, in contribution order.
+     *
+     * @return list<PayerKindSource>
+     */
+    public function payerKindSources(): array
+    {
+        return array_values($this->payerKindSources);
     }
 }

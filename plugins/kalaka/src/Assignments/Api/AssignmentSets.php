@@ -14,7 +14,6 @@ use Kalaka\Assignments\SaveAssignmentSet;
 use Kalaka\Assignments\SetRecord;
 use Kalaka\Assignments\SetRepository;
 use Kalaka\Assignments\TieRequestField;
-use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -68,9 +67,9 @@ final class AssignmentSets
     }
 
     /**
-     * The seat pool of an option (`option.<set ID>.<option key>`), for `Registrations\Api\Seats::left()`, such as
-     * the form-condition variable `seats_left.<field key>.<option value>` (the set's request field key). A plain
-     * read; null when the set or its option is not there.
+     * The seat pool of an option (`option.<set ID>.<option key>`), for `Registrations\Api\Seats`: a plain read; null
+     * when the set or its option is not there. It is not the source of the form variable
+     * `seats_left.<field key>.<option value>`: that comes from `SetOptionClaimSource::pools()` alone.
      */
     public function seatPool(int $setId, string $optionKey): ?SeatPool
     {
@@ -82,21 +81,15 @@ final class AssignmentSets
     }
 
     /**
-     * What staff are told before placing the registration into the option by hand: the option is full, or the
-     * registration does not meet its condition (`Assignments\PlacementWarnings`). Placing never refuses for
-     * either; a plain read for a screen or the command to ask first.
+     * What staff are told before placing the registration into the option by hand: the option is full
+     * (`Assignments\PlacementWarnings`). Placing never refuses for it; a plain read for a screen or the command
+     * to ask first.
      *
-     * @param \DateTimeImmutable $now the act's moment, for a condition that compares with "now"
      * @return list<string> the warnings' texts, none when there is nothing to warn about
-     * @throws \Kalaka\Foundation\Api\Error\SystemFailure a stored condition that cannot be read
      */
-    public function placementWarnings(
-        RegistrationKey $registration,
-        int $setId,
-        string $optionKey,
-        \DateTimeImmutable $now
-    ): array {
-        return (new PlacementWarnings())->of($registration, $setId, $optionKey, $now);
+    public function placementWarnings(RegistrationKey $registration, int $setId, string $optionKey): array
+    {
+        return (new PlacementWarnings())->of($registration, $setId, $optionKey);
     }
 
     /**
@@ -113,8 +106,6 @@ final class AssignmentSets
 
     /**
      * Adds or updates an option of a set (`kalaka/save-assignment-option`); the input is passed on as given.
-     * Where the published forms of the set's event hold its request field is read first and passed in, so the
-     * use case refuses a condition that would break one (`LiveFormWouldBreak`).
      *
      * @param array<string, mixed> $input
      * @return string the option's key
@@ -122,11 +113,7 @@ final class AssignmentSets
      */
     public function saveOption(array $input, Actor $actor): string
     {
-        // The live forms are read before the run: a use case reads no WordPress post in its transaction.
-        $set = is_int($input['set_id'] ?? null) ? $this->sets->find($input['set_id']) : null;
-        $liveForms = $set === null ? [] : (new Forms())->requestScopes($set->eventId, $set->id);
-
-        return (string) $this->runner()->run(new SaveAssignmentOption($liveForms), $input, $actor);
+        return (string) $this->runner()->run(new SaveAssignmentOption(), $input, $actor);
     }
 
     /**
@@ -159,8 +146,6 @@ final class AssignmentSets
             $set->timeSlot,
             $set->required,
             $set->mode,
-            $set->windowOpensAt,
-            $set->windowClosesAt,
             $set->published,
             $set->requestFieldKey,
             $own,

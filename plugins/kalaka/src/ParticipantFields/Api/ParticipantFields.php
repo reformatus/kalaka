@@ -102,7 +102,6 @@ final class ParticipantFields
      * longer declares is retired, its label kept) and whether forms may hold its key. A `form` field of the same
      * type under the key is adopted. `$declarer` is the declaring module's slug, stored as `declared_by`;
      * `$moneyRelevant` claims the lock after the first write (a stored claim is never lowered by a later declaration).
-     * [UNAPPROVED, #200 N10, N5, N301]
      *
      * @param ?list<array{value: string, label: string}> $options null for a field without options
      * @param ?int $decimals the number of decimals the declarer fixes for a number field; none when null
@@ -138,10 +137,7 @@ final class ParticipantFields
      * Whether the key is free for this declarer to declare as a field of this type, as `DeclareExtensionField`
      * would judge it: no field holds it, a `form` field of the same type does (it will be adopted, retired or
      * not), or an `extension` field of the same type does that this declarer declared or no one is recorded for.
-     * A `staff` or `system` field, another type and another declarer's field refuse. `$decimals` is the declarer's
-     * fixed decimals for a number field; the key rule does not read it.
-     *
-     * [UNAPPROVED N5]
+     * A `staff` or `system` field, another type and another declarer's field refuse.
      *
      * @throws FieldKeyHeld when the key is not free
      */
@@ -150,7 +146,6 @@ final class ParticipantFields
         string $key,
         string $type,
         string $declarer,
-        ?int $decimals = null,
     ): void {
         foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
             if ($record->key === $key) {
@@ -162,12 +157,12 @@ final class ParticipantFields
     /**
      * Whether the field's value is locked after its first write: its stored flag (an extension's declaration, or the
      * block type's capability when a form declared it) or its type's own capability (`MoneyRelevantFieldType`), so a
-     * row stored before the flag existed, or an adoption that claimed none, still locks a money type. [UNAPPROVED N301]
+     * row stored before the flag existed, or an adoption that claimed none, still locks a money type.
      */
     public function lockedAfterFirstWrite(ParticipantField $field): bool
     {
         return $field->moneyRelevant
-            || Contributions::current()->fieldTypes()[$field->type] instanceof MoneyRelevantFieldType;
+            || (Contributions::current()->fieldTypes()[$field->type] ?? null) instanceof MoneyRelevantFieldType;
     }
 
     /**

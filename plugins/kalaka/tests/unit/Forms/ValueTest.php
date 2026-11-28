@@ -92,9 +92,25 @@ final class ValueTest extends TestCase
 
     public function testAKeyIsAFieldKeyOrADottedGroupAndName(): void
     {
-        new ValueContext(['a' => Value::text('', ''), 'registration.status' => Value::text('', '')]);
+        // A third part is a custom point's ID or a pool's option value (`seats_left.<field key>.<option value>`).
+        new ValueContext([
+            'a' => Value::text('', ''),
+            'registration.status' => Value::text('', ''),
+            'event.points.1' => Value::text('', ''),
+            'seats_left.tier.a_1' => Value::text('', ''),
+            'seats_left.price_tier.gyerek-5_12' => Value::text('', ''),
+            'seats_left.set.0' => Value::text('', ''),
+            'seats_left.set.a--b_' => Value::text('', ''),
+        ]);
 
-        foreach (['A', '1a', 'a.', 'a.b.c', 'a-b', ''] as $bad) {
+        // The option value grammar is `[a-z0-9][a-z0-9_-]*`: no first hyphen or underscore, no capital, no space,
+        // no dot or other symbol; the first two parts keep the field key's grammar (no hyphen).
+        $keys = [
+            'A', '1a', 'a.', 'a.b.', 'a.b.C', 'a.b.c.d', 'a-b', '',
+            'a.b.-x', 'a.b._x', 'a.b.x y', 'a.b.x.y', 'a.b.xÁ', 'a.b.x/y', 'a.b.x+', 'a.b-c.x', 'a-b.c.x',
+            'a.b.x ', "a.b.x\n",
+        ];
+        foreach ($keys as $bad) {
             try {
                 new ValueContext([$bad => Value::text('', '')]);
                 self::fail('The key ' . $bad . ' was accepted.');
@@ -102,5 +118,64 @@ final class ValueTest extends TestCase
                 $this->addToAssertionCount(1);
             }
         }
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function datetimeLiterals(): iterable
+    {
+        foreach (self::literals()['valid'] as $literal) {
+            yield $literal => [$literal];
+        }
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function badDatetimeLiterals(): iterable
+    {
+        foreach (self::literals()['invalid'] as $literal) {
+            yield $literal => [$literal];
+        }
+    }
+
+    /** @return array{valid: list<string>, invalid: list<string>} the literals PHP and the editor's script both read */
+    private static function literals(): array
+    {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads the test's own fixture
+        $file = file_get_contents(__DIR__ . '/../../fixtures/datetime-literals.json');
+        self::assertIsString($file);
+        $literals = json_decode($file, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($literals);
+
+        return $literals;
+    }
+
+    /** @dataProvider datetimeLiterals */
+    public function testADatetimeLiteralIsAccepted(string $literal): void
+    {
+        $value = Value::datetime($literal, 'x');
+
+        self::assertSame(ValueType::Datetime, $value->type);
+        self::assertSame($literal, $value->data);
+        self::assertFalse($value->isEmpty());
+    }
+
+    /** @dataProvider badDatetimeLiterals */
+    public function testAnInvalidDatetimeLiteralIsRefused(string $literal): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        Value::datetime($literal, 'x');
+    }
+
+    public function testADatetimeKeepsItsInstantAndItsZone(): void
+    {
+        $zone = new \DateTimeZone('Europe/Budapest');
+        $value = Value::datetime('2026-12-01T18:00:00+01:00', 'x', $zone);
+
+        self::assertSame($zone, $value->zone);
+        self::assertSame(
+            '2026-12-01T17:00:00+00:00',
+            Value::instant('2026-12-01T18:00:00+01:00')?->setTimezone(new \DateTimeZone('UTC'))->format('c')
+        );
+        self::assertNull(Value::instant('2026-12-01'));
     }
 }

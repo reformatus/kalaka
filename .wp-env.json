@@ -9,7 +9,9 @@
 		"./plugins/kalaka-ranking",
 		"./plugins/kalaka-woocommerce",
 		"./plugins/kalaka-price-ladder",
-		"./plugins/kalaka-aid"
+		"./plugins/kalaka-aid",
+		"./plugins/kalaka-share",
+		"./plugins/kalaka-deposits"
 	],
 	"mappings": {
 		"wp-content/kalaka-dev-vendor": "./vendor"
