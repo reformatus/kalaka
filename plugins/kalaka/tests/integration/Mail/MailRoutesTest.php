@@ -95,7 +95,7 @@ final class MailRoutesTest extends MailAdminTestCase
         );
         self::assertSame([$event, false, '{{content}}'], [$data['event_id'], $data['held'], $data['layout_html']]);
         self::assertSame(
-            ['registered', 'waitlisted', 'payment_recorded', 'confirmed'],
+            ['registered', 'waitlisted', 'payment_recorded', 'confirmed', 'answered'],
             array_column($data['mails'], 'mail')
         );
         $registered = $data['mails'][0];

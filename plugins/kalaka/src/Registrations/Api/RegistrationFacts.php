@@ -17,10 +17,11 @@ use Kalaka\Forms\Api\ValueType;
  * one availability base, S76): the event's values, the registration's field values by participant-field
  * key, its code and status, and when it last became `registered` (null while it is not; a waitlisted
  * registration is not registered). Every time-dependent rule counts from it, never from the submit: payment
- * due, price-tier deadlines, everything.
- * Read by the fee components and, later, by every rule that reads registration facts. Built by
- * `Registrations::factsOf()`; it holds values only and reads nothing. `registration.awaits_answer` is computed
- * there (`Requests::awaits()`), never stored.
+ * due, price-tier deadlines, everything. Payment due itself counts from the later of it and the last
+ * changed answer to a request (`lastAnsweredAt`), and has none while a request awaits an answer
+ * (`paymentDue()`, so every caller gets the same date). Read by the fee components and, later, by every
+ * rule that reads registration facts. Built by `Registrations::factsOf()`; it holds values only and reads
+ * nothing. `registration.awaits_answer` is computed there (`Requests::awaits()`), never stored.
  *
  * The field values are typed by `Forms\Api\Forms::participantFacts()` (S25): every participant field of
  * the event is declared, an unanswered or retired one as `Value::none()` of its type, and each field's kind
@@ -59,7 +60,8 @@ final readonly class RegistrationFacts implements Facts
         private array $fieldValues = [],
         private array $computed = [],
         private array $fieldKinds = [],
-        private ?bool $awaitsAnswer = false,
+        public ?bool $awaitsAnswer = false,
+        public ?\DateTimeImmutable $lastAnsweredAt = null,
     ) {
         $this->values = new ValueContext($fieldValues + EventValues::of($event) + EventValues::now($now) + [
             self::CODE => Value::text($registration->code, $registration->code),
@@ -103,6 +105,12 @@ final readonly class RegistrationFacts implements Facts
     public function has(string $key): bool
     {
         return $this->values->has($key);
+    }
+
+    /** The registration's payment due: the event's date type over this fact source (money.md, "Core money scope"). */
+    public function paymentDue(): ?\DateTimeImmutable
+    {
+        return $this->event->paymentDue($this->registeredAt, $this->lastAnsweredAt, $this->awaitsAnswer === true);
     }
 
     /**

@@ -28,7 +28,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         self::assertSame($event, $settings['event_id']);
         self::assertSame('{{content}}', $settings['layout_html']);
         self::assertSame(
-            ['registered', 'waitlisted', 'payment_recorded', 'confirmed'],
+            ['registered', 'waitlisted', 'payment_recorded', 'confirmed', 'answered'],
             array_column($settings['mails'], 'mail')
         );
         self::assertSame('Jelentkezés rögzítve', $settings['mails'][0]['label']);
@@ -38,8 +38,8 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         }
     }
 
-    /** L6 (owner 2026-11-27): the four action points that are left, and no link regeneration among them. */
-    public function testTheRemainingActionPointsAreTheFourAndNoLinkRegeneration(): void
+    /** L6 (owner 2026-11-27): the action points that are left, and no link regeneration among them. */
+    public function testTheRemainingActionPointsAndNoLinkRegeneration(): void
     {
         $event = $this->create();
 
@@ -51,6 +51,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
                 ['waitlisted', 'Jelentkezés várólistára helyezve'],
                 ['payment_recorded', 'Befizetés rögzítve'],
                 ['confirmed', 'Jelentkezés véglegesítve'],
+                ['answered', 'Kérelem megválaszolva'],
             ],
             array_map(
                 static fn (array $mail): array => [$mail['mail'], $mail['label']],

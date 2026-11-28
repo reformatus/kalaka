@@ -71,7 +71,12 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
 - An action mail is decided only through `Api\ActionMails::due()` inside the
   acting use case, or inside the evaluation that use case runs (confirmed),
   which queues it only when the event has it switched on and
-  looks at nothing else (not the event's state). `ActionMails::isOn()` is the
+  looks at nothing else (not the event's state), except the one hold: while the
+  registration is `waitlisted` (inactive), `due()` queues only the waitlist
+  mail, for every other action mail, whoever asks; the status is read from the
+  registration there, once. The admission mail ("registered") is decided after
+  the status is `registered`, so it passes. A held mail is not queued later.
+  `ActionMails::isOn()` is the
   plain read of that switch, for a preview that queues nothing.
 - A mail is rendered at send time by `Body\MailRenderer`, through
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
@@ -117,8 +122,14 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   line queues it yet; `ActionMail::isWired()` is the one declared list of the
   points that work, the list the screen shows (a point that is not wired can be
   set up and switched on, but nothing sends it), and the PR that adds a producer
-  keeps it current. [UNAPPROVED R334] It has four action mails; admission from the waitlist sends
-  "registered", and a body tells it apart with `registration.from_waitlist`.
+  keeps it current. [UNAPPROVED R334] It has five action mails; "answered",
+  keyed by the answer record of Registrations' answer act, is the fifth, and a
+  body may branch on `registration.awaits_answer`, a yes/no choice with no
+  display text. The mail context takes `registration.code`,
+  `registration.status` (with its word) and `registration.awaits_answer` from
+  the one source, `Registrations::factsOf()`, and adds only the mail's own keys.
+  Admission from the waitlist sends "registered", and a body tells it apart
+  with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.
 - No Mail use case reads WordPress data in its transaction. `UpdateActionMail`

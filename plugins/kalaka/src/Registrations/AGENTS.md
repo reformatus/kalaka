@@ -299,6 +299,8 @@ the waitlist and reference codes
     `RuleViolation`, code `kalaka_aid_over_price`) and nothing is written. The price comes from the request source's
     `RequestSource::terms()` (`RequestTerms`: `fullPrice`, `canPay`; the most an award can be is `maxAmount()`, the
     full price today); a source with no terms (an offer) sets no cap. The detail read shows the same terms.
-  - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
-    confirmation, then mail) follows in the same run.
+  - The act writes no ledger line or decision; its one mail is "answered", queued in the act's own transaction
+    through `Mail\Api\ActionMails::due()`, keyed by the answer record (`AnswerRead::subject()`), so every
+    answering act mails once and a repeat that writes nothing queues none. The registration is touched, so the
+    evaluation (money, then confirmation, then mail) follows in the same run.
 - Only Registrations writes its tables.
