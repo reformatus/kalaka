@@ -32,7 +32,9 @@ page, and the account area
   reads the module Apis and the clock only.
 - The participant blocks show only the participant payer's side: totals,
   owed lines, money movements with their notes, and the transfer amount; the
-  money table is read for every status. A balance below zero shows as an
+  money table is read for every status. The read also carries one table per
+  other payer with lines, built by the same code, in Ledger's payer order,
+  for every status but waitlisted; the blocks do not show them yet. A balance below zero shows as an
   overpayment, never as a negative amount to pay. Only the last row is bold:
   „Még fizetendő”, or „Túlfizetés” when overpaid, whether or not anything is payable now.
 - The money table is built from `ParticipantMoney` alone (`StatusMarkup`; the mail look is `MailMarkup`, reached

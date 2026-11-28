@@ -11,6 +11,10 @@ use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
+use Kalaka\Ledger\Api\Payer;
+use Kalaka\Ledger\Api\PayerKind;
+use Kalaka\Ledger\Api\PayerKindInput;
+use Kalaka\Ledger\Api\PayerKindSource;
 use Kalaka\Payments\Api\OnlineRefs;
 use Kalaka\Payments\Api\PaymentProvider;
 use Kalaka\Pricing\Api\FeeComponent;
@@ -54,6 +58,9 @@ final class Contributions
 
     /** @var list<SeatClaimSource> */
     private array $seatClaimSources = [];
+
+    /** @var array<string, PayerKindSource> by payer-kind ID */
+    private array $payerKindSources = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -292,5 +299,38 @@ final class Contributions
     public function seatClaimSources(): array
     {
         return $this->seatClaimSources;
+    }
+
+    /**
+     * A payer kind is declared (modules-and-extensions.md, "The extension surface"; money.md, "Ledger"): the source
+     * gives its kind, an ID of the form `Payer::isValid()` and a Hungarian label, and says per event whether it
+     * applies there (`PayerKindSource::appliesTo()`, a plain read of the module's own setting that runs inside the
+     * record use cases, in the admin detail read and in the participant status read, fires no hooks and writes
+     * nothing; a throw rolls the use case back, and in the two reads it is contained: the kind is treated as not
+     * applying and logged); the source runs no other code. The participant is core's and cannot be declared again; a
+     * repeated ID fails the contributing module. [UNAPPROVED N149, N366]
+     */
+    public function payerKindSource(PayerKindSource $source): void
+    {
+        $kind = $source->kind();
+        if (!Payer::isValid($kind->id) || $kind->id === Payer::PARTICIPANT || $kind->label === '') {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a payer-kind ID, never output
+            throw new \InvalidArgumentException('Invalid payer kind ' . $kind->id . '.');
+        }
+        if (isset($this->payerKindSources[$kind->id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a payer-kind ID, never output
+            throw new \InvalidArgumentException('Payer kind already contributed: ' . $kind->id . '.');
+        }
+        $this->payerKindSources[$kind->id] = $source;
+    }
+
+    /**
+     * Every contributed payer-kind source, in contribution order.
+     *
+     * @return list<PayerKindSource>
+     */
+    public function payerKindSources(): array
+    {
+        return array_values($this->payerKindSources);
     }
 }
