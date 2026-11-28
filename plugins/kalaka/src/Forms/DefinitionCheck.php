@@ -345,7 +345,7 @@ final class DefinitionCheck
     {
         $keys = array_values(array_filter(
             ConditionKeys::in(parse_blocks($content)),
-            static fn (string $key): bool => preg_match('/\\Aevent\\.points\\.[0-9]+\\z/', $key) === 1
+            static fn (string $key): bool => EventValues::isPointKey($key)
         ));
         $event = $keys === [] || $eventId === null ? null : (new Events())->find($eventId);
         if ($event === null) {

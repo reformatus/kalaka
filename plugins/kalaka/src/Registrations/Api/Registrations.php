@@ -9,7 +9,6 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
-use Kalaka\Registrations\RegistrationCount;
 use Kalaka\Registrations\RegistrationList;
 use Kalaka\Registrations\RegistrationRepository;
 use Kalaka\Registrations\Submission\SubmissionRepository;
@@ -25,7 +24,6 @@ final class Registrations
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationList $list = new RegistrationList(),
-        private readonly RegistrationCount $count = new RegistrationCount(),
         private readonly Forms $forms = new Forms(),
     ) {
     }
@@ -75,15 +73,6 @@ final class Registrations
     }
 
     /**
-     * The event's `registered` registrations: the places taken (waitlisted ones take none). A plain read,
-     * without a lock; a form's `event.seats_left` is computed from it.
-     */
-    public function registeredCount(int $eventId): int
-    {
-        return $this->count->registered($eventId);
-    }
-
-    /**
      * The registration's fact source, from plain reads without a lock (inside the evaluation the run already
      * holds the row): the row, its field values (`values()`, one statement) typed over the event's participant
      * fields (`Forms::participantFacts()`: one statement and the block registry, no post). Null when there is
@@ -130,6 +119,18 @@ final class Registrations
     }
 
     /**
+     * The statuses of some of an event's registrations, in one statement and without a lock; a code that is no
+     * registration of the event is absent from the result. A plain read.
+     *
+     * @param list<string> $codes
+     * @return array<string, RegistrationStatus> code → status
+     */
+    public function statusesOf(int $eventId, array $codes): array
+    {
+        return $this->list->statusesOf($eventId, $codes);
+    }
+
+    /**
      * Whether an open (`registered` or `waitlisted`) registration of the event holds the value in the field: two
      * statements however many registrations there are. A plain read.
      */
@@ -155,7 +156,9 @@ final class Registrations
     /**
      * Refuses removing a chosen item: `ItemChosen` when an open registration of the event holds the value in the
      * field. Staff and settings saves that remove a tier, an option or an offer call it, so one refusal and one
-     * code reach every surface. A plain read.
+     * code reach every surface. A null value means "any value held": CF4 (#245) answers it with `openChose()`;
+     * until then no caller passes null, and on this branch a null matches nothing (it is read as value ''). A
+     * plain read.
      */
     public function refuseRemovingChosen(int $eventId, string $fieldKey, ?string $value): void
     {

@@ -11,7 +11,6 @@ use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
-use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SeatAct;
 use Kalaka\Registrations\Api\Seats;
 
@@ -28,7 +27,7 @@ use Kalaka\Registrations\Api\Seats;
  * over the capacity. A registration that is not (waitlisted, withdrawn, removed) holds no seat, so the
  * assignment is written without one; the seat follows when it becomes `registered` (`Api\AssignmentSeats::retake()`).
  * The seat in the option the registration held in the set before is freed either way (never moved to anyone
- * else). [UNAPPROVED N9]
+ * else).
  */
 final class PlaceRegistration implements AdminUseCase
 {
@@ -90,7 +89,7 @@ final class PlaceRegistration implements AdminUseCase
             $held = new OptionSeatPool($registration->eventId, $target->setId, $record->optionKey);
             $this->seats->release($held, $registration, $context);
         }
-        if ($this->registrations->find($registration)?->status === RegistrationStatus::Registered) {
+        if ($this->registrations->find($registration)?->status->isLive() === true) {
             $this->seats->retake(
                 new OptionSeatPool($registration->eventId, $target->setId, $target->option->key),
                 $registration,

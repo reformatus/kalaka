@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Submission;
 
+use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Foundation\Api\Audit\Subject;
-use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Repository\AppendOnlyRepository;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -65,7 +65,7 @@ final class SubmissionRepository extends AppendOnlyRepository
             'number' => $entity->number,
             'form_id' => $entity->formId,
             'form_version' => $entity->formVersion,
-            'answers' => self::encode($entity->answers),
+            'answers' => (new AnswerSet($entity->answers))->toJson(),
             'submitted_at' => Instant::toStorage($entity->submittedAt),
             'submit_token' => $entity->token,
             'answers_hash' => $entity->answersHash,
@@ -74,18 +74,12 @@ final class SubmissionRepository extends AppendOnlyRepository
 
     protected function fromRow(array $row): object
     {
-        $answers = json_decode((string) $row['answers'], true);
-        if (!is_array($answers)) {
-            $error = new SystemFailure(null, new \UnexpectedValueException('Stored answers are not a JSON object.'));
-            throw $error;
-        }
-
         return new Submission(
             new RegistrationKey((int) $row['event_id'], (string) $row['code']),
             (int) $row['number'],
             (int) $row['form_id'],
             (int) $row['form_version'],
-            $answers,
+            AnswerSet::fromJson((string) $row['answers'])->answers,
             Instant::fromStorage((string) $row['submitted_at']),
             $row['submit_token'],
             $row['answers_hash'],
@@ -105,23 +99,5 @@ final class SubmissionRepository extends AppendOnlyRepository
     protected function registrationOf(object $record): RegistrationKey
     {
         return $record->registration;
-    }
-
-    /**
-     * A JSON object, never `wp_json_encode()`, which would replace what it cannot encode.
-     *
-     * @param array<string, mixed> $answers
-     */
-    private static function encode(array $answers): string
-    {
-        try {
-            $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR;
-
-            // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- wp_json_encode() would repair invalid UTF-8
-            return json_encode((object) $answers, $flags);
-        } catch (\JsonException $e) {
-            $error = new SystemFailure(null, $e);
-            throw $error;
-        }
     }
 }

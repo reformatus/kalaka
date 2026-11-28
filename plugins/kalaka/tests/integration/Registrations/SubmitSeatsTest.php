@@ -26,6 +26,7 @@ use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Registrations\Api\SeatOutcome;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Registration;
@@ -242,7 +243,7 @@ final class SubmitSeatsTest extends FormsTestCase
             $this->submit();
             self::fail('The limited choice should have refused the waitlisted submit.');
         } catch (InvalidAnswers $invalid) {
-            self::assertSame(['modul' => 'Ez a lehetőség időközben betelt. Válassz másikat.'], $invalid->fields);
+            self::assertSame(['modul' => SeatsFull::TEXT], $invalid->fields);
         }
 
         self::assertSame(1, $this->registrationCount());

@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Forms\Api\AccountStep;
+use Kalaka\Forms\Api\AnswerSet;
+use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\Form;
+use Kalaka\Forms\Api\FormDraft;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\RequestOptions;
 use Kalaka\Forms\Api\ValueContext;
@@ -54,6 +57,27 @@ final class PrefillingHost implements FormHost
         return $this->stored;
     }
 
+    public function draft(Form $form): FormDraft
+    {
+        return $this->inner->draft($form);
+    }
+
+    public function saveDraft(
+        Form $form,
+        int $version,
+        AnswerSet $answers,
+        int $page,
+        int $claims,
+        Actor $actor
+    ): void {
+        $this->inner->saveDraft($form, $version, $answers, $page, $claims, $actor);
+    }
+
+    public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void
+    {
+        $this->inner->resolveDraftClaim($form, $choice, $actor);
+    }
+
     public function requestOptions(Form $form, int $setId): ?RequestOptions
     {
         return $this->inner->requestOptions($form, $setId);
@@ -89,5 +113,10 @@ final class PrefillingHost implements FormHost
     public function slotRequiredKeys(Form $form): array
     {
         return $this->inner->slotRequiredKeys($form);
+    }
+
+    public function labelFallbacks(Form $form): array
+    {
+        return $this->inner->labelFallbacks($form);
     }
 }

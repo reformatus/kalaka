@@ -6,9 +6,9 @@ title: Money
 
 ## Core money scope
 
-- **Core:** a fixed price per registration, full payment, an event's extra
-  charges and its donation, with its **payment due** date type. Core ships no
-  money field types.
+- **Core:** a fixed price per registration, full payment, manual charges and
+  discounts, an event's extra charges and its donation, with its **payment
+  due** date type. Core ships no money field types.
 - **Payment due** is N days after the registration last became `registered`
   (at submit, admission or restore); N is configured per event (IVK: 7
   days). A registration admitted from the waitlist counts from its
@@ -95,6 +95,11 @@ title: Money
 - **Sign convention:** a positive amount increases what the payer owes; a
   negative amount decreases it. A balance is the sum of lines; above zero is
   due, below zero is overpaid.
+- **Two sides:** every line kind, extension kinds included, declares one
+  side: owed (what the payer has to pay: charges, manual charges and
+  discounts, later support and the share pair) or paid (money that moved:
+  payments, refunds, corrections). Each payer's owed total, paid total and
+  balance (owed minus paid) come from the lines.
 - **Lines are append-only.** Every change is a new, explained line with a
   source reference and an idempotency key.
 - **An invoice shows every line that makes up its total, and the lines add
@@ -104,16 +109,14 @@ title: Money
 - **Ledger lines and decision records survive erasure**
   ([Registrations](registrations-and-identity.md#attribution-and-erasure)).
 
-| Kind | Sign | Written by |
-|---|---|---|
-| `charge`, per fee component (the fixed price; plugin components such as a late fee or a staff discount) | ± | the materializer |
-| `payment` (online or another automatic method) | − | Payments, from payment-method events |
-| `refund` | + | Payments, from payment-method events |
-| `manual_payment` (bank transfer, cash, card terminal) | − | the "record payment" use case |
-| `manual_refund` (money returned by transfer or cash) | + | the "record refund" use case |
-| `transfer` (a payment moved to another registration of the same event) | ± | the "move payment" use case |
-| `adjustment` (correction with a reason) | ± | an admin use case |
-| feature lines (the wallet, deferred) | ± | feature plugins, through an extension point |
+| Kind | Side | Sign | Written by |
+|---|---|---|---|
+| `charge`, per fee component and item (the fixed price; each manual charge or discount; plugin components such as a late fee or a staff discount) | owed | ± | the materializer |
+| `payment` (online or another automatic method) | paid | − | Payments, from payment-method events |
+| `refund` | paid | + | Payments, from payment-method events |
+| `manual_payment` (bank transfer, cash, card terminal) | paid | − | the "record payment" use case, or "record charge" marked as completed |
+| `manual_refund` (money returned by any recorded payment method) | paid | + | the "record refund" use case, or "record discount" marked as completed |
+| feature lines (the wallet, deferred) | declared by the kind | ± | feature plugins, through an extension point |
 
 ## Recording payments by hand
 
@@ -121,15 +124,35 @@ title: Money
   registration desk. One action records **one registration, one payer and one
   amount**, with the method, the value date and an optional bank reference or
   payer note (free text). It writes one `manual_payment` line.
+- **One permission, "record money",** covers recording payments, refunds,
+  corrections, manual charges and manual discounts.
+- **A manual charge or discount** („Díj”, „Kedvezmény”) is a fact: one
+  `registered` registration, one payer, a positive amount and a required
+  title the registrant sees; the type gives the sign. A core fee component of
+  the extras stage turns each into its own `charge` line, so it counts like
+  any fee: in confirmation, retention and the money settings preview. It has
+  no method and no date. **Marked as completed,** the same act also records
+  the payment (for a charge) or the refund (for a discount) of the same
+  amount, with its method, value date and an optional comment, as a second
+  entry. The two are plain entries with no link between them, and the
+  payment is never a correction.
 - **The value date is entered as a day.** It is stored as the instant
   00:00 of that day in the site time zone, fixed when the line is
   recorded. A payment with that value date therefore counts as before a
   deadline that ends at midnight at the end of the same day.
 - **"Record refund"** writes a `manual_refund` line for money returned by
-  transfer or cash. WooCommerce refunds keep their own path
+  any recorded payment method. WooCommerce refunds keep their own path
   ([Refunds](#refunds)).
+- **A correction** is a "record payment" or "record refund" row of either
+  direction, flagged as a correction, with an optional reason, **no method and
+  no value date**: it counts from the time it is recorded. It is a payment
+  fact like any recorded payment, so confirmation and balances count it with no
+  special case. One use case records it, under the same action as "record
+  payment". Every recorded movement's note, a correction's reason included,
+  is shown to the participant on their page, and each correction is its own
+  row with its direction.
 - **A short transfer** (e.g. a foreign bank's deduction) is recorded as it
-  arrived; the rest stays due until waived with an `adjustment` and a reason.
+  arrived; the rest stays due until waived with a manual discount.
 - **An unnamed transfer** is found through a view (name, code, amount) and
   recorded there. Core has no holding area for unassigned money.
 - **Invoicing is by hand.** Kaláka offers views that show the bookkeeper what
@@ -147,8 +170,10 @@ title: Money
   reach its own target. In core the target is the full amount; the deposit
   extension lowers it to the deposit through a typed point. Like every
   amount, it follows the event's current settings
-  ([Money settings apply](#money-settings-apply)). Confirmation reads payment
-  facts, never charge lines.
+  ([Money settings apply](#money-settings-apply)). A payer's target is what
+  the fee composition says it owes now, manual charges and discounts
+  included; **nothing is due** when every payer's target is zero or below.
+  Confirmation reads payment facts, never charge lines.
 - **"The congregation part is required for confirmation"** is a per-event
   switch, on by default. Off, only the participant's target counts.
 - **The manual flag** ("may come without paying") is a fact: set with a
@@ -186,24 +211,27 @@ only at the participant's side.
   entered days later. The
   materializer reverses the charge. There is no grace-period setting.
 - **A manual flag set after the deadline** does not remove the fee; admins who
-  want to drop it revert the charge with a line.
+  want to drop it record a manual discount.
 - **Charged only on tiers that have it enabled** (a per-tier setting). At
   REFISZ the normal and discounted tiers pay it; higher tiers have paid it in
   advance. It is never charged on staff registrations.
 
 ## Quota places
 
-Tier places of the price ladder and support-offer places are extension
-decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+Tier places of the price ladder and support-offer places are seats, under the
+one seat rule
+([Foundation](foundation.md#facts-decisions-and-computed-values)).
 
-- **Held** when the registration becomes `registered` (at submit, admission or
-  restore), decided under a `FOR UPDATE` lock on the tier or offer row.
-  Waitlisted registrations hold no place.
-- **Released** on withdrawal or removal.
-- **Reassigned only by a staff act:** staff give a freed place to a requester
-  from a list in registration order, so nobody's money changes
-  automatically.
-- **A restored registration** gets a place only if one is free.
+- **Taken** at submit, admission or restore, under a `FOR UPDATE` lock on the
+  tier or offer row. Waitlisted registrations hold no place.
+- **A full one cannot be chosen:** the submit is refused, as for a full set
+  option. Staff can still place a registration by hand, warned that the pool
+  is full.
+- **Released** on withdrawal or removal, and when an answer refuses the
+  offer (a partner approves or refuses through the same act as staff).
+- **A restored or admitted registration** keeps what it chose and takes its
+  places, over the limit where a pool is full, with the "full" warning to
+  staff, as the one seat rule says for every staff act.
 
 ## Withdrawal, removal and substitution
 
@@ -214,12 +242,9 @@ decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
   paid"; the deposit extension adds "retain up to the deposit", which counts
   against the participant first. A surplus shows as an overpayment; refunds
   are never automatic.
-- **Move payment** (a substitute takes someone's place): one organizer use
-  case, **within one event only**, writes a pair of `transfer` lines with a
-  shared reference (+amount on A, −amount on B), at most A's payer's net
-  payments: payments, minus refunds, minus earlier moves out.
-  Only payments move; B's charges and support come from B's own facts. Staff
-  choose the target payer, and a remaining difference is an ordinary balance.
+- **Moving a payment is not handled in code** (a substitute takes someone's
+  place): staff record a refund, remove the registration, and
+  record the payment on the other. A transfer helper is deferred.
 - Money moves between events only through the wallet's carry-over
   ([Deferred](deferred.md)).
 
@@ -267,15 +292,15 @@ such as lunch or a donation.
   owner's ruling 2026-11-18), in SQL over the stored answer (`JSON_CONTAINS`
   over `JSON_EXTRACT(value, '$.path[*].ext')`), under the same per-event
   `EXPLAIN` test.
-- **Support offers per event on any node,** the root included, apply to the
-  node and everything below it: amount, quota (people and/or budget),
-  conditions on facts, "must be requested", and "must be confirmed by the
-  body" (in its view or through a form link).
-- **Stacking:** one flag per offer, "withdrawn if a lower-level support
-  applies", on by default (the most specific wins); off, it adds to the lower
-  one. Offers are evaluated from the congregation upwards, and a higher offer
-  takes a quota place ([Quota places](#quota-places)) only if it ends up
-  applying.
+- **Support offers per event on any node,** the root included, several per
+  node, are offered to the node and everything below it, and the registrant
+  selects them: amount, whether it needs a request (answered by staff or by
+  the body, where a partner approves, through the one "answer a request" act;
+  while the selection awaits an answer, no payment is asked and no due date is
+  shown), and an optional limit of places (people only). Who sees an offer is
+  set up on the form, as for price tiers and extra charges: an offer carries
+  no condition of its own. A selected offer with a limit takes a place
+  ([Quota places](#quota-places)).
 - **Each applying offer is one participant-side `charge` line** of the
   support stage, written by the materializer and labelled with its granting
   node.
@@ -317,7 +342,6 @@ such as lunch or a donation.
   and the materializer writes the difference as `charge` lines. Its report
   lists the failed registrations, with retry and skip; a failed or skipped
   one converges on its next evaluation, since the settings are saved.
-  `adjustment` lines stay for manual corrections with a reason.
 
 ## Materializer
 

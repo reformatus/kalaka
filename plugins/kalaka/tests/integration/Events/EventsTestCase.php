@@ -18,6 +18,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Api\UseCase\UseCase;
 use Kalaka\Foundation\ObjectCache;
+use Kalaka\Mail\Api\ActionMailSettings;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
 use Kalaka\Tests\Integration\Foundation\AuditTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
@@ -99,6 +100,26 @@ abstract class EventsTestCase extends AuditTestCase
         $this->update($id);
 
         return $id;
+    }
+
+    /** The event's "registered" mail on, with a template that has the password link: what an account mode needs. */
+    protected function readyAccountMail(int $id): void
+    {
+        $content = "<!-- wp:paragraph -->\n<p><span data-kalaka-value=\"account.password_link\">link</span></p>\n"
+            . '<!-- /wp:paragraph -->';
+        $body = wp_insert_post([
+            'post_type' => 'kalaka_mail',
+            'post_status' => 'publish',
+            'post_title' => 'Sikeres jelentkezés',
+            'post_content' => $content,
+            'meta_input' => ['kalaka_event_id' => $id],
+        ], true);
+        self::assertIsInt($body);
+        (new ActionMailSettings())->update(
+            ['event_id' => $id, 'mail' => 'registered', 'body_id' => $body, 'enabled' => true],
+            $this->admin,
+            $this->runner
+        );
     }
 
     protected function published(): int

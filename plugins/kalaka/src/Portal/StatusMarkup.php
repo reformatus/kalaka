@@ -46,7 +46,7 @@ final class StatusMarkup
             return $html . '<p>' . esc_html(self::EVENT_CLOSED) . '</p></section>';
         }
 
-        $html .= '<p>Azonosító: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
+        $html .= '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
             . '</span></p>';
 
         switch ($view->status) {
@@ -105,6 +105,18 @@ final class StatusMarkup
             . self::transferRow('Összeg', MoneyText::of($transfer->amount))
             . self::transferRow('Közlemény', $transfer->reference)
             . '</tbody></table></section>';
+    }
+
+    /**
+     * The leave block: one bare form with one button, no look of its own beyond core's button class. The
+     * label is a stand-in.
+     */
+    public static function leave(string $action, string $returnUrl): string
+    {
+        return '<form class="kalaka-leave" method="post" action="' . esc_url($action) . '">'
+            . '<input type="hidden" name="return_url" value="' . esc_attr($returnUrl) . '">'
+            . '<button type="submit" class="wp-element-button">' . esc_html(ParticipantBlocks::LEAVE_LABEL)
+            . '</button></form>';
     }
 
     /**

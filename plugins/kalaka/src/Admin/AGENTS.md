@@ -24,9 +24,16 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `kalaka/revoke-full-access` (audited; the capability is written after the
   commit; the audit records the real old value), except that tests and the
   development seed's `kalaka_admin` add it directly. One holder rule,
-  `FullAccessQuery::holders()`: a user holds it by their own capability or
-  through a role that carries it. The last holder keeps it (use case, profile,
-  CLI and abilities alike). The profile screen checks a change after
+  `FullAccessQuery::holders()`: a user holds it by their own capability only,
+  never through a role, and `user_has_cap` makes every `user_can()` check
+  agree; `OwnCapability::owns()` is the same rule on a user object, for the
+  filter, the profile checkbox and the Users column. The last holder keeps it: the use case, the profile, the CLI and the
+  abilities refuse; WordPress's users screen and REST refuse deleting them
+  through `map_meta_cap`, and `wp user delete` stops on the `delete_user`
+  action; plain code calling `wp_delete_user()` past the check is logged and
+  the deletion proceeds. Not guarded: `wp user remove-cap`, `wp user delete
+  --network` (which fires `wpmu_delete_user`, not `delete_user`) and a direct
+  `remove_cap()`. The profile screen checks a change after
   WordPress has checked the rest of the form, and makes it only after
   WordPress has saved the user. Activation gives the activating user full
   access through `GrantFullAccess` (audited, as the system), only while
@@ -51,7 +58,35 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `Admin\Api\ViewQuery`, which reads only through a `HeldView` that `Access`
   hands out, or through full access. Only `ViewQuery` names a registration
   table (`RegistrationTablesTest`); it never selects the secret.
-- The abilities' permission callback lets through only full access or a
-  grant holder; the runner's coarse check still decides each call.
+- The abilities' permission callback, and the gate of the grid's
+  `kalaka-admin/v1` routes, let through only full access or a grant holder;
+  the runner's coarse check still decides each call.
+- The master view's counted members live in the event's master row of
+  `kalaka_views` (`master` 1): at most one per event (the unique key on
+  `master_event`), written only through `ViewRepository`, by `CopyViews`
+  (nothing in the grid writes it). Its name, filter and columns are stored
+  empty and never read. It is never listed, edited or deleted as a view. A
+  grant on the master view keeps `view_id` null and never points at the master
+  row.
+- The grid's ad hoc filters and search (`Narrowing`, S37) only narrow: the view query appends them to the held
+  view's own filter and bound value, never replaces them, so a grant holder never reaches a row the view does
+  not hold. They apply only to the view's listed columns (anything else is `InvalidInput`), and their kind comes
+  from the column's own type (`GridNarrowing`), never from the client. They reach `page()` (and its total) and
+  `aggregates()` only; `count()` for the dialog, `contains()` and the access checks never see them. The
+  sorszám range is computed in SQL as `RegistrationList` computes it. Text matches ignore case and accents
+  (`utf8mb4_unicode_520_ci`); a stored `1` is yes, a stored `0` is no and no value is neither.
+- The counted members of a view (`counts`) are stored only by full access, and
+  each is one of its column's members. Any holder of a view, full access
+  included, may send an ad hoc `counts` override with the sums read: it is
+  validated against the held view's listed columns and their members, applies
+  to that request only, and is never stored and never widens the view.
 - The fine check of a field change (`Access::mayWrite()`) runs inside
   `execute`, on a registration the run holds locked.
+- Staff correct a field value only through `kalaka/edit-field-value` (`FieldEdit\EditFieldValue`): a field change with
+  no action, so rights are read-write columns of a held view and full access, never a new grant action. The field
+  type turns the value into its stored form before the run (`FieldEditInput`), never inside it; no form condition is
+  walked (staff override). Staff never edit a `system` field, an `extension` field only its own act writes, or a
+  retired field. The edit is not a submission; the write goes through `Registrations\Api\FieldCorrections`, and the
+  runner's evaluation (money, confirmation, mail) follows it; the edit sends no mail of its own. An identical value
+  writes nothing, and a stored value other than `expected` is a `VersionConflict`.
+- Staff placing into a set option is not an edit: it stays `kalaka/place-registration`.

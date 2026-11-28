@@ -190,6 +190,7 @@ final class RegistrationSubmit
                     account: $account,
                     walkFailure: $failure,
                     fingerprint: $fingerprint,
+                    draftClaimHash: $request->draftClaim === null ? null : DraftClaim::hash($request->draftClaim),
                     seatClaims: $this->seatClaims($event, $answers),
                 );
                 $input = ['form' => $form->id, 'token' => $request->token];

@@ -97,7 +97,7 @@ final class Evaluation
             $rule = new RuleFailed('money/' . $failed->componentId, $failed);
             $refusal = $failed->getPrevious();
             if ($refusal instanceof FeeRefusal) {
-                // The component's own refusal, which says why: the text for the actor's side. [UNAPPROVED, #200 N11]
+                // The component's own refusal, which says why: the text for the actor's side.
                 $portal = $context->actor()->side() === Side::Portal;
                 if ($portal && $refusal->portalText === null) {
                     $error = new SystemFailure(null, $rule);

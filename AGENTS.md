@@ -77,8 +77,10 @@ change.
 
 ## Ground rules
 
-- UI text is Hungarian, hard-coded, with no translation layer. Code
-  identifiers and comments are in English.
+- UI text is Hungarian, hard-coded, with no translation layer. The one
+  exception: a plugin's declared field names and labels may be overridden in
+  that plugin's own settings, kept in its one names option. Code identifiers
+  and comments are in English.
 - Nothing reaches the UI that the owner has not approved: no extra fields,
   labels, settings, styling or polish.
 - Minimums: WordPress 7.0, PHP 8.3, MariaDB 10.3 and later (no features newer
@@ -99,8 +101,9 @@ about the 2026 systems. They are not authority. When replacing a 2026
 behavior, grep them for that topic's `Keep` and `Change` entries and test
 cases. When a spec is written, copy the relevant test cases into its
 acceptance criteria. Anything binding must be in `docs/architecture/` or the
-approved spec. Never copy from `internal/source-material/`: it holds personal
-data of minors.
+approved spec. `internal/source-material/` is sanitized and may be read
+locally (owner 2026-11-26); report any personal data found in it, and never
+copy it into commits, fixtures, issues or PRs.
 
 ## Pipeline
 

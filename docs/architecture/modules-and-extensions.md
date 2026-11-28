@@ -75,7 +75,7 @@ flowchart LR
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, seats, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
 | Extras | extra charges and the donation: generic per-event charges, each declaring the participant field with its key for forms to join, and the donation, the number field with the key `adomany`, declared by the same save |
-| Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
+| Ledger | lines, payers, balances, organizer-recorded payments, refunds and corrections, manual charges and discounts |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
 | Portal | the active registration (by secret link or account), the participant blocks admins place on any page, the account area |
@@ -306,7 +306,7 @@ never our prefix.
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · seat claim source · slot requirement"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · slot requirement · seat claim source"]
   REG --> DECL["Declarations<br/>payer kind · block host"]
 ```
 
@@ -323,7 +323,7 @@ flowchart LR
     decision, action-mail act, assignment proposer): fires no WordPress
     hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter, seat claim source, slot requirement). A field type's value type
+    view column, filterable fact, theme adapter, slot requirement, seat claim source). A field type's value type
     and its reading of a stored answer as a value fire no WordPress hooks
     and write nothing (they may read, e.g. a congregation's name), so the
     evaluation reads a registration's field values with them inside the
@@ -341,8 +341,8 @@ flowchart LR
   database access, no hooks ([Events](events-and-forms.md#date-references)).
 - **A decision** is an inside point: a transition rule in, a transition
   record or nothing out; core writes the record. It reads facts and core
-  decisions only, never another extension's decision. Late fee, price-tier
-  place and support place are decisions
+  decisions only, never another extension's decision. The late fee is a
+  decision; seats are facts, not decisions
   ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **An action-mail act** is an inside point: an extension's act (e.g. a
   check-in) that can cause an action mail, keyed by the act's record

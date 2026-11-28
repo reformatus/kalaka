@@ -301,7 +301,6 @@ final class SubmitRegistrationTest extends FormsTestCase
             'version' => 1,
             'enabled' => $enabled ? 1 : 0,
             'body_id' => $body,
-            'layout' => 1,
         ]);
     }
 

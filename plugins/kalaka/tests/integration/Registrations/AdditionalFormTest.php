@@ -9,11 +9,15 @@ use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Module as FormsModule;
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -22,6 +26,7 @@ use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Api\SubmitTokenReused;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
+use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
 /**
  * S60: an additional form writes a supplementary submission to the active registration of its event. It
@@ -114,6 +119,33 @@ final class AdditionalFormTest extends FormsTestCase
         return (new Registrations())->values($this->registration);
     }
 
+    /**
+     * Declares `extra` as an extension's money-relevant text field, the way the price ladder declares `price_tier`
+     * and a charge its own key: the flag is the declaration's, not the block type's.
+     */
+    private function declareMoneyRelevant(string $key): void
+    {
+        $eventId = $this->event;
+        $this->runner->run(
+            new AdminProbe(static function (array $input, Context $context) use ($eventId, $key): void {
+                (new ParticipantFields())->declareExtensionField(
+                    $context,
+                    $eventId,
+                    $key,
+                    'kalaka/text-field',
+                    'Extra',
+                    null,
+                    true,
+                    'test_module',
+                    null,
+                    true,
+                );
+            }),
+            [],
+            new CliActor(null)
+        );
+    }
+
     private function rowCount(string $table): int
     {
         global $wpdb;
@@ -170,6 +202,28 @@ final class AdditionalFormTest extends FormsTestCase
         self::assertSame('harmadik', $this->values()['note']);
         self::assertSame(3, $this->rowCount('kalaka_submissions'));
         self::assertCount(2, $this->entriesOf('kalaka-portal/submit-additional-form'));
+    }
+
+    /**
+     * B4: an already-written money-relevant field is never overwritten here. The lock is the participant field's
+     * (the declarer's flag), not the block type's: the block holding `extra` is a plain text one.
+     */
+    public function testAnAdditionalFormCannotOverwriteAMoneyRelevantField(): void
+    {
+        $this->declareMoneyRelevant('extra');
+        $form = $this->additional($this->field('text', 'extra'));
+
+        $this->send($form, ['extra' => 'első']);
+        self::assertSame('első', $this->values()['extra']);
+        self::assertSame(2, $this->rowCount('kalaka_submissions'));
+
+        try {
+            $this->send($form, ['extra' => 'második']);
+            self::fail('An overwrite of a money-relevant field went through.');
+        } catch (RuleViolation) {
+            self::assertSame('első', $this->values()['extra']);
+        }
+        self::assertSame(2, $this->rowCount('kalaka_submissions'));
     }
 
     public function testAShownFieldLeftBlankClearsItsValueAndAHiddenOneKeepsIt(): void
