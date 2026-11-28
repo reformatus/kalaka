@@ -18,7 +18,7 @@ final class Texts
     /** The column labels of Kaláka's own columns. */
     public const CODE = 'Kód';
     public const STATUS = 'Állapot';
-    // [UNAPPROVED T1] The column label only: „Sorszám” was too long for the column (owner's walk, topic 6a G5).
+    // The column label only: „Sorszám” was too long for the column (owner's walk, topic 6a G5).
     public const SERIAL = 'Szám';
     /** The first submission's time and the moment the registration became registered. [UNAPPROVED T18, T19] lektored */
     public const SUBMITTED_AT = 'Beküldés ideje';

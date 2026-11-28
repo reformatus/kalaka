@@ -12,7 +12,7 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 
 /**
- * What the action-mail commands (list, show, body, on, off, layout) read from their arguments, in one place
+ * What the mail commands (`action-mail` and `mail`) read from their arguments, in one place
  * (module-internal): the event ID, the output format and the read guard. It parses input and holds no rule of
  * the use cases.
  */

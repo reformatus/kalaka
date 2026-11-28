@@ -203,9 +203,9 @@ final class MailRendererTest extends MailBodyTestCase
         $event = $this->create();
         $key = $this->registration($event);
         $body = $this->document($event, $this->paragraph('<span data-kalaka-value="registration.link">link</span>'));
-        $this->switchOn($event, 'link_regenerated', $body);
+        $this->switchOn($event, 'registered', $body);
 
-        $html = (new MailRenderer())->render($event, 'link_regenerated', $key, self::now())->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         self::assertSame(1, preg_match('/<span\s*>([^<]+)<\/span>/', $html, $match));
         $url = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5);
@@ -236,12 +236,14 @@ final class MailRendererTest extends MailBodyTestCase
         self::assertSame('b' . $revision['latest_id'] . '-l1', $mail->version);
     }
 
-    public function testAMailThatDoesNotUseTheLayoutIsNotWrapped(): void
+    public function testATemplateThatDoesNotUseTheFrameIsNotWrapped(): void
     {
         $event = $this->create();
         $key = $this->registration($event);
         $this->setLayout($event, '<p>Fejléc</p>{{content}}');
-        $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')), false);
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->usesFrame($body, false);
+        $this->switchOn($event, 'registered', $body);
 
         $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 

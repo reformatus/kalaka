@@ -15,6 +15,10 @@ final readonly class SubmitRequest
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param string $token the page's `SubmitToken`
      * @param list<string> $roles the current user's roles; none for a guest
+     * @param RegistrationKey|null $target the registration an additional form writes to (the active one);
+     *     null for a registration form
+     * @param ?string $draftClaim the guest draft's claim token of the request's cookie (S74): the submit
+     *     deletes that draft when it is the form's
      */
     public function __construct(
         public int $formId,
@@ -23,6 +27,8 @@ final readonly class SubmitRequest
         public string $token,
         public array $roles = [],
         public bool $passwordGiven = false,
+        public ?RegistrationKey $target = null,
+        public ?string $draftClaim = null,
     ) {
     }
 }

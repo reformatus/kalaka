@@ -6,6 +6,7 @@ namespace Kalaka\ParticipantFields;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Time\Instant;
+use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 
 /**
@@ -13,7 +14,9 @@ use Kalaka\ParticipantFields\Api\ParticipantField;
  * The type is the field block's name; `position` is the declaration order within the event (forms in the
  * order the sync reads them, blocks in document order); `formWritable` is an `extension` field's
  * declaration that forms may hold it (false by default; `form` and `staff` fields are always writable from a
- * form, `system` fields never). A choice field's options are JSON, `[{value, label, retired_at}]`,
+ * form, `system` fields never). `declaredBy` is the slug of the module that declared an `extension` field
+ * (null for any other, and for one declared before the column existed), `moneyRelevant` whether the field's value
+ * is locked after its first write. A choice field's options are JSON, `[{value, label, retired_at}]`,
  * in the order they were first declared; a retired option keeps its label. Every instant is UTC.
  */
 final class ParticipantFieldRecord
@@ -46,6 +49,8 @@ final class ParticipantFieldRecord
         public bool $formWritable = false,
         public int $version = 0,
         public ?array $settings = null,
+        public ?string $declaredBy = null,
+        public bool $moneyRelevant = false,
     ) {
     }
 
@@ -57,6 +62,24 @@ final class ParticipantFieldRecord
             self::SOURCE_EXTENSION => $this->formWritable,
             default => true,
         };
+    }
+
+    /**
+     * Refuses unless the module `$declarer` may declare this key as a field of `$type`: a `form` field of the same
+     * type (it will be adopted), or an `extension` field of the same type that this declarer declared or no one is
+     * recorded for. The one rule `ParticipantFields::checkDeclarable()` and `DeclareExtensionField` share.
+     *
+     * @throws FieldKeyHeld when the key is held by another kind of field, another type or another declarer
+     */
+    public function requireDeclarableBy(string $type, string $declarer): void
+    {
+        $declarable = $this->type === $type
+            && ($this->source === self::SOURCE_FORM
+                || ($this->source === self::SOURCE_EXTENSION
+                    && ($this->declaredBy === null || $this->declaredBy === $declarer)));
+        if (!$declarable) {
+            throw new FieldKeyHeld();
+        }
     }
 
     /** @param array<string, ?string> $row a `kalaka_participant_fields` row */
@@ -76,6 +99,8 @@ final class ParticipantFieldRecord
             $row['form_writable'] === '1',
             (int) $row['version'],
             self::decodeSettings($row['settings'] ?? null),
+            ($row['declared_by'] ?? null) === null ? null : (string) $row['declared_by'],
+            ($row['money_relevant'] ?? '0') === '1',
         );
     }
 
@@ -95,6 +120,8 @@ final class ParticipantFieldRecord
             'updated_at' => Instant::toStorage($this->updatedAt),
             'position' => $this->position,
             'form_writable' => $this->formWritable ? 1 : 0,
+            'declared_by' => $this->declaredBy,
+            'money_relevant' => $this->moneyRelevant ? 1 : 0,
             'settings' => $this->settings === null || $this->settings === []
                 ? null
                 : (string) wp_json_encode($this->settings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),

@@ -56,8 +56,6 @@ final class AssignmentsTest extends RegistrationsTestCase
             'event_id' => $this->event,
             'name' => 'Modulok',
             'required' => true,
-            'window_opens_at' => '2026-12-01 08:00',
-            'window_closes_at' => '2027-02-15 20:00',
             'published' => false,
         ], new CliActor(null));
     }
@@ -75,7 +73,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         ], new CliActor(null));
     }
 
-    public function testASetIsStoredWithItsOptionsInTheirOrderAndItsWindowInUtc(): void
+    public function testASetIsStoredWithItsOptionsInTheirOrder(): void
     {
         $set = $this->newSet(['time_slot' => 'Délelőtt']);
         self::assertSame('pro', $this->newOption($set, 'PRO', ['position' => 8]));
@@ -91,7 +89,6 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertTrue($stored->required);
         self::assertFalse($stored->published);
         self::assertNull($stored->requestFieldKey);
-        self::assertSame('2026-12-01 07:00', $stored->windowOpens?->format('Y-m-d H:i'));
         self::assertSame(['modul_a', 'iskolamisszio', 'pro'], array_map(static fn ($o) => $o->key, $stored->options));
         self::assertSame([$set], array_map(static fn ($s) => $s->id, $this->sets->ofEvent($this->event)));
     }
@@ -107,16 +104,6 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertNotNull($stored);
         self::assertSame(12, $stored->option('modul_a')?->limit);
         self::assertNull($stored->option('modul_b')?->limit);
-    }
-
-    public function testTheWindowHoldsFromItsOpeningUpToItsClosing(): void
-    {
-        $set = $this->sets->find($this->newSet());
-        self::assertNotNull($set);
-        self::assertFalse($set->windowContains($this->utc('2026-12-01 06:59:59')));
-        self::assertTrue($set->windowContains($this->utc('2026-12-01 07:00:00')));
-        self::assertTrue($set->windowContains($this->utc('2027-02-15 18:59:59')));
-        self::assertFalse($set->windowContains($this->utc('2027-02-15 19:00:00')));
     }
 
     public function testAnOptionKeyIsDerivedOnceAndNeverChanges(): void
@@ -144,7 +131,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         $this->newSet(['event_id' => $this->event + 1000]);
     }
 
-    public function testAWindowThatClosesBeforeItOpensIsRefused(): void
+    public function testASetHasNoWindowAndTheInputRefusesOne(): void
     {
         $this->expectException(InvalidInput::class);
         $this->newSet(['window_opens_at' => '2027-03-01 08:00']);

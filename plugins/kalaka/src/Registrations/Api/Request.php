@@ -18,7 +18,7 @@ final readonly class Request
 {
     public function __construct(public string $id, public RequestKind $kind, public string $label)
     {
-        if (preg_match('/^[a-z][a-z0-9_]*(:[a-z0-9_.-]+)?$/', $id) !== 1 || strlen($id) > 64) {
+        if (preg_match('/^[a-z][a-z0-9_]*(:[a-z0-9_.-]+)?$/D', $id) !== 1 || strlen($id) > 64) {
             throw new InvalidInput();
         }
     }

@@ -116,7 +116,7 @@ abstract class EventsTestCase extends AuditTestCase
         ], true);
         self::assertIsInt($body);
         (new ActionMailSettings())->update(
-            ['event_id' => $id, 'mail' => 'registered', 'body_id' => $body, 'enabled' => true, 'layout' => true],
+            ['event_id' => $id, 'mail' => 'registered', 'body_id' => $body, 'enabled' => true],
             $this->admin,
             $this->runner
         );
