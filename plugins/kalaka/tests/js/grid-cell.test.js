@@ -78,3 +78,24 @@ describe( 'the awaits cell (owner rulings 6.2/6.3)', () => {
 		expect( html( { ...awaits, na: '?' }, { values: { awaits_answer: null } } ) ).toContain( '>?</span>' );
 	} );
 } );
+
+describe( 'the confirmation column', () => {
+	const confirmation = {
+		column: 'decision:confirmation',
+		type: 'decision',
+		states: { confirmed: 'Visszaigazolva', unconfirmed: 'Nincs visszaigazolva' },
+		marks: { confirmed: { icon: 'yes-alt', tone: 'ok' }, unconfirmed: { icon: 'marker', tone: '' } },
+	};
+	const state = ( value ) => ( { values: { code: '00A0', 'decision:confirmation': value } } );
+
+	test( 'a confirmed state draws the confirmed mark, an unconfirmed one the plain marker', () => {
+		expect( html( confirmation, state( 'confirmed' ) ) ).toContain( 'dashicons-yes-alt kg-ok' );
+		expect( html( confirmation, state( 'unconfirmed' ) ) ).toContain( 'dashicons-marker' );
+	} );
+
+	test( 'a decision kind with no declared marks shows the state text and no icon', () => {
+		const out = html( columns.decision, row( 'registered' ) );
+		expect( out ).not.toContain( 'dashicons-' );
+		expect( out ).toContain( 'Igen' );
+	} );
+} );

@@ -6,16 +6,25 @@ namespace Kalaka\Tests\Integration\Pricing;
 
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\Payer;
-use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\ProvidesBase;
 
 /** A test component at the tier stage, like a ladder: the participant owes `$amount`, nothing when null. */
-final class TierComponent implements FeeComponent
+final class TierComponent implements ProvidesBase
 {
-    public function __construct(public ?string $amount, private readonly string $id = 'tier')
+    /** @param bool $base whether this component, like a ladder with tiers, provides the event's base price */
+    public function __construct(
+        public ?string $amount,
+        private readonly string $id = 'tier',
+        public bool $base = false,
+    ) {
+    }
+
+    public function providesBase(int $eventId): bool
     {
+        return $this->base;
     }
 
     public function id(): string

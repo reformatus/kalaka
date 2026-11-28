@@ -1,0 +1,82 @@
+/**
+ * The mail screens' pure helpers (no WordPress imports, so Jest runs them as they are).
+ */
+import { formatMoment } from '../grid/money';
+import { fmt } from '../grid/format';
+import { BODIES, BATCHES, MANUAL, TROUBLED } from './texts';
+
+/**
+ * A batch's subject; a trashed or missing body reads as a null subject with `body_gone`, and the server sends no text of
+ * its own (Backend N567), so the word is ours.
+ */
+export const batchSubject = ( batch ) => ( batch.body_gone || batch.subject === null || batch.subject === undefined ? BATCHES.gone : batch.subject );
+
+/** The status word of a body post; an unknown status as it is. [UNAPPROVED T276] */
+export const bodyStatus = ( status ) => BODIES[ 'status_' + status ] || status;
+
+/**
+ * A body's text in a select: the subject, with its status in lowercase words when it is not published, and its number
+ * when another body of the list has the same subject, so two of them are never the same option. Bodies without a
+ * `status` (the manual mail's preview lists published ones only) carry no status word.
+ */
+export function bodyLabel( body, bodies ) {
+	const twin = bodies.some( ( other ) => other.id !== body.id && other.subject === body.subject );
+	const word = body.status && body.status !== 'publish' ? bodyStatus( body.status ).toLowerCase() : null;
+	if ( twin && word ) {
+		return fmt( BODIES.numberedStatus, body.subject, body.id, word );
+	}
+	if ( twin ) {
+		return fmt( BODIES.numbered, body.subject, body.id );
+	}
+	return word ? `${ body.subject } (${ word })` : body.subject;
+}
+
+/** The word of a delivery's status. */
+export const deliveryStatus = ( status ) => TROUBLED[ status ] || status;
+
+/** The word of a batch member's outcome. */
+export const outcomeWord = ( outcome ) => BATCHES[ 'outcome_' + outcome ] || outcome;
+
+/**
+ * The text an act's failure shows: the server's own text when it sent one (the typed refusals carry the approved
+ * Hungarian text), else the fallback. A failed network request has a message too, in the browser's language, so
+ * only an error that has a `code` counts as the server's. Core's own codes (`rest_invalid_param` and the like) have
+ * English texts, so the error's own `message` is shown only for a `kalaka_`-prefixed code; any other error shows the
+ * text of its `data.kalaka_message` when it has one, else the fallback.
+ */
+export function problemText( error, fallback ) {
+	if ( error && typeof error.code === 'string' && error.code.startsWith( 'kalaka_' ) && error.message ) {
+		return error.message;
+	}
+	if ( error && error.data && error.data.kalaka_message ) {
+		return error.data.kalaka_message;
+	}
+	return fallback;
+}
+
+/**
+ * A server instant as the site's day and time, or „–” when the read has none: a zero or unset date is `null` in
+ * every mail read (the server's rule).
+ */
+export function moment( instant, zone ) {
+	return instant ? formatMoment( instant, zone ) : '–';
+}
+
+/** The status word of a skipped registration, in the lowercase the manual mail writes it; an unknown reason as it is. */
+export const reasonWord = ( reason ) => MANUAL[ 'reason_' + reason ] || reason;
+
+const REASON_ORDER = [ 'removed', 'withdrawn' ];
+
+/**
+ * The skipped registrations as per-status totals: „1 törölt, 1 lemondott”. A known status comes in a fixed order, any
+ * other reason after them in the order it first appears. Empty for none.
+ */
+export function skippedTotals( skipped ) {
+	const counts = new Map();
+	for ( const { reason } of skipped ) {
+		counts.set( reason, ( counts.get( reason ) || 0 ) + 1 );
+	}
+	const known = REASON_ORDER.filter( ( reason ) => counts.has( reason ) );
+	const others = [ ...counts.keys() ].filter( ( reason ) => ! REASON_ORDER.includes( reason ) );
+	return [ ...known, ...others ].map( ( reason ) => `${ counts.get( reason ) } ${ reasonWord( reason ) }` ).join( ', ' );
+}

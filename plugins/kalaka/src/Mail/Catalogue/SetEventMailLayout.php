@@ -6,7 +6,6 @@ namespace Kalaka\Mail\Catalogue;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Mail\Api\ActionMailSettings;
@@ -66,7 +65,8 @@ final class SetEventMailLayout implements AdminUseCase
     /**
      * @return array<string, mixed> the event's mail settings after the change (`EventMailSettings::toArray()`)
      * @throws NotFound when there is no such event
-     * @throws RuleViolation when the HTML does not hold `{{content}}` exactly once, or holds another `{{…}}`
+     * @throws LayoutPlaceholderCount when the HTML does not hold `{{content}}` exactly once
+     * @throws LayoutOtherPlaceholder when it holds another `{{…}}`
      */
     public function execute(array $input, Context $context): array
     {
@@ -75,12 +75,10 @@ final class SetEventMailLayout implements AdminUseCase
         $html = (string) $input['html'];
         $context->touch(MailLayoutRepository::subjectOf($eventId));
         if (!MailLayout::isValid($html)) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
-            throw new RuleViolation(self::NO_PLACEHOLDER);
+            throw new LayoutPlaceholderCount();
         }
         if (MailLayout::hasOtherPlaceholder($html)) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
-            throw new RuleViolation(self::OTHER_PLACEHOLDER);
+            throw new LayoutOtherPlaceholder();
         }
 
         $layout = $this->layouts->findForUpdate($eventId, $context) ?? new MailLayout($eventId, $html);

@@ -157,7 +157,7 @@ final class Runner
         $trace = new RunTrace();
         try {
             $side = self::sideOf($useCase);
-            $input = self::checkedInput($useCase, $input);
+            $input = self::checkedInput($useCase->inputSchema(), $input, $useCase::name());
             $declared = self::declaredSubjects($useCase, $input);
             $this->permission->check($useCase, $side, $input, $actor);
             if ($this->binlog->refuses()) {
@@ -633,7 +633,7 @@ final class Runner
         self::assertOpen($state);
         try {
             $side = self::sideOf($useCase);
-            $input = self::checkedInput($useCase, $input);
+            $input = self::checkedInput($useCase->inputSchema(), $input, $useCase::name());
             $header = new EntryHeader(
                 $useCase::name(),
                 $side,
@@ -695,14 +695,18 @@ final class Runner
     }
 
     /**
-     * Checks the input against the use case's schema and returns it sanitized.
+     * Checks the input against an input schema (a use case's, or a subset of one) and returns it sanitized: the
+     * one check of input. The Runner runs it for every use case; an entry that checks a part of the input
+     * before the run, such as a preview, calls it too.
      *
+     * @param array<string, mixed> $schema an object schema
      * @param array<string, mixed> $input
+     * @param string $name the use case's name, for the message of a schema that is not an object
      * @return array<string, mixed>
+     * @throws InvalidInput when the input does not fit the schema
      */
-    private static function checkedInput(UseCase $useCase, array $input): array
+    public static function checkedInput(array $schema, array $input, string $name): array
     {
-        $schema = $useCase->inputSchema();
 
         $valid = rest_validate_value_from_schema($input, $schema, 'input');
         if (is_wp_error($valid)) {
@@ -718,7 +722,7 @@ final class Runner
             throw $error;
         }
         if (!is_array($sanitized)) {
-            $cause = new \LogicException($useCase::name() . ' has an input schema that is not an object.');
+            $cause = new \LogicException($name . ' has an input schema that is not an object.');
             $error = new SystemFailure(null, $cause);
             throw $error;
         }

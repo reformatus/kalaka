@@ -11,8 +11,14 @@ namespace Kalaka\Forms\Api;
  */
 final readonly class FieldKind
 {
-    private const CONSENT = 'kalaka/consent-field';
-    private const NUMBER = 'kalaka/number-field';
+    /** The block type of a choice field: the one name a declarer gives (`declareExtensionField()`). */
+    public const CHOICE = 'kalaka/choice-field';
+
+    /** The consent field's block type. */
+    public const CONSENT = 'kalaka/consent-field';
+
+    /** The number field's block type. */
+    public const NUMBER = 'kalaka/number-field';
 
     public function __construct(public string $block, public int $decimals = 0)
     {

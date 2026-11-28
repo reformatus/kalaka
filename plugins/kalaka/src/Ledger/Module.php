@@ -15,7 +15,8 @@ final class Module extends AbstractModule
      * money.md, "Ledger": append-only lines, keyed by an ID and read per registration (event first).
      * `amount` is signed, `value_date`, `paid_at` and `recorded_at` UTC `datetime(6)`;
      * `source_*` is a `Subject`. No text column holds free text: lines survive erasure. `method` is a
-     * `PaymentMethod` value on the manual kinds, `correction` marks a manual refund that corrects an entry.
+     * `PaymentMethod` value on the manual kinds, `correction` marks a manual payment or refund recorded as a
+     * correction.
      */
     private const LEDGER_LINES = <<<'SQL'
 CREATE TABLE {prefix}kalaka_ledger_lines (

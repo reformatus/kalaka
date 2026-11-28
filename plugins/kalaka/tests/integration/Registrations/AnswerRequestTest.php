@@ -296,7 +296,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-03 10:00');

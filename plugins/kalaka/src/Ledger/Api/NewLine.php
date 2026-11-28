@@ -19,7 +19,7 @@ final readonly class NewLine
      * @param ?\DateTimeImmutable $paidAt on `payment` and `refund`
      * @param ?PaymentMethod $method on `manual_payment` and `manual_refund`
      * @param bool $correction on `manual_payment` and `manual_refund`: the owner's ruling 2026-11-19, a correction of
-     *                         either direction, with no method and no value date; it needs a `$note`, the reason
+     *                         either direction, with no method and no value date; its `$note`, the reason, is optional
      * @param ?string $note free text (a bank reference, a payer note, a reason) of at most 500 characters: kept
      *                      in a side record that erasure can reach, never in the ledger line
      */
