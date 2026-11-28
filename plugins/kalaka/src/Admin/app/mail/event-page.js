@@ -39,7 +39,7 @@ function openModal( render ) {
  */
 export function showError( control, text ) {
 	const row = control.closest( 'tr' );
-	const anchor = row || control.closest( 'p, li, ul' ) || control;
+	const anchor = row || control.closest( 'p, .kalaka-mail-heading, li' ) || control;
 	const next = anchor.nextElementSibling;
 	if ( next && next.classList.contains( 'kalaka-mail-error' ) ) {
 		next.remove();

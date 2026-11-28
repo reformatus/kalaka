@@ -32,7 +32,8 @@ beforeEach( () => {
 			</td></tr>
 			<tr id="next"><th>Más</th><td>b</td><td>c</td></tr>
 		</tbody></table>
-		<p id="line"><button type="button" id="save">Mentés</button></p>`;
+		<p id="line"><button type="button" id="save">Mentés</button></p>
+		<div class="kalaka-mail-heading" id="heading"><h2>Cím</h2><button type="button" id="new">Új</button></div>`;
 } );
 
 test( 'a refused switch goes back and the text shows on a full-width line under its row', async () => {
@@ -72,4 +73,7 @@ test( 'a second refusal replaces the first line, and a control outside a table g
 	const after = document.getElementById( 'line' ).nextElementSibling;
 	expect( after.tagName ).toBe( 'DIV' );
 	expect( after.textContent ).toBe( 'Harmadik.' );
+
+	showError( document.getElementById( 'new' ), 'Negyedik.' );
+	expect( document.getElementById( 'heading' ).nextElementSibling.textContent ).toBe( 'Negyedik.' );
 } );
