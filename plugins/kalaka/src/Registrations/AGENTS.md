@@ -292,8 +292,10 @@ the waitlist and reference codes
     admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`); `awaits_answer`
     is N/A for it (neither yes nor no) and yes again by itself at admission. A refusing offer answer frees the
     offer's seat and a "yes" after a refusal takes one again. Both use slice A's one seat rule, `Seats`: the request
-    source builds its pool (`RequestSource::seatPool(): ?SeatPool`; null, as for aid, means no limit and no seat
-    call), so core never parses a pool key, and the act locks it before the registration lock. A full pool never
+    source builds its pool (`RequestSource::seatPool(RegistrationKey, Request): ?SeatPool`; the key is passed so a
+    source whose pools belong to an event can find the pool; null, as for aid, means the source takes no seat for the
+    request and there is no seat call; an offer with no quota still has a pool, with no limit), so core never parses
+    a pool key, and the act locks it before the registration lock. A full pool never
     refuses the "yes": `retake()` answering `SeatOutcome::Over` is `over_limit`, and the detail read's `seat_full` is
     `Seats::wouldOverfill()`.
   - An aid "yes" above the full price the participant has to pay is refused with `AidAbovePrice` (a

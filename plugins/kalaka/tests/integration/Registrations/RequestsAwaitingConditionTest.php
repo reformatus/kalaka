@@ -41,7 +41,7 @@ final class RequestsAwaitingConditionTest extends RegistrationsTestCase
                 return $this->rule;
             }
 
-            public function seatPool(Request $request): ?SeatPool
+            public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
             {
                 return null;
             }

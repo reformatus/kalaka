@@ -48,7 +48,8 @@ use Kalaka\Registrations\Api\Seats;
  *   admitted); a waitlisted, withdrawn or removed one is a `RuleViolation`.
  * - A refusal frees the offer's seat; a "yes" after a refusal takes one again, and when the pool is full the
  *   answer stands and `over_limit` says so (B1). Both go through slice A's one seat rule, `Seats`: the pool is
- *   the request source's own (`RequestSource::seatPool()`, never a key parsed here), locked before the
+ *   the request source's own (`RequestSource::seatPool()`, given the registration's key and never a key parsed
+ *   here; null only when the source takes no seat for the request, as for aid), locked before the
  *   registration lock, released on a refusal and retaken as `SeatAct::Answer` on a "yes" after one — both only
  *   while the registration is `registered` — and `retake()` answering `SeatOutcome::Over` is `over_limit`.
  *   [UNAPPROVED N4]
@@ -119,7 +120,7 @@ final class AnswerRequest implements AdminUseCase
         // The request is found with a plain read first: the seat's pool lock, which the request names, comes
         // before the registration lock. It is read again under the lock.
         $first = self::stateOf($this->requests->states($key), (string) $input['request']);
-        $pool = $first->source->seatPool($first->request);
+        $pool = $first->source->seatPool($key, $first->request);
         if ($pool !== null) {
             $this->seats->lock($pool, $context);
         }

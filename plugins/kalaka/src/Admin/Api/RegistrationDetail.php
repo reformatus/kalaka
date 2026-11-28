@@ -247,7 +247,7 @@ final class RegistrationDetail
         $items = [];
         foreach ($this->requests->states($key) as $state) {
             $answer = $state->answer;
-            $pool = $state->source->seatPool($state->request);
+            $pool = $state->source->seatPool($key, $state->request);
             $item = [
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
