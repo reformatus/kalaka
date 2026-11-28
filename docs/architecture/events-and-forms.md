@@ -214,9 +214,11 @@ flowchart TB
 - **Our own implementation on WordPress's building blocks; no form plugin.**
 - Forms are **block documents** (`kalaka_form` posts) built from our own
   field blocks.
-- The public page uses WordPress's **Interactivity API**. The one exception
-  is the draft-claim popup: a `@wordpress/components` Modal, loaded only on
-  a page with a pending claim ([Engineering](engineering.md#wordpress-surfaces)).
+- The public page uses WordPress's **Interactivity API**. The exceptions
+  are two `@wordpress/components` Modals: the draft-claim popup, loaded only on
+  a page with a pending claim, and the registrant's withdrawal confirmation on
+  the status block, loaded only where it shows a withdraw button
+  ([Engineering](engineering.md#wordpress-surfaces)).
 - **Accounts:** in the event's mandatory and optional account mode, every
   registration form holds the account block, which the save check requires;
   where it sits is the author's choice. Logged out, it says what an account

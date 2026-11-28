@@ -45,8 +45,11 @@ final class ParticipantBlocks
     /** The handle of `portal.css`, named by both blocks' `style`. */
     public const STYLE = 'kalaka-portal';
 
-    /** The handle `register_block_type` gives the status block's `viewScript` (the withdrawal's Modal, R370). */
-    public const DIALOG_SCRIPT = 'kalaka-status-view-script';
+    /**
+     * The handle of the withdrawal's Modal script (R370, `Blocks/status/view.js`), which `Portal\Module` registers
+     * and `enqueueDialog()` enqueues only where a withdraw button shows. No `block.json` names it.
+     */
+    public const DIALOG_SCRIPT = 'kalaka-portal-withdraw';
 
     /** While the site is closed it shows the closed site's text, like a form. */
     public static function status(): string
@@ -184,8 +187,8 @@ final class ParticipantBlocks
 
     /**
      * The script that opens the withdrawal's confirmation in a WordPress Modal (R370), and core's component styles
-     * it needs on the page. A block's `viewScript` is enqueued only for the block, so the shortcode's render
-     * enqueues it here; without `build/` it is not registered and the no-script way is the only way (N1334).
+     * it needs on the page, for the block and the shortcode alike and only while the withdraw button shows;
+     * without `build/` it is not registered and the no-script way is the only way (N1334).
      */
     private static function enqueueDialog(): void
     {

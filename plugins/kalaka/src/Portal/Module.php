@@ -117,6 +117,7 @@ SQL;
             KALAKA_VERSION
         );
         $built = dirname(KALAKA_FILE) . '/build/Portal/Blocks/';
+        self::registerDialogScript($built . 'status');
         $renders = [
             'status' => [ParticipantBlocks::STATUS_BLOCK, [ParticipantBlocks::class, 'status']],
             'transfer' => [ParticipantBlocks::TRANSFER_BLOCK, [ParticipantBlocks::class, 'transfer']],
@@ -130,6 +131,23 @@ SQL;
                 register_block_type($name, ['render_callback' => static fn (): string => $render()]);
             }
         }
+    }
+
+    /**
+     * The withdrawal Modal's script, from `build/`, on `wp-element` and `wp-components` (its asset file). Without
+     * `build/` there is none, and the withdrawal works without script.
+     */
+    private static function registerDialogScript(string $built): void
+    {
+        $asset = $built . '/view.asset.php';
+        $url = plugins_url('build/Portal/Blocks/status/view.js', KALAKA_FILE);
+        if (!is_file($asset) || $url === '') {
+            return;
+        }
+        $data = require $asset;
+        $dependencies = is_array($data) && is_array($data['dependencies'] ?? null) ? $data['dependencies'] : [];
+        $version = is_array($data) && is_string($data['version'] ?? null) ? $data['version'] : KALAKA_VERSION;
+        wp_register_script(ParticipantBlocks::DIALOG_SCRIPT, $url, $dependencies, $version, ['in_footer' => true]);
     }
 
     /** @internal the `template_redirect` callback (priority 11, after canonical redirection, before any output): the card refusal's flash cookie */

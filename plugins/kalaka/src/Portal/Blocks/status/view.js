@@ -5,9 +5,23 @@
  * `StatusMarkup`); this file holds no string and decides nothing. Without script the form is a plain GET to
  * the confirm address, which shows the same confirmation as a section. The confirming button is a plain POST
  * of the same form the confirm section holds (to the route, which answers with a 303 back to the page).
+ *
+ * Like the claim popup (`Forms/Blocks/form/claim.js`), the other front-end Modal, the dialog is marked
+ * `aria-modal` and every button takes WordPress's 40 px size. A classic script on `wp-element` and
+ * `wp-components` (an extra entry of `webpack.config.js`), enqueued by `ParticipantBlocks` only where the
+ * status block renders a withdraw button.
  */
 import { Button, Modal } from '@wordpress/components';
 import { createElement as el, createRoot } from '@wordpress/element';
+
+/**
+ * As the claim popup's `markModal`: WordPress's Modal hides the rest of the page from screen readers
+ * (`aria-hidden`) but does not mark its dialog `aria-modal`; this ref, on the dialog's own content inside
+ * the Modal, adds it.
+ */
+function markModal( content ) {
+	content?.closest( '[role="dialog"]' )?.setAttribute( 'aria-modal', 'true' );
+}
 
 /** The dialog's content: the money line, the post's hidden fields and the two buttons. */
 export function Dialog( { data, onClose } ) {
@@ -16,7 +30,7 @@ export function Dialog( { data, onClose } ) {
 		{ title: data.question, onRequestClose: onClose },
 		el(
 			'form',
-			{ method: 'post', action: data.action },
+			{ method: 'post', action: data.action, ref: markModal },
 			data.money ? el( 'p', { className: 'kalaka-withdraw-money' }, data.money ) : null,
 			...Object.entries( data.fields ).map( ( [ name, value ] ) =>
 				el( 'input', { key: name, type: 'hidden', name, value } )
@@ -24,8 +38,8 @@ export function Dialog( { data, onClose } ) {
 			el(
 				'div',
 				{ className: 'kalaka-withdraw-actions', style: { display: 'flex', flexWrap: 'wrap', gap: '0.75em' } },
-				el( Button, { variant: 'primary', type: 'submit' }, data.confirm ),
-				el( Button, { variant: 'secondary', type: 'button', onClick: onClose }, data.cancel )
+				el( Button, { variant: 'primary', type: 'submit', __next40pxDefaultSize: true }, data.confirm ),
+				el( Button, { variant: 'secondary', type: 'button', onClick: onClose, __next40pxDefaultSize: true }, data.cancel )
 			)
 		)
 	);

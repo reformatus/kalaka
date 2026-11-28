@@ -9,7 +9,12 @@ import { init } from '../../src/Portal/Blocks/status/view';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( 'react' );
-	const Button = ( { children, variant, ...rest } ) => h( 'button', { 'data-variant': variant, ...rest }, children );
+	const Button = ( { children, variant, __next40pxDefaultSize, ...rest } ) =>
+		h(
+			'button',
+			{ 'data-variant': variant, 'data-40px': __next40pxDefaultSize ? 'true' : undefined, ...rest },
+			children
+		);
 	const Modal = ( { title, onRequestClose, children } ) =>
 		h(
 			'div',
@@ -83,6 +88,16 @@ test( 'the press opens the dialog from the data and does not navigate', async ()
 	expect( buttons.map( ( b ) => b.textContent ) ).toEqual( [ DATA.confirm, DATA.cancel ] );
 	expect( buttons[ 0 ].type ).toBe( 'submit' );
 	expect( buttons[ 1 ].type ).toBe( 'button' );
+} );
+
+test( 'the dialog is marked aria-modal and both buttons take the 40 px size, as the claim popup', async () => {
+	page();
+	load();
+	await press();
+
+	expect( dialog().getAttribute( 'aria-modal' ) ).toBe( 'true' );
+	const buttons = [ ...dialog().querySelector( 'form' ).querySelectorAll( 'button' ) ];
+	expect( buttons.map( ( b ) => b.dataset[ '40px' ] ) ).toEqual( [ 'true', 'true' ] );
 } );
 
 test( 'Mégsem and the close button remove the dialog and leave the page as it was', async () => {
