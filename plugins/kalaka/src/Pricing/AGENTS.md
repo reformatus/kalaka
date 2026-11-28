@@ -24,7 +24,7 @@ retention and the materializer
   current settings and the registration's facts.
 - Only the materializer writes `charge` lines, only through
   `Ledger\Api\Ledger`, and only the difference between what is owed and what
-  is recorded per component and payer; it converges, so running it again
+  is recorded per component, item and payer; it converges, so running it again
   writes nothing.
 - Rules never read charge lines. Only `Api\Materializer` calls
   `Ledger::chargeTotalsOf()` (a unit test checks it); a fee component gets its
@@ -36,8 +36,11 @@ retention and the materializer
   and an item the component no longer returns is reversed. A component ID
   matches `[a-z][a-z0-9_]*` (no colon, which would be another component's
   item).
-- Lines of components not registered now are never touched, and
-  `adjustment` lines never count as recorded.
+- Lines of components not registered now are never touched. A line of a registered
+  component that the composition no longer names (a withdrawal) owes zero,
+  so the materializer reverses it.
+- The `manual` component composes only the Ledger's manual fee facts, one
+  item per entry; nobody writes its `charge` lines but the materializer.
 - A fee component returns a value and writes nothing. Core composes the
   components in the fixed stage order tier → support → share → aid →
   extras; a component sees only the totals of earlier stages, and the

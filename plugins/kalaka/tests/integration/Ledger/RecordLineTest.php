@@ -30,7 +30,7 @@ final class RecordLineTest extends LedgerTestCase
 
         $stored = $this->inRun(function (array $input, Context $context) use ($line, &$touched): LedgerLine {
             $this->lockRegistrations($context, $line->registration);
-            $stored = $this->ledger->record($line, $context);
+            $stored = $this->ledger->record($line, $context)->line;
             $touched = $context->touchedRegistrations();
 
             return $stored;
@@ -72,7 +72,9 @@ final class RecordLineTest extends LedgerTestCase
         $line = $this->line($registration, LineKind::Charge, '1000', 'k1');
 
         try {
-            $this->inRun(fn (array $input, Context $context): LedgerLine => $this->ledger->record($line, $context));
+            $this->inRun(
+                fn (array $input, Context $context): LedgerLine => $this->ledger->record($line, $context)->line
+            );
             self::fail('The run should have failed.');
         } catch (SystemFailure $caught) {
             self::assertSame(SystemFailure::class, $caught::class);
@@ -83,7 +85,7 @@ final class RecordLineTest extends LedgerTestCase
         $stored = $this->inRun(function (array $input, Context $context) use ($line): LedgerLine {
             $this->lockRegistrations($context, $line->registration);
 
-            return $this->ledger->record($line, $context);
+            return $this->ledger->record($line, $context)->line;
         });
 
         self::assertInstanceOf(LedgerLine::class, $stored);
@@ -159,7 +161,7 @@ final class RecordLineTest extends LedgerTestCase
         $touched = null;
         $second = $this->inRun(function (array $input, Context $context) use ($line, &$touched): LedgerLine {
             $this->lockRegistrations($context, $line->registration);
-            $stored = $this->ledger->record($line, $context);
+            $stored = $this->ledger->record($line, $context)->line;
             $touched = $context->touchedRegistrations();
 
             return $stored;
@@ -198,7 +200,7 @@ final class RecordLineTest extends LedgerTestCase
 
         $other = match ($difference) {
             'amount' => $this->line($registration, LineKind::ManualPayment, '-1001', 'k1', '2026-12-03'),
-            'kind' => $this->line($registration, LineKind::Transfer, '-1000', 'k1', '2026-12-03'),
+            'kind' => $this->line($registration, LineKind::ManualRefund, '1000', 'k1', '2026-12-03'),
             'payer' => $this->line(
                 $registration,
                 LineKind::ManualPayment,
@@ -318,11 +320,9 @@ final class RecordLineTest extends LedgerTestCase
         yield 'manual payment with only a paid time' => [
             LineKind::ManualPayment, '-1', null, '2026-12-01 10:00:00', 'participant',
         ];
-        yield 'transfer without a value date' => [LineKind::Transfer, '-1', null, null, 'participant'];
+        yield 'manual refund without a value date' => [LineKind::ManualRefund, '1', null, null, 'participant'];
         yield 'charge with a value date' => [LineKind::Charge, '1', '2026-12-03', null, 'participant'];
         yield 'charge with a paid time' => [LineKind::Charge, '1', null, '2026-12-01 10:00:00', 'participant'];
-        yield 'adjustment with a value date' => [LineKind::Adjustment, '1', '2026-12-03', null, 'participant'];
-        yield 'adjustment with a paid time' => [LineKind::Adjustment, '1', null, '2026-12-01 10:00:00', 'participant'];
         yield 'value date that is no day' => [LineKind::ManualPayment, '-1', '2026-02-30', null, 'participant'];
         yield 'value date in another form' => [LineKind::ManualPayment, '-1', '2026-12-3', null, 'participant'];
         yield 'payer Congregation' => [LineKind::Charge, '1', null, null, 'Congregation'];
@@ -345,12 +345,9 @@ final class RecordLineTest extends LedgerTestCase
     public static function storedLines(): iterable
     {
         yield 'charge of -5000' => [LineKind::Charge, '-5000', null, null];
-        yield 'adjustment of -2000' => [LineKind::Adjustment, '-2000', null, null];
-        yield 'adjustment of +2000' => [LineKind::Adjustment, '2000', null, null];
+        yield 'charge of +2000' => [LineKind::Charge, '2000', null, null];
         yield 'charge of 0.004' => [LineKind::Charge, '0.004', null, null];
         yield 'manual refund of +1000' => [LineKind::ManualRefund, '1000', '2026-12-03', null];
-        yield 'transfer of -1000' => [LineKind::Transfer, '-1000', '2026-12-03', null];
-        yield 'transfer of +1000' => [LineKind::Transfer, '1000', '2026-12-03', null];
         yield 'refund of +1000' => [LineKind::Refund, '1000', null, '2026-12-01 10:00:00'];
     }
 
