@@ -166,6 +166,9 @@ title: Money
   only for `registered` registrations. The evaluation writes its transition
   records; nobody sets it directly. It is not a status
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
+  It is checked once at the end of every pass, after money: a payment, a
+  correction, a „Kedvezmény”, an apply, an admission or a restore all lead to
+  the same check.
 - **The threshold** is a target per payer. Each payer with something owed must
   reach its own target. In core the target is the full amount; the deposit
   extension lowers it to the deposit through a typed point. Like every
@@ -174,25 +177,38 @@ title: Money
   the fee composition says it owes now, manual charges and discounts
   included; **nothing is due** when every payer's target is zero or below.
   Confirmation reads payment facts, never charge lines.
-- **"The congregation part is required for confirmation"** is a per-event
-  switch, on by default. Off, only the participant's target counts.
-- **The manual flag** ("may come without paying") is a fact: set with a
-  reason, audited, carrying its own set time, and kept until staff revoke it.
+- **The manual flag** ("may come without paying") is a fact: set with an
+  optional reason, audited, carrying its own set time. Staff can always take it back,
+  through staff's unconfirm; that is allowed also when payments or nothing
+  due then confirm the registration again at once.
+- **Staff's unconfirm** („Visszaigazolás visszavonása”) is the one way to take
+  a confirmation back. It is a fact: recorded with an optional reason, who and when,
+  audited, and allowed on any confirmed registration. It revokes the manual
+  flag if set and records `unconfirmed`; then confirmation is decided again at
+  once, so payments that reach the threshold or nothing due confirm it again.
+  Staff are warned before that happens.
 
 | Transition | When |
 |---|---|
 | → confirmed | payments reach the threshold, the manual flag is set, or nothing is due at the moment of the check |
-| → unconfirmed | a refund takes payments below the threshold, unless the manual flag is set |
-| → unconfirmed | the manual flag is revoked while payments are below the threshold |
+| → unconfirmed | staff unconfirm it |
 
 - **Effective time:** each record carries one. It is the value date of the
   payment that reached the last required target (the paid time for online
-  payments), or the set time of the manual flag.
-- **A later charge or a higher threshold changes nothing:** the registration
-  stays confirmed, also when a money settings apply raises its amounts. A lower threshold can confirm more registrations at the
-  next evaluation.
-- **Withdrawal or removal closes the sequence.** Restore or admission writes a
-  new record if the registration qualifies; the old one is never revived.
+  payments), or the set time of the manual flag. A confirmation after staff's
+  unconfirm is never effective before it.
+- **A later charge, a refund or a higher threshold changes nothing:** the
+  registration stays confirmed, also when a money settings apply raises its
+  amounts. While it stays `registered`, only staff's unconfirm unconfirms it;
+  a later payment that reaches the threshold then confirms it again. A lower
+  threshold can confirm more registrations at the next evaluation.
+- **No record is the base state:** a `registered` registration with no
+  confirmation record is unconfirmed, derived and never written; views filter
+  on it like any state. Other statuses have no confirmation state.
+- **Withdrawal or removal closes the sequence:** a confirmed registration gets
+  an `unconfirmed` record. Restore or admission writes a
+  new record if the registration qualifies; the old one is never revived. A
+  manual flag set before the withdrawal is kept and counts at the restore.
 - **Deposit payment request:** max(0, threshold − payments so far), capped at
   the remaining balance. Waitlisted registrations get none.
 
@@ -264,8 +280,8 @@ such as lunch or a donation.
   [fee sequence](#materializer), the base price after support.
 - The congregation's payments carry the congregation payer, so its
   overpayment never settles the participant's extras.
-- Whether the congregation's part is needed for confirmation is a per-event
-  switch ([Confirmation](#confirmation)); a manual confirmation covers a late
+- The congregation's part is always needed for confirmation
+  ([Confirmation](#confirmation)); a manual confirmation covers a late
   payer.
 
 ## Sponsor and church support

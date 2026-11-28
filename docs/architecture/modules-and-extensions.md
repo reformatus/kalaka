@@ -339,11 +339,11 @@ flowchart LR
 - **Date types** are an inside point: one immutable input (the
   registration's facts and the event's points) in, a date or nothing out; no
   database access, no hooks ([Events](events-and-forms.md#date-references)).
-- **A decision** is an inside point: a transition rule in, a transition
-  record or nothing out; core writes the record. It reads facts and core
-  decisions only, never another extension's decision. The late fee is a
-  decision; seats are facts, not decisions
-  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+- **A decision** is an inside point: a transition rule in, its transitions
+  (none, one or more, in order) out; core writes the records. It reads facts
+  and core decisions only, never another extension's decision. The late fee
+  is the one extension decision foreseen; price-tier and support places are
+  seats, facts ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **An action-mail act** is an inside point: an extension's act (e.g. a
   check-in) that can cause an action mail, keyed by the act's record
   ([Mail](mail.md#five-kinds-of-mail)). It is built with the check-in

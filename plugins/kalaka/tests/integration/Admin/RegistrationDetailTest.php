@@ -4,10 +4,21 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Admin;
 
+use Kalaka\Foundation\ObjectCache;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Admin\Api\RegistrationNotInView;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Admin\Api\RegistrationDetail;
+use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Pricing\Api\ConfirmationRule;
+use Kalaka\Pricing\Api\FeeComponent;
+use Kalaka\Pricing\Api\FeeComponentInput;
+use Kalaka\Pricing\Api\FeeComposition;
+use Kalaka\Pricing\Api\FeeStage;
+use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\ManualConfirmations;
+use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 
 /** S22 and S38: the detail read of one registration, through views and grants. */
@@ -19,14 +30,16 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
     private function decisions(): Decisions
     {
         $rules = new DecisionRules();
-        $rules->add(
-            new TestRule(
-                'confirmation',
-                ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
-                label: 'Visszaigazolás'
-            ),
-            true
+        $confirmation = new TestRule(
+            'confirmation',
+            ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
+            label: 'Visszaigazolás'
         );
+        $confirmation->marks = [
+            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+        ];
+        $rules->add($confirmation, true);
         $rules->add(new TestRule('payment_hold', ['held' => 'Zárolva'], label: 'Fizetési zárolás'), true);
 
         return new Decisions(rules: $rules);
@@ -95,6 +108,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Visszaigazolás',
                         'state' => 'unconfirmed',
                         'state_label' => 'Nincs visszaigazolva',
+                        'marks' => [
+                            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                        ],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                     [
@@ -102,9 +119,12 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Fizetési zárolás',
                         'state' => 'held',
                         'state_label' => 'Zárolva',
+                        'marks' => [],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                 ],
+                'confirmed' => false,
+                'manual_confirmation' => null,
             ],
             $detail['registration']
         );
@@ -204,7 +224,14 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $money['methods']
         );
         self::assertSame(
-            ['view_money' => true, 'record_money' => true],
+            [
+                'view_money' => true,
+                'record_money' => true,
+                'record_charge' => true,
+                'record_discount' => true,
+                'confirm_manually' => true,
+                'unconfirm' => false,
+            ],
             $detail['can']
         );
     }
@@ -317,8 +344,13 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'label' => 'Visszaigazolás',
                     'state' => 'unconfirmed',
                     'state_label' => 'Nincs visszaigazolva',
+                    'marks' => [
+                        'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                        'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                    ],
                     'effective_at' => '2026-11-30T08:00:00Z',
                 ]],
+                'confirmed' => false,
             ],
             $detail['registration']
         );
@@ -334,7 +366,14 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_money' => false],
+            [
+                'view_money' => false,
+                'record_money' => false,
+                'record_charge' => false,
+                'record_discount' => false,
+                'confirm_manually' => false,
+                'unconfirm' => false,
+            ],
             $detail['can']
         );
     }
@@ -489,7 +528,14 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_money' => false],
+            [
+                'view_money' => false,
+                'record_money' => false,
+                'record_charge' => false,
+                'record_discount' => false,
+                'confirm_manually' => false,
+                'unconfirm' => false,
+            ],
             $detail['can']
         );
 
@@ -501,7 +547,14 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayHasKey('money', $shown);
         self::assertSame(
-            ['view_money' => true, 'record_money' => false],
+            [
+                'view_money' => true,
+                'record_money' => false,
+                'record_charge' => false,
+                'record_discount' => false,
+                'confirm_manually' => false,
+                'unconfirm' => false,
+            ],
             $shown['can']
         );
     }
@@ -512,7 +565,14 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->seedDetail();
 
         $cases = [
-            'kalaka_record_money' => ['view_money' => true, 'record_money' => true],
+            'kalaka_record_money' => [
+                'view_money' => true,
+                'record_money' => true,
+                'record_charge' => true,
+                'record_discount' => true,
+                'confirm_manually' => false,
+                'unconfirm' => false,
+            ],
         ];
         foreach ($cases as $action => $can) {
             $user = $this->plainUser();
@@ -644,5 +704,297 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertInstanceOf(\WP_REST_Response::class, $response);
 
         return $response;
+    }
+
+    /** S20: the manual confirmation flag shows behind the money gate, and the action shows in `can`. */
+    public function testTheManualConfirmationFlagShowsWithTheMoneyAndTheActionInCan(): void
+    {
+        global $wpdb;
+        $this->seedDetail();
+        $setter = $this->namedUser('Teszt Szervező');
+        $wpdb->insert($wpdb->prefix . 'kalaka_manual_confirmations', [
+            'event_id' => $this->event,
+            'code' => '00A0',
+            'version' => 1,
+            'set_at' => '2026-11-30 09:15:00.000000',
+            'set_by' => $setter,
+            'reason' => 'Teszt indok',
+        ]);
+
+        $full = $this->detail($this->admin->userId, decisions: $this->decisions());
+        self::assertSame(
+            ['set_at' => '2026-11-30T09:15:00Z', 'reason' => 'Teszt indok', 'set_by' => 'Teszt Szervező'],
+            $full['registration']['manual_confirmation']
+        );
+
+        $confirmer = $this->plainUser();
+        $this->grant($confirmer, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $withoutMoney = $this->detail($confirmer, decisions: $this->decisions());
+        self::assertArrayNotHasKey('manual_confirmation', $withoutMoney['registration']);
+        self::assertTrue($withoutMoney['can']['confirm_manually']);
+
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+        $withMoney = $this->detail($viewer, decisions: $this->decisions());
+        self::assertSame('Teszt indok', $withMoney['registration']['manual_confirmation']['reason']);
+        self::assertFalse($withMoney['can']['confirm_manually']);
+
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_manual_confirmations',
+            ['revoked_at' => '2026-11-30 10:00:00.000000'],
+            ['event_id' => $this->event, 'code' => '00A0']
+        );
+        ObjectCache::clear();
+        self::assertNull($this->detail($viewer, decisions: $this->decisions())['registration']['manual_confirmation']);
+    }
+
+    /**
+     * The owner's topic 1 ruling, H3: the manual confirmation is offered only on a registered registration,
+     * and only to a holder of the action.
+     *
+     * @dataProvider statuses
+     */
+    public function testConfirmManuallyIsOfferedOnlyOnARegisteredRegistration(string $status): void
+    {
+        $this->addRegistration('00A0', $status);
+        $confirmer = $this->plainUser();
+        $this->grant($confirmer, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        self::assertSame($status === 'registered', $this->detail($confirmer)['can']['confirm_manually']);
+        self::assertSame($status === 'registered', $this->detail($this->admin->userId)['can']['confirm_manually']);
+        self::assertFalse($this->detail($viewer)['can']['confirm_manually'], 'No action.');
+    }
+
+    /**
+     * D15: `can.record_charge` and `can.record_discount` hold only while the registration is registered and the
+     * holder may record money; the money-write action alone says `record_money` whatever the status.
+     *
+     * @dataProvider statuses
+     */
+    public function testRecordChargeAndDiscountFollowTheStatusAndTheMoneyRight(string $status): void
+    {
+        $this->addRegistration('00A0', $status);
+        $writer = $this->plainUser();
+        $this->grant($writer, [], [['column' => 'code', 'write' => false]], ['kalaka_record_money']);
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+        $registered = $status === 'registered';
+
+        foreach ([$writer, $this->admin->userId] as $user) {
+            $can = $this->detail($user)['can'];
+            self::assertTrue($can['record_money']);
+            self::assertSame($registered, $can['record_charge']);
+            self::assertSame($registered, $can['record_discount']);
+        }
+        $can = $this->detail($viewer)['can'];
+        self::assertFalse($can['record_money']);
+        self::assertFalse($can['record_charge'], 'No right.');
+        self::assertFalse($can['record_discount'], 'No right.');
+        foreach (['record_payment', 'record_refund', 'record_correction'] as $dropped) {
+            self::assertArrayNotHasKey($dropped, $can);
+        }
+    }
+
+    /** D14: `registration.confirmed` is always there, for a holder without the money-view too. */
+    public function testTheDetailAlwaysCarriesWhetherTheRegistrationIsConfirmed(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addRegistration('00A2');
+        $this->addRegistration('00A5', 'withdrawn');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $plain = $this->plainUser();
+        $this->grant($plain, [], [['column' => 'code', 'write' => false]], []);
+
+        foreach ([$plain, $this->admin->userId] as $user) {
+            self::assertTrue($this->detail($user)['registration']['confirmed']);
+            self::assertFalse($this->detail($user, '00A2')['registration']['confirmed']);
+            self::assertFalse($this->detail($user, '00A5')['registration']['confirmed']);
+        }
+    }
+
+    /**
+     * The owner's ruling 2026-11-21: `can.unconfirm` holds for a holder of `kalaka_confirm_manually` on a
+     * confirmed registration, whatever its payments; never on one that is not confirmed, never without the action.
+     */
+    public function testCanUnconfirmHoldsOnAConfirmedRegistrationForAHolderOfTheAction(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addRegistration('00A2');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $confirmer = $this->plainUser();
+        $this->grant($confirmer, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        self::assertTrue($this->detail($confirmer)['can']['unconfirm']);
+        self::assertTrue($this->detail($this->admin->userId)['can']['unconfirm']);
+        self::assertFalse($this->detail($viewer)['can']['unconfirm'], 'No action.');
+        self::assertFalse($this->detail($confirmer, '00A2')['can']['unconfirm'], 'Not confirmed.');
+        self::assertArrayNotHasKey('unconfirm_warning', $this->detail($confirmer, '00A2')['registration']);
+        self::assertArrayNotHasKey('unconfirm_warning', $this->detail($viewer)['registration']);
+    }
+
+    /**
+     * Q4: a holder with money-view gets the reason-specific warning (T5a payments, T5b nothing due); a holder
+     * without it gets the generic one (T5c), which names neither. Null when it would not confirm again.
+     */
+    public function testTheUnconfirmWarningDependsOnTheHolder(): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_fixed_prices', [
+            'event_id' => $this->event,
+            'amount' => '10000',
+            'currency' => 'HUF',
+            'version' => 1,
+        ]);
+        $this->addRegistration('00A0');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $blind = $this->plainUser();
+        $this->grant($blind, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $seeing = $this->plainUser();
+        $this->grant(
+            $seeing,
+            [],
+            [['column' => 'code', 'write' => false]],
+            ['kalaka_confirm_manually', 'kalaka_view_money']
+        );
+        $warning = fn (int $user): ?string => $this->detail($user)['registration']['unconfirm_warning'];
+
+        self::assertNull($warning($blind), 'Confirmed, nothing paid: it would stay unconfirmed.');
+        self::assertNull($warning($seeing));
+
+        $this->addLine('manual_payment', '-10000', 'manual:p1');
+        ObjectCache::clear();
+        $generic = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
+        self::assertSame($generic, $warning($blind), 'T5c: no reason, no money.');
+        self::assertSame(
+            'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal újra '
+            . 'visszaigazolt lesz.',
+            $warning($seeing),
+            'T5a.'
+        );
+
+        $wpdb->delete($wpdb->prefix . 'kalaka_ledger_lines', ['event_id' => $this->event, 'code' => '00A0']);
+        $wpdb->delete($wpdb->prefix . 'kalaka_fixed_prices', ['event_id' => $this->event]);
+        ObjectCache::clear();
+        self::assertSame($generic, $warning($blind));
+        self::assertSame(
+            'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.',
+            $warning($seeing),
+            'T5b.'
+        );
+    }
+
+    /** The warning is T5a, T5b or T5c only: the confirmed mail's sentence (T6) is not part of it (owner 2026-11-27). */
+    public function testTheWarningSaysNothingOfTheMailEvenWhileTheConfirmedMailIsOn(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $blind = $this->plainUser();
+        $this->grant($blind, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $seeing = $this->plainUser();
+        $this->grant(
+            $seeing,
+            [],
+            [['column' => 'code', 'write' => false]],
+            ['kalaka_confirm_manually', 'kalaka_view_money']
+        );
+        $warning = fn (int $user): ?string => $this->detail($user)['registration']['unconfirm_warning'];
+        $note = 'levél';
+        $generic = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
+        $nothingDue = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra '
+            . 'visszaigazolt lesz.';
+        // No price: nothing is due, so the unconfirm would confirm again.
+        self::assertSame($generic, $warning($blind));
+        self::assertSame($nothingDue, $warning($seeing));
+
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'confirmed',
+            'version' => 1,
+            'enabled' => 1,
+            'body_id' => null,
+        ]);
+        ObjectCache::clear();
+
+        // The mail is on, and the warning still says nothing of it.
+        self::assertSame($generic, $warning($blind), 'T5c only.');
+        self::assertSame($nothingDue, $warning($seeing), 'T5b only.');
+        self::assertStringNotContainsString($note, (string) $warning($blind));
+        self::assertStringNotContainsString($note, (string) $warning($seeing));
+
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_action_mails',
+            ['enabled' => 0],
+            ['event_id' => $this->event, 'mail' => 'confirmed']
+        );
+        ObjectCache::clear();
+        self::assertSame($generic, $warning($blind), 'Off again: unchanged.');
+    }
+
+    public function testTheReconfirmsKeyTellsTheReasonToAMoneyViewHolderAndOnlyYesToOthers(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $blind = $this->plainUser();
+        $this->grant($blind, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $seeing = $this->plainUser();
+        $this->grant(
+            $seeing,
+            [],
+            [['column' => 'code', 'write' => false]],
+            ['kalaka_confirm_manually', 'kalaka_view_money']
+        );
+
+        self::assertSame('yes', $this->detail($blind)['registration']['unconfirm_reconfirms']);
+        self::assertSame('nothing_due', $this->detail($seeing)['registration']['unconfirm_reconfirms']);
+    }
+
+    /** A failing fee component leaves `can.unconfirm` and gives no warning, for either kind of holder (review C3). */
+    public function testAFailingFeeComponentGivesNoWarningAndNoReasonForEitherHolder(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $blind = $this->plainUser();
+        $this->grant($blind, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $seeing = $this->plainUser();
+        $this->grant(
+            $seeing,
+            [],
+            [['column' => 'code', 'write' => false]],
+            ['kalaka_confirm_manually', 'kalaka_view_money']
+        );
+        $broken = new class implements FeeComponent {
+            public function id(): string
+            {
+                return 'broken';
+            }
+
+            public function stage(): FeeStage
+            {
+                return FeeStage::Support;
+            }
+
+            public function targets(FeeComponentInput $input): FeeTargets
+            {
+                throw new \RuntimeException('secret component message');
+            }
+        };
+        $confirmations = new ManualConfirmations(
+            rule: new ConfirmationRule(new FeeComposition(new CoreFeeComponents([$broken])))
+        );
+
+        foreach ([$blind, $seeing] as $user) {
+            $read = (new RegistrationDetail(manualConfirmations: $confirmations))
+                ->of(new UserActor($user), $this->event, '00A0');
+
+            self::assertTrue($read['can']['unconfirm']);
+            self::assertNull($read['registration']['unconfirm_warning']);
+            self::assertNull($read['registration']['unconfirm_reconfirms']);
+            self::assertStringNotContainsString('secret component message', (string) wp_json_encode($read));
+        }
     }
 }

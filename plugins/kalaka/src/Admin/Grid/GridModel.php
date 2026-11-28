@@ -32,7 +32,13 @@ final class GridModel
     /** The display name field's type: its column comes third. */
     private const NAME_TYPE = 'kalaka/name-field';
 
-    /** @var array<string, array{label: string, states: array<string, string>}> by event and kind */
+    /**
+     * @var array<string, array{
+     *     label: string,
+     *     states: array<string, string>,
+     *     marks: array<string, array{icon: string, tone: string}>
+     * }> by event and kind
+     */
     private array $kinds = [];
 
     public function __construct(
@@ -95,26 +101,36 @@ final class GridModel
      * A decision kind as the grid shows it: the label and the states' labels its module declares; for a
      * kind nothing declares, the kind's key and the states recorded in the event, each by its key.
      *
-     * @return array{label: string, states: array<string, string>}
+     * @return array{
+     *     label: string,
+     *     states: array<string, string>,
+     *     marks: array<string, array{icon: string, tone: string}>
+     * }
      */
     private function decision(int $eventId, string $kind): array
     {
         return $this->kinds[$eventId . ':' . $kind] ??= $this->describeKind($eventId, $kind);
     }
 
-    /** @return array{label: string, states: array<string, string>} */
+    /**
+     * @return array{
+     *     label: string,
+     *     states: array<string, string>,
+     *     marks: array<string, array{icon: string, tone: string}>
+     * }
+     */
     private function describeKind(int $eventId, string $kind): array
     {
         $declared = $this->decisions->kind($kind);
         if ($declared !== null) {
-            return ['label' => $declared->label, 'states' => $declared->states];
+            return ['label' => $declared->label, 'states' => $declared->states, 'marks' => $declared->marks];
         }
         $states = [];
         foreach ($this->decisions->statesIn($eventId, $kind) as $state) {
             $states[$state] = $state;
         }
 
-        return ['label' => $kind, 'states' => $states];
+        return ['label' => $kind, 'states' => $states, 'marks' => []];
     }
 
     /**
@@ -491,6 +507,7 @@ final class GridModel
                 'label' => $kind['label'],
                 'type' => 'decision',
                 'states' => $kind['states'],
+                'marks' => $kind['marks'],
                 'members' => $this->members($column, $fields, $eventId) ?? [],
             ] + ($kind['states'] === [] ? [] : ['empty' => true]);
         }

@@ -41,6 +41,39 @@ final class DecisionRulesTest extends WP_UnitTestCase
         }
     }
 
+    /** @dataProvider invalidMarks */
+    public function testARuleWhoseMarksBreakTheFormIsRefusedAndNotRegistered(array $marks): void
+    {
+        $rule = new TestRule('fine', ['on' => 'Be', 'off' => 'Ki']);
+        $rule->marks = $marks;
+        $rules = new DecisionRules();
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            $rules->add($rule, false);
+        } finally {
+            self::assertSame([], $rules->extension());
+        }
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function invalidMarks(): iterable
+    {
+        yield 'a mark of an undeclared state' => [['maybe' => ['icon' => 'yes-alt', 'tone' => 'ok']]];
+        yield 'a mark with an empty icon' => [['on' => ['icon' => ' ', 'tone' => 'ok']]];
+    }
+
+    public function testMarksOnDeclaredStatesAreAccepted(): void
+    {
+        $rule = new TestRule('fine', ['on' => 'Be', 'off' => 'Ki']);
+        $rule->marks = ['on' => ['icon' => 'yes-alt', 'tone' => 'ok'], 'off' => ['icon' => 'marker', 'tone' => '']];
+        $rules = new DecisionRules();
+
+        $rules->add($rule, false);
+
+        self::assertSame([$rule], $rules->extension());
+    }
+
     public function testTheLongestAllowedKindAndStateAreAccepted(): void
     {
         $rules = new DecisionRules();
@@ -80,9 +113,32 @@ final class DecisionRulesTest extends WP_UnitTestCase
         self::assertSame(['b' => 'Bé', 'a' => 'Á'], $rules->all()[0]->states());
     }
 
-    public function testTheBootPublishesTheRegistryTheEvaluationUses(): void
+    public function testTheBootPublishesTheRegistryTheEvaluationUsesWithCoresConfirmation(): void
     {
         self::assertSame(DecisionRules::current(), DecisionRules::current());
-        self::assertSame([], DecisionRules::current()->all());
+        self::assertSame(
+            ['confirmation'],
+            array_map(static fn ($rule): string => $rule->kind(), DecisionRules::current()->all())
+        );
+        self::assertSame(['confirmation'], array_map(
+            static fn ($rule): string => $rule->kind(),
+            DecisionRules::current()->core()
+        ));
+    }
+
+    public function testTheRulesAreDeclaredCoreFirstThenExtensionsEachAsAdded(): void
+    {
+        $rules = new DecisionRules();
+        $extFirst = new TestRule('ext_first');
+        $coreFirst = new TestRule('core_first');
+        $extSecond = new TestRule('ext_second');
+        $coreSecond = new TestRule('core_second');
+
+        $rules->add($extFirst, false);
+        $rules->add($coreFirst, true);
+        $rules->add($extSecond, false);
+        $rules->add($coreSecond, true);
+
+        self::assertSame([$coreFirst, $coreSecond, $extFirst, $extSecond], $rules->all());
     }
 }

@@ -171,6 +171,8 @@ final class RegistrationDetailCostTest extends PerEventCostTestCase
 
     public function testTheDetailStaysInsideItsEvent(): void
     {
+        // `can.unconfirm` reads the clock's site time zone; the options it reads load once, in either round.
+        wp_load_alloptions();
         $this->assertPerEventCost(
             function (int $event): void {
                 $this->seedEvent($event);
@@ -180,6 +182,37 @@ final class RegistrationDetailCostTest extends PerEventCostTestCase
                 ObjectCache::clear();
 
                 return (new RegistrationDetail())->of(new SystemActor(), $event, '00A0');
+            }
+        );
+    }
+
+    /** A confirmed registration also reads the unconfirm warning: one composition and one payment read, per event. */
+    public function testTheUnconfirmWarningStaysInsideItsEvent(): void
+    {
+        wp_load_alloptions();
+        $this->assertPerEventCost(
+            function (int $event): void {
+                $this->seedEvent($event);
+                $this->insert('kalaka_decisions', [
+                    'event_id' => $event,
+                    'code' => '00A0',
+                    'kind' => 'confirmation',
+                    'state' => 'confirmed',
+                    'effective_at' => '2026-11-30 08:00:00.000000',
+                    'recorded_at' => '2026-11-30 08:00:00.000000',
+                    'cause_type' => 'registration',
+                    'cause_event_id' => $event,
+                    'cause_key' => '00A0',
+                    'actor_type' => 'system',
+                ]);
+            },
+            static function (int $event): array {
+                ObjectCache::clear();
+                $read = (new RegistrationDetail())->of(new SystemActor(), $event, '00A0');
+                self::assertTrue($read['can']['unconfirm']);
+                self::assertArrayHasKey('unconfirm_warning', $read['registration']);
+
+                return $read;
             }
         );
     }

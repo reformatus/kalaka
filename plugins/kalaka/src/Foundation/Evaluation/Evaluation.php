@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Evaluation;
 
 use Kalaka\Foundation\Api\Actor\Side;
+use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
-use Kalaka\Foundation\Decision\Decision;
-use Kalaka\Foundation\Decision\DecisionInput;
+use Kalaka\Foundation\Api\Decision\Decision;
+use Kalaka\Foundation\Api\Decision\DecisionInput;
 use Kalaka\Foundation\Decision\DecisionQuery;
 use Kalaka\Foundation\Decision\DecisionRecord;
 use Kalaka\Foundation\Decision\DecisionRepository;
-use Kalaka\Foundation\Decision\DecisionRule;
+use Kalaka\Foundation\Api\Decision\DecisionRule;
 use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Mail\Api\ActionMail;
+use Kalaka\Mail\Api\ActionMails;
+use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\FeeRefusal;
 use Kalaka\Pricing\Api\FeeRefused;
@@ -22,8 +26,8 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 
 /**
- * Brings the touched registrations' decisions and money up to date with their facts, in the outermost
- * use case's transaction. foundation.md, "Evaluation".
+ * Brings the touched registrations' money, decisions and mail up to date with their facts, in that order, in
+ * the outermost use case's transaction. foundation.md, "Evaluation".
  */
 final class Evaluation
 {
@@ -34,6 +38,7 @@ final class Evaluation
         private readonly EvaluationFailureRepository $failures = new EvaluationFailureRepository(),
         private readonly Registrations $registrations = new Registrations(),
         private readonly ?Materializer $money = null,
+        private readonly ActionMails $mails = new ActionMails(),
     ) {
     }
 
@@ -73,8 +78,8 @@ final class Evaluation
             foreach ($pending as $key) {
                 $evaluated[self::identity($key)] = true;
                 if (!isset($missing[self::identity($key)])) {
-                    $this->decide($key, $context);
                     $this->materialize($key, $context);
+                    $this->mail($key, $this->decide($key, $context), $context);
                 }
                 $this->clearFlag($key, $context);
             }
@@ -82,9 +87,9 @@ final class Evaluation
     }
 
     /**
-     * The money phase, after the decisions phase, so the fee reads the decisions recorded in this pass
-     * (money.md, "Materializer"). A failing fee component fails the use case as the rule `money/<id>`; one that
-     * refuses (`FeeRefusal`) refuses it with its text for the actor's side (`FeeRefused`, a 422).
+     * The money phase, first, so the later phases see the pass's money (money.md, "Materializer"). A failing
+     * fee component fails the use case as the rule `money/<id>`; one that refuses (`FeeRefusal`) refuses it
+     * with its text for the actor's side (`FeeRefused`, a 422).
      */
     private function materialize(RegistrationKey $key, Context $context): void
     {
@@ -120,30 +125,59 @@ final class Evaluation
     }
 
     /**
-     * Core rules first, then extension rules, in registration order. A core rule reads its own
-     * kind and the core kinds before it; an extension rule its own kind and every core kind.
+     * The decisions phase, after money: the rules in the order they were declared, core first, then extensions.
+     * A core rule reads its own kind and the core kinds decided before it; an extension rule its own kind and
+     * every core kind, never another
+     * extension's.
+     *
+     * @return list<DecisionRecord> the records this pass wrote, in order
      */
-    private function decide(RegistrationKey $key, Context $context): void
+    private function decide(RegistrationKey $key, Context $context): array
     {
-        $core = $this->rules->core();
-        $extension = $this->rules->extension();
-        if ($core === [] && $extension === []) {
-            return;
+        if ($this->rules->all() === []) {
+            return [];
         }
 
         $decisions = $this->query->currentOf($key);
-        $coreKinds = array_map(static fn (DecisionRule $rule): string => $rule->kind(), $core);
-        foreach ($core as $position => $rule) {
-            $this->apply($rule, array_slice($coreKinds, 0, $position + 1), $key, $decisions, $context);
+        $coreKinds = array_map(static fn (DecisionRule $rule): string => $rule->kind(), $this->rules->core());
+        $coreBefore = [];
+        $written = [];
+        foreach ($this->rules->all() as $rule) {
+            if ($this->rules->isCore($rule->kind())) {
+                $coreBefore[] = $rule->kind();
+                $visible = $coreBefore;
+            } else {
+                $visible = [...$coreKinds, $rule->kind()];
+            }
+            array_push($written, ...$this->apply($rule, $visible, $key, $decisions, $context));
         }
-        foreach ($extension as $rule) {
-            $this->apply($rule, [...$coreKinds, $rule->kind()], $key, $decisions, $context);
+
+        return $written;
+    }
+
+    /**
+     * The mail phase, last: every `confirmed` record this pass wrote queues the event's confirmed mail, keyed
+     * by that record, so a re-confirmation right after staff's unconfirm, a retry and a restore each mail
+     * (mail.md, "Five kinds of mail"). Nothing is queued while the event has the mail off.
+     *
+     * @param list<DecisionRecord> $written the decision records this pass wrote
+     */
+    private function mail(RegistrationKey $key, array $written, Context $context): void
+    {
+        foreach ($written as $record) {
+            if ($record->kind === ConfirmationRule::KIND && $record->state === ConfirmationRule::CONFIRMED) {
+                $cause = new Subject('decision', $key->eventId, (string) $record->id);
+                $this->mails->due($context, ActionMail::Confirmed, $key, $cause);
+            }
         }
     }
 
     /**
+     * Asks the rule and writes each transition it returns, in order, that changes the running state.
+     *
      * @param list<string> $visible the kinds the rule reads
      * @param array<string, Decision> $decisions the current decisions; gets what the rule writes
+     * @return list<DecisionRecord> the records written
      */
     private function apply(
         DecisionRule $rule,
@@ -151,10 +185,10 @@ final class Evaluation
         RegistrationKey $key,
         array &$decisions,
         Context $context,
-    ): void {
+    ): array {
         $kind = $rule->kind();
         try {
-            $transition = $rule->decide(new DecisionInput(
+            $transitions = $rule->decide(new DecisionInput(
                 $key,
                 $context->now(),
                 array_intersect_key($decisions, array_flip($visible)),
@@ -165,28 +199,38 @@ final class Evaluation
             throw $error;
         }
 
-        if ($transition === null) {
-            return;
-        }
-        if (!array_key_exists($transition->state, $states)) {
-            $error = self::failed($kind, null);
-            throw $error;
-        }
-        if ($transition->state === ($decisions[$kind]->state ?? null)) {
-            return;
+        $written = [];
+        foreach ($transitions as $transition) {
+            if (!array_key_exists($transition->state, $states)) {
+                $error = self::failed($kind, null);
+                throw $error;
+            }
+            if ($transition->state === ($decisions[$kind]->state ?? null)) {
+                continue;
+            }
+
+            // Recorded in the order of the registration's lock, not of the attempts' start times: an act that
+            // started earlier but writes later still records after the kind's current decision, a microsecond
+            // later at least, so "recorded after" always means "written after" (the confirmation rule compares).
+            $previous = $decisions[$kind]->recordedAt ?? null;
+            $recordedAt = $previous !== null && $context->now() <= $previous
+                ? $previous->modify('+1 microsecond')
+                : $context->now();
+            $stored = $this->decisions->insert(
+                DecisionRecord::by($context->actor(), $key, $kind, $transition, $recordedAt),
+                $context
+            );
+            $decisions[$kind] = new Decision(
+                $kind,
+                $stored->state,
+                $stored->effectiveAt,
+                $stored->recordedAt,
+                $stored->cause,
+            );
+            $written[] = $stored;
         }
 
-        $stored = $this->decisions->insert(
-            DecisionRecord::by($context->actor(), $key, $kind, $transition, $context->now()),
-            $context
-        );
-        $decisions[$kind] = new Decision(
-            $kind,
-            $stored->state,
-            $stored->effectiveAt,
-            $stored->recordedAt,
-            $stored->cause,
-        );
+        return $written;
     }
 
     private static function failed(string $kind, ?\Throwable $previous): SystemFailure

@@ -13,6 +13,7 @@ use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LedgerEntry;
 use Kalaka\Ledger\Api\PayerKinds;
@@ -21,6 +22,9 @@ use Kalaka\Ledger\Api\Side;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
+use Kalaka\Pricing\Api\Confirmations;
+use Kalaka\Pricing\Api\FeeComponentFailed;
+use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -28,7 +32,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * Everything in it goes through views and grants: the registration data is read through `ViewQuery` for the
  * views that hold the registration (`Access::holding()`), or full access, so it shows only what their columns
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
- * [UNAPPROVED Access]
+ * The manual confirmation flag shows behind the same gate as the money. [UNAPPROVED Access] [UNAPPROVED N11]
  */
 final class RegistrationDetail
 {
@@ -41,6 +45,8 @@ final class RegistrationDetail
         private readonly Ledger $ledger = new Ledger(),
         private readonly PayerKinds $payerKinds = new PayerKinds(),
         private readonly LineNames $lineNames = new LineNames(),
+        private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
+        private readonly Confirmations $confirmations = new Confirmations(),
     ) {
     }
 
@@ -95,15 +101,38 @@ final class RegistrationDetail
         $viewMoney = $carried(Ledger::VIEW_MONEY) || $record;
         // [UNAPPROVED A1] one money-write action carries a payment, a refund, a correction, a manual charge
         // and a manual discount.
+        // The owner's topic 1 ruling, H3: confirmation applies only to a registered registration.
+        $confirmManually = $carried(ManualConfirmations::CONFIRM_MANUALLY);
+        // The status is read from the registration itself: the view may not list the status column.
+        $registered = $this->manualConfirmations->canSet($key);
+        $confirmable = $confirmManually && $registered;
+        $confirmed = $this->confirmations->isConfirmed($key);
+        $canUnconfirm = $confirmManually && $confirmed;
 
         $read = [
             'registration' => $this->registrationPart($registration),
             'fields' => $this->fieldsPart($registration),
         ];
+        $read['registration']['confirmed'] = $confirmed;
+        if ($canUnconfirm) {
+            $reconfirms = $this->unconfirmReconfirms($key);
+            $read['registration']['unconfirm_reconfirms'] = $reconfirms === null ? null
+                : ($viewMoney ? $reconfirms : 'yes');
+            $read['registration']['unconfirm_warning'] = $this->unconfirmWarning($key, $viewMoney, $reconfirms);
+        }
         if ($viewMoney) {
+            $read['registration']['manual_confirmation'] = $this->manualConfirmationPart($key);
             $read['money'] = $this->moneyPart($key, $event->currency->value);
         }
-        $read['can'] = ['view_money' => $viewMoney, 'record_money' => $record];
+        $read['can'] = [
+            'view_money' => $viewMoney,
+            'record_money' => $record,
+            // A manual charge or discount is offered only while the registration is registered ([UNAPPROVED]).
+            'record_charge' => $record && $registered,
+            'record_discount' => $record && $registered,
+            'confirm_manually' => $confirmable,
+            'unconfirm' => $canUnconfirm,
+        ];
 
         return $read;
     }
@@ -174,11 +203,75 @@ final class RegistrationDetail
                 'label' => $declaredKind->label,
                 'state' => $current->state,
                 'state_label' => $declaredKind->states[$current->state] ?? $current->state,
+                'marks' => $declaredKind->marks,
                 'effective_at' => self::instant($current->effectiveAt),
             ];
         }
 
         return $part;
+    }
+
+    /**
+     * Whether the unconfirm would confirm the registration again at once, and why: `'payments'`, `'nothing_due'`
+     * or null (also when a fee component fails: the act itself would fail then, too). The caller has read that
+     * the registration is confirmed.
+     *
+     * @return 'payments'|'nothing_due'|null
+     */
+    private function unconfirmReconfirms(RegistrationKey $key): ?string
+    {
+        try {
+            return $this->manualConfirmations->reconfirmsOnUnconfirm($key, Runner::current()->clock()->now(), true);
+        } catch (FeeComponentFailed) {
+            return null;
+        }
+    }
+
+    /**
+     * The warning to show before staff's unconfirm: the text when confirmation would decide `confirmed` again
+     * at once, null otherwise. A holder with money-view gets the reason, payments or nothing due; a holder
+     * without it gets one text that names neither a reason nor money, so the read never tells them what the
+     * payments are. It says nothing of the mail that may follow (owner 2026-11-27: T6 is not part of the
+     * warning). It reads and writes nothing else. [UNAPPROVED N11, Q4, T5a, T5b, T5c]
+     */
+    private function unconfirmWarning(RegistrationKey $key, bool $viewMoney, ?string $reconfirms): ?string
+    {
+        if ($reconfirms === null) {
+            return null;
+        }
+        if (!$viewMoney) {
+            $text = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.'; // [UNAPPROVED T5c]
+        } elseif ($reconfirms === 'payments') {
+            // [UNAPPROVED T5a]
+            $text = 'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal '
+                . 'újra visszaigazolt lesz.';
+        } else {
+            // [UNAPPROVED T5b]
+            $text = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
+        }
+
+        return $text;
+    }
+
+    /**
+     * The manual confirmation flag while it is set: its set time, its reason and the display name of who set
+     * it (null for a run without a user); null when it is not set.
+     *
+     * @return ?array{set_at: string, reason: string, set_by: ?string}
+     */
+    private function manualConfirmationPart(RegistrationKey $key): ?array
+    {
+        $flag = $this->manualConfirmations->of($key);
+        if ($flag === null) {
+            return null;
+        }
+        $by = null;
+        if ($flag->setBy !== null) {
+            $user = get_userdata($flag->setBy);
+            $by = $user === false ? null : (string) $user->display_name;
+        }
+
+        return ['set_at' => self::instant($flag->setAt), 'reason' => $flag->reason, 'set_by' => $by];
     }
 
     /** @return list<array<string, mixed>> */

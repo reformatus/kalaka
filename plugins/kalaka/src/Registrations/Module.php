@@ -137,7 +137,7 @@ SQL;
     public function schema(): Schema
     {
         // Main's seats table (#247) and this branch's drafts table: the union, one version above both.
-        return new Schema(6, [
+        return new Schema(7, [
             self::REGISTRATIONS,
             self::FIELD_VALUES,
             self::SUBMISSIONS,
