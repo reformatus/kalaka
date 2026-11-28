@@ -5,6 +5,7 @@
 import { createRoot } from '@wordpress/element';
 import 'kalaka-dataviews-style';
 import './grid.css';
+import '../mail/dialog.css';
 import Page from './Page';
 
 const root = document.getElementById( 'kalaka-grid' );

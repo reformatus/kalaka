@@ -58,6 +58,13 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `Admin\Api\ViewQuery`, which reads only through a `HeldView` that `Access`
   hands out, or through full access. Only `ViewQuery` names a registration
   table (`RegistrationTablesTest`); it never selects the secret.
+- The display names of a list of registrations are read through
+  `ViewQuery::namesOf(HeldView, list<string>)`, at most `MAX_NAMES` (100) codes
+  (more is `InvalidInput`): the value of the display-name field of the slot
+  form's submitted version, resolved through `Forms`, returned only for a code
+  the view's filter holds and whose `field:<name>` column the view lists; null
+  otherwise (a viewer without name access, a code outside the view, no answer).
+  Full access (the master view) sees every name.
 - The abilities' permission callback, and the gate of the grid's
   `kalaka-admin/v1` routes, let through only full access or a grant holder;
   the runner's coarse check still decides each call.
@@ -72,7 +79,10 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   view's own filter and bound value, never replaces them, so a grant holder never reaches a row the view does
   not hold. They apply only to the view's listed columns (anything else is `InvalidInput`), and their kind comes
   from the column's own type (`GridNarrowing`), never from the client. They reach `page()` (and its total) and
-  `aggregates()` only; `count()` for the dialog, `contains()` and the access checks never see them. The
+  `aggregates()` only, and `codesOf()`, which returns the codes of every matching row (no paging limit, the
+  same conditions as `page()`) for a bulk act on "all rows the grid shows" (`Api\GridSelection`, through the one
+  held-view path `Access::viewOf()` that the rows route also takes); `count()` for the dialog, `contains()` and
+  the access checks never see them. The
   sorszám range is computed in SQL as `RegistrationList` computes it. Text matches ignore case and accents
   (`utf8mb4_unicode_520_ci`); a stored `1` is yes, a stored `0` is no and no value is neither.
 - The counted members of a view (`counts`) are stored only by full access, and
@@ -94,6 +104,15 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - A grid row carries `awaits_answer`, a bool computed per page by Registrations' `Requests::awaitsOf()` (one
   statement for the page's field values, none without a request source); it is a row value, not a column, so it is
   not filterable, sortable or summable.
+- The mail pages (`Mail\MailPages`, `app/mail/`) are full access's and decide no
+  access: they show only what the mail reads return, every change is an ability
+  call, and the page reads again after it; a typed or chosen draft is dropped
+  only when its act succeeded.
+- The grid's bulk action „Levél küldése” is offered on a tab only when the
+  page's configuration says the tab carries `ManualMails::GRANT_ACTION` (full
+  access: always); that is only an offer. It sends the ticked rows' codes as a
+  `{ codes }` selection, and the preview and `kalaka/send-manual-mail` decide
+  access again on every call (`kalaka_manual_mail`, inside the grant's view).
 - Staff correct a field value only through `kalaka/edit-field-value` (`FieldEdit\EditFieldValue`): a field change with
   no action, so rights are read-write columns of a held view and full access, never a new grant action. The field
   type turns the value into its stored form before the run (`FieldEditInput`), never inside it; no form condition is

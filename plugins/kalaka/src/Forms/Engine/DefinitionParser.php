@@ -68,6 +68,63 @@ final class DefinitionParser
     /** @var array<string, ValueType> the keys the after-submit section reads (`FormHost::afterSubmitTypes()`) */
     private array $afterSubmitTypes = [];
 
+    /**
+     * The placeholders typed as `{{key}}` in a form's content that the part they sit in cannot fill, as typed and
+     * each once, in document order: what sits in the after-submit section names one of that section's own keys
+     * (`FormHost::afterSubmitTypes()`: the event's and the new registration's code and status), everything else
+     * the form page's (`FormHost::factTypes()`). A form page fills every block of the form outside that section,
+     * not only Kaláka blocks, so all of it is read. One rule for the definition check, which refuses these
+     * (`parse()`), and the save's own refusal `DefinitionCheck::unknown()`, which asks for the keys as typed.
+     * [UNAPPROVED N1182]
+     *
+     * @param array<string, ValueType> $formKeys
+     * @param array<string, ValueType> $afterSubmitKeys
+     * @return list<string>
+     */
+    public static function unknownPlaceholders(string $content, array $formKeys, array $afterSubmitKeys): array
+    {
+        if (!str_contains($content, '{{')) {
+            return [];
+        }
+        $check = new DocumentCheck();
+        $unknown = [];
+        foreach (self::htmlBySection(array_values(parse_blocks($content))) as [$html, $inSection]) {
+            foreach ($check->unknownPlaceholders($html, $inSection ? $afterSubmitKeys : $formKeys) as $typed) {
+                $unknown[$typed] = $typed;
+            }
+        }
+
+        return array_values($unknown);
+    }
+
+    /**
+     * The HTML of the content's blocks, each piece with whether it sits in the after-submit section: that section
+     * and everything in it is the section's, every other block's own markup and its inner blocks'.
+     *
+     * @param list<array<string, mixed>|string> $blocks
+     * @param bool $inSection whether these blocks sit in the after-submit section
+     * @return list<array{string, bool}>
+     */
+    private static function htmlBySection(array $blocks, bool $inSection = false): array
+    {
+        $pieces = [];
+        foreach ($blocks as $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+            $within = $inSection || ($block['blockName'] ?? null) === ChainMarks::AFTER_SUBMIT_BLOCK;
+            $html = implode('', array_filter($block['innerContent'] ?? [], 'is_string'));
+            if ($html !== '') {
+                $pieces[] = [$html, $within];
+            }
+            foreach (self::htmlBySection(array_values($block['innerBlocks'] ?? []), $within) as $piece) {
+                $pieces[] = $piece;
+            }
+        }
+
+        return $pieces;
+    }
+
     /** The host of the form being parsed, for the options of its request fields. */
     private ?FormHost $host = null;
 
@@ -125,6 +182,16 @@ final class DefinitionParser
         try {
             $this->topLevel(ChainMarks::mark(array_values($blocks)), $contributions, $fields);
             $this->slotRules->check($form->id, $form->placement, $fields, $this->pages);
+            // A typed placeholder the part it sits in cannot fill is a problem of the definition, so the save
+            // check and every read of the current version (`Forms::definition()`, the broken-form scan) agree. An
+            // earlier version is read as it was. [UNAPPROVED N1182]
+            $unknown = $version === $form->version
+                ? self::unknownPlaceholders($content, $this->factTypes, $this->afterSubmitTypes)
+                : [];
+            if ($unknown !== []) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and typed keys, never a value
+                throw new SystemFailure('unknown_placeholder ' . implode(', ', $unknown));
+            }
             $triggers = [];
             foreach ($fields as $field) {
                 if (in_array($field->key, $this->read, true)) {

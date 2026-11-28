@@ -27,8 +27,9 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   no error (`INSERT IGNORE`).
 - Nothing reads `kalaka_deliveries` but the sender (`DeliveryQuery`), the
   counts of `Api\MailStats` and the staff listing of `wp kalaka mail failed`
-  (`DeliveryQuery::troubled()`, the registration code, never the address); no
-  decision, condition or view depends on it.
+  and of the screen's troubled list (`DeliveryQuery::troubled()`, the same
+  query, through `Api\Deliveries::troubled()`: the registration code, never the
+  address or a name); no decision, condition or view depends on it.
 - `wp_mail` is called only by `Sender`, which runs from the nudge hook
   `kalaka_send_mail`, from itself and as the periodic run's step, never in an
   interactive request, and only under the named lock `mail_sender`.
@@ -49,8 +50,19 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   (`MailPosts::usesFrame()`, true until set, full access writes it), read by
   `MailRenderer::renderBody()` for an action mail and a manual mail alike; no
   action mail setting and no manual send carries it. A body serves one action mail only (mail.md, "Words":
-  `UpdateActionMail` refuses another mail's body, and `body_id` is unique),
-  and only a published body is assigned or switched on. A body a switched-on
+  `UpdateActionMail` refuses another mail's body, and `body_id` is unique).
+  Any body of the event may be assigned, a draft included, and a point
+  switched off may keep one that is no longer published; only a published body
+  lets the point send, and switching a point on with a draft is refused
+  (`PointTemplateUnpublished`, `kalaka_point_template_unpublished`). Assigning
+  or swapping a point's template switches the point off; saving the template
+  itself changes no point. A point's "new template" (`Api\MailTemplates`,
+  `POST …/events/{id}/mail/points/{mail}/template`) makes an empty draft of the
+  event, assigns it to the point and so switches the point off; an assignment
+  the use case refuses removes the post again.
+  `POST …/events/{id}/mail/templates` makes one with no point
+  (`MailTemplates::createDraft()`): the screen's unassigned templates, no point
+  changed and nothing switched off. A body a switched-on
   action mail uses is neither trashed nor deleted, never leaves `publish` and
   never changes its event (`Body\BodyInUse`, on every path; REST refuses with
   `kalaka_mail_in_use`).
@@ -89,24 +101,41 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   when the body cannot render for its own reason: none assigned (`no_body`),
   gone (`missing`), unpublished (`unpublished`) or of another event
   (`other_event`), or, by `Values::check()` against `MailValues::types()` (and `paths()`), an
-  undeclared key, an invalid condition, a misplaced branch; the delivery is failed with `body <problem>`, no attempt and no
+  undeclared key (a typed placeholder included: `unknown_placeholder {{key}}`), an invalid condition, a misplaced branch; the delivery is failed with `body <problem>`, no attempt and no
   count toward pausing. Any other throw is an error, recorded after the claim.
 - A body saved as published or scheduled is checked first (`Body\BodyCheck`):
-  REST refuses it with 400 `kalaka_mail_body`; any other path vetoes it
+  a placeholder typed as `{{key}}` whose key the mail's context does not declare
+  (`{{content}}` always) is refused before anything else, with every such key
+  as typed (`Forms\Api\UnknownPlaceholder`, `kalaka_unknown_placeholder`, 422 on
+  REST; the same text as the notice, the log line and the command line's
+  refusal); any other problem is refused by REST with 400 `kalaka_mail_body`; any other path vetoes it
   gracefully (a published body keeps its content, another stays unpublished),
   tells the saving user in an admin notice, writes a log line and, on
   WP-CLI, warns and fails the command.
-- The catalogue has four action mails; admission from the waitlist sends
+- The catalogue lists every `ActionMail` case, whether or not an act on this
+  line queues it yet; `ActionMail::isWired()` is the one declared list of the
+  points that work, the list the screen shows (a point that is not wired can be
+  set up and switched on, but nothing sends it), and the PR that adds a producer
+  keeps it current. [UNAPPROVED R334] It has four action mails; admission from the waitlist sends
   "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.
 - No Mail use case reads WordPress data in its transaction. `UpdateActionMail`
   gets the body's facts (`Catalogue\MailBody`: its event, whether it is
   published, whether it reads `account.password_link`) read before the
-  run by its entry, `Api\ActionMailSettings::update()`;
+  run by `UpdateActionMail::prepared()`, which the ability's `$prepare` and
+  the entry `Api\ActionMailSettings::update()` both call;
   run without them it refuses a body assignment or a switch-on. It does not
   check the keys: a body is checked at its save, and one that goes stale
-  later fails per delivery without pausing.
+  later fails per delivery without pausing. What a change leaves an action
+  mail as is judged by one check, `UpdateActionMail::refuse()`, which `execute()`
+  runs and the event's mail read runs on a copy of the entry switched on and
+  off (`can`, `refusals`, and `enable_unavailable`, the read's word for
+  `switch_on`'s refusal), so no copy of the rule exists. The refusals with a
+  meaning of their own are typed (`MailNeedsBody`, `BodyTaken`,
+  `PasswordLinkRequired`, `RegisteredMailStaysOn`, `PointTemplateUnpublished`,
+  `LayoutPlaceholderCount`, `LayoutOtherPlaceholder`, each with its own code and
+  the approved text).
 - The secret link reaches a mail only as the value `registration.link` or a
   page-link value `page_<ID>.link`, both from `Registrations\Api\SecretLinks::url()`
   (the second on the published page with that ID: following it makes the
@@ -128,11 +157,19 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   delivery, on the pause, in the audit diff and in the banner; the error log
   gets the same failure under the same correlation ID.
 - The pause lives in `kalaka_mail_states` (one row), written only by
-  `PauseMail`, `ResumeMail` and `RecordDelivery`; only a person resumes. The
+  `PauseMail`, `ResumeMail`, `SetMailBudget` and `RecordDelivery`; only a person resumes. The
   warnings read it, never the deliveries table.
+  [UNAPPROVED R340] The hourly budget is also a WordPress setting that WordPress does not store
+  (`Pause\BudgetSetting`, group `kalaka_mail`, option `kalaka_mail_hourly_budget`): a screen saves it through
+  `options.php`, `get_option()` answers from the state row, the sanitize step runs `SetMailBudget` as the
+  saving user (a refusal is a settings error with the use case's text), `pre_update_option` hands back the old
+  value so a save through it writes no option row (the filters exist on the admin side only), and the group's
+  capability is full access.
 - Every Mail use case is site-level: only the system, WP-CLI and full access
   run it, except `kalaka/send-manual-mail`, an event use case carried by the
-  grant action `kalaka_manual_mail` for codes inside the grant's view.
+  grant action `kalaka_manual_mail` (`Api\ManualMails::GRANT_ACTION`) for the registrations its `selection` names,
+  which must all be inside the grant's view: listed codes, or the rows of a view the holder holds that the grid's
+  filters and search leave.
 - A manual mail is one send batch (`Manual\MailBatch`, `kalaka_mail_batches`)
   and its members (`kalaka_mail_batch_members`: a code and an outcome, queued
   or skipped because it is not registered (withdrawn, removed or waitlisted); never an address, a name or rendered
@@ -141,10 +178,19 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   registration gets a batch's mail once. `SendManualMail` only inserts the
   batch, the members and the pending deliveries, in one transaction, and
   writes no registration and runs no evaluation; it reads no WordPress data in
-  its transaction (the body's facts come from `Api\ManualMails::send()`). The
+  its transaction (the body's facts, and the codes of a view selection, come from
+  `SendManualMail::prepared()`, which the ability's `$prepare` and `Api\ManualMails::send()` both call). The
+  input's `selection` is `{codes}` (at least one, each once, no maximum) or `{view, grant, filters?, search?}`:
+  every row of the held view that the grid's filters and search leave, across all pages, resolved to codes by
+  `Admin\Api\GridSelection` (the grid's own held view, `Access::viewOf()`, and `ViewQuery::codesOf()`, so a
+  hidden row is never reached and a bad filter is the grid's own refusal), read again at every send, so it
+  follows the data; the access check then runs on the resolved codes, and a selection that matches nothing is
+  refused. The result
+  carries the caller's warnings, `paused` and `held`, on every path: a grant
+  holder cannot read the sender's state, so this is where they learn the mail waits. The
   optional `request_key` makes a repeat in the same event return the first
-  batch and queue nothing; the same key for another body or other codes is
-  refused. A send's plan (which codes queue, which are skipped and why, which
+  batch and queue nothing; the same key for another body or other codes (a view selection's included, as it
+  resolves now) is refused. A send's plan (which codes queue, which are skipped and why, which
   are no registration of the event) is the one `SendManualMail::plan()`, which
   the use case runs and the command line's preview shows; a code that is no
   registration of the event refuses the batch (`UnknownRegistrationCode`). Any
@@ -157,9 +203,10 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   that is gone is `BodyUnusable` (`no_batch <id>`), failed with no attempt and
   never counted toward pausing.
 - `wp kalaka mail send|batches` (`Cli/ManualMailCommand`, `Cli/ManualMailBatchesCommand`) is a thin entry
-  point beside `MailCommand`: `send` checks the actor's grants on the codes
-  (`AdminAccess::check()`) before it prints anything about them, shows what it
-  would do, asks first (`--yes` skips; `--dry-run` only shows) and changes only
+  point beside `MailCommand`: `send` shows what it would do through the checked
+  preview, `Api\ManualMails::preview()`, which checks the actor's grants on the
+  codes (`AdminAccess::check()`) before it prints anything about them, asks first
+  (`--yes` skips; `--dry-run` only shows) and changes only
   through `SendManualMail`, whose `refuseUnknown()` it runs ahead of the question;
   `batches` reads the batch's own record for full access only.
 - `wp kalaka action-mail list|show|on|off|body|layout <event_id> …` (`Cli/`) is a
@@ -173,14 +220,30 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   `UpdateActionMail` and never switches a mail on. `list`, `show`, `body` and `layout` share
   `Cli\CliInput` (event ID, format, the read guard, which runs before an event is looked up) and
   `CliActor::current()`; so do `mail status`, `failed` and `batches` below.
-- `wp kalaka mail status|pause|resume|clear-queue|clear-event|failed` (`Cli/MailCommand`) is a
-  thin entry point: it changes only through `PauseMail`, `ResumeMail`, `ClearMailQueue` and
+- `wp kalaka mail status|pause|resume|budget|clear-queue|clear-event|failed` (`Cli/MailCommand`) is a
+  thin entry point: it changes only through `PauseMail`, `ResumeMail`, `SetMailBudget`, `ClearMailQueue` and
   `ClearEventMail`, as the command line or as WP-CLI's `--user`; `status` and `failed` read for
   full access only. Only a person resumes: `ResumeMail` refuses any actor that is no person
   (`ResumeNeedsPerson`), and `resume` adds the hint to give `--user`. The clears ask first
   (`--yes` skips), after the access check; `clear-event` runs the use case's own `ClearEventMail::refuse()`
   ahead of the question. Whether an event's mail is held is read once, in `Api\MailHold`, by the sender,
   the clear and, from #244, the manual send's warning.
+- The eight use cases `kalaka/update-action-mail`, `kalaka/set-event-mail-layout`,
+  `kalaka/pause-mail`, `kalaka/resume-mail`, `kalaka/set-mail-budget`, `kalaka/clear-mail-queue`,
+  `kalaka/clear-event-mail` and `kalaka/send-manual-mail` are abilities, registered
+  in `Module::boot()`; each is the one entry a screen and the command line share,
+  and only the two that read WordPress data first have a `$prepare`
+  (`prepared()`). The screens' reads are `Rest\MailRoutes` under
+  `kalaka-admin/v1`: delivery only, with every rule the use case's or an `Api`
+  read's own. They are for full access, except the manual mail's preview: its gate
+  is `Access::mayReachAdmin()` and `Api\ManualMails::preview()` runs
+  `AdminAccess::check()` before the plan, so an unknown code and a code outside the
+  view give the same refusal, and the event's existence is looked for after it. The preview takes the same
+  `selection` and returns `count`, the number of codes it resolves now, beside the plan.
+  The failed list and the batch's members show each registration's code and its
+  display name (resolved through `Admin\Api\ViewQuery::namesOf()` on the viewer's
+  held view, so a viewer without name access sees the code only), never an
+  address; the preview carries the same name in its `names` map.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which
   caps a run at 20 seconds.

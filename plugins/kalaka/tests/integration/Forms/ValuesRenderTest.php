@@ -9,6 +9,7 @@ use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Api\Values;
 use Kalaka\Forms\Engine\Value\RenderStack;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /** AC3 and AC4: rendering block markup with a value context (D7, D15, D16, D17). */
@@ -377,5 +378,45 @@ final class ValuesRenderTest extends \WP_UnitTestCase
             self::assertStringNotContainsString('kicsi', $html);
             self::assertStringNotContainsString('nagy', $html);
         }
+    }
+
+    /**
+     * 8.11 a: a page fills a typed placeholder only inside a Kaláka block; a `{{key}}` in an ordinary paragraph
+     * is not Kaláka's and is left as typed (the save check leaves it alone too).
+     */
+    public function testAPageFillsATypedPlaceholderOnlyInsideAKalakaBlock(): void
+    {
+        $context = new ValueContext([
+            'registration.code' => Value::text('00A1', '00A1'),
+            'nothing' => Value::none(ValueType::Text),
+        ]);
+        $content = $this->paragraph('{{registration.code}}')
+            . $this->branch('if', $this->comparison('nothing', 'empty'), $this->paragraph('{{registration.code}}'));
+
+        $html = $this->values->renderPage($content, $context);
+        $html = str_replace(' class="wp-block-paragraph"', '', $html);
+
+        self::assertStringContainsString('<p>{{registration.code}}</p>', $html);
+        self::assertStringContainsString('<p>00A1</p>', $html);
+    }
+
+    /**
+     * 8.11 a: an unknown typed placeholder fails the whole page render, and the page's boundary shows the error
+     * in its place — never the raw `{{key}}` (owner 2026-11-27, walkthrough 8.11 a, N1150).
+     */
+    public function testAnUnknownTypedPlaceholderFailsTheWholePageRender(): void
+    {
+        $context = new ValueContext(['registration.code' => Value::text('00A1', '00A1')]);
+        $content = '<!-- wp:kalaka/status -->' . $this->paragraph('{{nincs}}')
+            . '<!-- /wp:kalaka/status -->' . $this->paragraph('utána');
+
+        $html = Boundary::render(
+            'a page',
+            fn (): string => $this->values->renderPage($content, $context)
+        );
+
+        self::assertStringNotContainsString('{{nincs}}', $html);
+        self::assertStringNotContainsString('utána', $html);
+        self::assertStringContainsString('Váratlan hiba történt.', $html);
     }
 }

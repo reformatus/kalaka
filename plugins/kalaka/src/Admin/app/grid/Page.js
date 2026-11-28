@@ -31,9 +31,12 @@ import * as api from './api';
 import { countsDiffer, countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
+import { labelRowCheckboxes } from './selectionLabels';
 import ColumnMenu from './ColumnMenu';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import DetailPanel from './DetailPanel';
+import { manualMailAction } from '../mail/bulk';
+import { GRIDACTION } from '../mail/texts';
 import { GRID, PANEL, SUM } from './texts';
 
 /**
@@ -84,6 +87,9 @@ export default function Page( { config } ) {
 	}
 	const [ , setPickTick ] = useState( 0 );
 	const [ sumsFail, setSumsFail ] = useState( false );
+	// The ticked rows' keys (the codes), for the bulk action „Levél küldése”: of this page only (DataViews drops
+	// the ones not on the page), and cleared with the tab, the page, the order and the filters.
+	const [ selection, setSelection ] = useState( [] );
 	// The code of the registration in the panel, or null.
 	const [ open, setOpen ] = useState( null );
 	const openRef = useRef( null );
@@ -263,6 +269,10 @@ export default function Page( { config } ) {
 		return () => {
 			live = false;
 		};
+	}, [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
+
+	useEffect( () => {
+		setSelection( [] );
 	}, [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
 
 	useEffect( () => {
@@ -450,6 +460,35 @@ export default function Page( { config } ) {
 		// A view with no registrations at all.
 		empty = <p className="kg-no-match">{ GRID.emptyView }</p>;
 	}
+	// The bulk action „Levél küldése”, only on a tab that carries the manual mail.
+	const actions = useMemo(
+		() =>
+			tab.manualMail
+				? [
+						manualMailAction( {
+							eligible: true,
+							event: config.event,
+							previewPath: `${ config.rest }/mail/manual/preview`,
+							onSent: () => setSelection( [] ),
+						} ),
+				  ]
+				: [],
+		[ tab.manualMail, config.event, config.rest ]
+	);
+	// Each row's selection checkbox is named with the registration's code (DataViews says „(no title)”).
+	const rowKeys = data.rows.map( ( row ) => row.key ).join( '\u0000' );
+	useLayoutEffect( () => {
+		if ( ! host || actions.length === 0 ) {
+			return undefined;
+		}
+		const keys = rowKeys === '' ? [] : rowKeys.split( '\u0000' );
+		const run = () => labelRowCheckboxes( host, keys, ( key ) => fmt( GRIDACTION.selectRow, key ) );
+		run();
+		const observer = new window.MutationObserver( run );
+		observer.observe( host, { childList: true, subtree: true } );
+		return () => observer.disconnect();
+	}, [ host, actions.length, rowKeys ] );
+
 	const copyButton = (
 		<Button
 			variant="secondary"
@@ -485,6 +524,7 @@ export default function Page( { config } ) {
 				sums={ sums }
 				menuFor={ menuFor }
 				narrowed={ narrowed }
+				framed={ actions.length > 0 }
 			/>
 			<div ref={ setHost } className="kg-dv" onClick={ onHostClick }>
 				<DataViews
@@ -506,7 +546,9 @@ export default function Page( { config } ) {
 					} }
 					defaultLayouts={ { table: {} } }
 					getItemId={ ( item ) => item.key }
-					actions={ [] }
+					actions={ actions }
+					selection={ selection }
+					onChangeSelection={ setSelection }
 					search={ false }
 					config={ { perPageSizes: config.perPages } }
 					empty={ empty }
@@ -527,6 +569,7 @@ export default function Page( { config } ) {
 						</div>
 					</div>
 					<DataViews.Layout />
+					<DataViews.BulkActionToolbar />
 					<div className="kg-dv-foot">
 						{ perPage }
 						<DataViews.Pagination />

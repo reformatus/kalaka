@@ -19,9 +19,9 @@ final class Values
 
     /**
      * Checks a document's block markup (a mail body) when it is saved, against the keys and types its
-     * context will declare: every chain's placement and condition, in every branch, and every binding and
-     * inline value; and it holds no field block and no form-only block. What passes renders for any context
-     * with those keys.
+     * context will declare: every chain's placement and condition, in every branch, and every binding,
+     * inline value and typed placeholder; and it holds no field block and no form-only block. What passes renders
+     * for any context with those keys.
      *
      * @param array<string, ValueType> $declared
      * @param list<string> $paths the declared keys whose value is a path (`PathFieldType`), which a condition
@@ -34,7 +34,19 @@ final class Values
     }
 
     /**
-     * The keys a document places as values (a `kalaka/value` binding or an inline value), found
+     * The placeholders typed as `{{key}}` in a document's text and attributes whose key `$declared` does not hold,
+     * as typed and each once: what a save refuses (`UnknownPlaceholder`). `{{content}}` is never declared here.
+     *
+     * @param array<string, ValueType> $declared
+     * @return list<string>
+     */
+    public function unknownPlaceholders(string $content, array $declared): array
+    {
+        return $this->check->unknownPlaceholders($content, $declared);
+    }
+
+    /**
+     * The keys a document places as values (a `kalaka/value` binding, an inline value or a typed placeholder), found
      * by the same walk the save check and the render use; a key that only a condition names is not among
      * them. The mail's save check asks it for the set-password link.
      *
@@ -48,8 +60,8 @@ final class Values
     /**
      * Renders a document's block markup (a mail body): every chain is resolved first and only the
      * held branch's inner blocks render, with no wrapper; then `kalaka/value` bindings and inline
-     * values are filled from the context. Outside this call the branch blocks render nothing and
-     * bindings and inline values stay as authored.
+     * values and typed `{{key}}` placeholders are filled from the context. Outside this call the branch blocks
+     * render nothing and bindings and inline values stay as authored.
      *
      * @throws SystemFailure a misplaced branch, an invalid condition or a key the context does not declare
      */
@@ -61,9 +73,11 @@ final class Values
     /**
      * Renders an ordinary page's block markup (anything outside a form and a mail). Its context is the
      * visitor's active registration and its event; null when there is none, and then no chain renders a
-     * branch and bindings and inline values stay as authored, as when WordPress renders the page. A chain
-     * or value that fails (a key the context does not declare, an invalid condition, a misplaced branch)
-     * renders nothing and is logged, never a fatal (#53 N4, owner 2026-11-13).
+     * branch and bindings and inline values stay as authored, as when WordPress renders the page. A chain,
+     * binding or inline value that fails (an invalid condition, a misplaced branch) renders nothing and is
+     * logged, never a fatal (#53 N4, owner 2026-11-13); a typed `{{key}}` the context does not declare fails
+     * the page's render altogether (owner 2026-11-27, N1150). Only the placeholders inside Kaláka blocks are
+     * filled, which is what a page's save checks (`PageCheck`, N1180).
      *
      * The seam: nothing reads the active registration yet, so WordPress renders every page without a
      * context (no branch shows). The slice that adds `ActiveRegistration::current()` builds the context
