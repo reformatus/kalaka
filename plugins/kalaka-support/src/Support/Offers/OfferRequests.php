@@ -6,11 +6,15 @@ namespace Kalaka\Support\Offers;
 
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\Answer;
+use Kalaka\Registrations\Api\AwaitingRule;
+use Kalaka\Registrations\Api\FieldTest;
+use Kalaka\Registrations\Api\FieldTestKind;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\RequestTerms;
 use Kalaka\Registrations\Api\SeatPool;
 use Kalaka\Registrations\Api\Seats;
 
@@ -25,6 +29,11 @@ use Kalaka\Registrations\Api\Seats;
  * which gave its seat back, can still be answered "yes" again. A selection admitted or restored takes its seat
  * over the limit like every pool, so it is a request. The answer is the offer's own field: `isAnswered()` reads
  * `<key>_answer` from the values it is given. [UNAPPROVED N101, N356]
+ *
+ * `awaitingRule()` is the same question as a declarative rule for the admin grid: an offer that needs a request,
+ * chosen, and its answer field neither `approved` nor `refused`; one group per such offer. It does not test the seat
+ * of a limited offer: a registered registration holds the seat of every offer it chose until the offer is answered,
+ * so the seat test of `requestsOf()` is always met for the registrations the grid counts. [UNAPPROVED N670]
  */
 final class OfferRequests implements RequestSource
 {
@@ -68,6 +77,40 @@ final class OfferRequests implements RequestSource
         return self::answered($values, self::keyOf($request));
     }
 
+    public function awaitingRule(int $eventId): ?AwaitingRule
+    {
+        $groups = [];
+        foreach ($this->offers->forEvent($eventId) as $offer) {
+            if ($offer->needsRequest) {
+                $groups[] = [
+                    new FieldTest($offer->key, FieldTestKind::OneOf, ['1']),
+                    new FieldTest(
+                        $offer->key . SetSupportOffers::ANSWER_SUFFIX,
+                        FieldTestKind::NoneOf,
+                        ['approved', 'refused']
+                    ),
+                ];
+            }
+        }
+
+        return $groups === [] ? null : new AwaitingRule($groups);
+    }
+
+    /** An offer has no price to compare an answer with. */
+    public function terms(
+        RegistrationKey $registration,
+        Request $request,
+        array $values,
+        \DateTimeImmutable $now,
+    ): ?RequestTerms {
+        return null;
+    }
+
+    /**
+     * The offer's own pool, for every offer, limited or not (an unlimited one has a pool with no limit, so a refusal
+     * always frees its seat and a "yes" after it always takes one); the registration's key names the event, which
+     * the request does not. Null only for a request that is no offer of the event. [UNAPPROVED N1198, N1199]
+     */
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
     {
         $key = self::keyOf($request);

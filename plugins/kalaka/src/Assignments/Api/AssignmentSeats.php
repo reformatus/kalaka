@@ -19,7 +19,7 @@ use Kalaka\Registrations\Api\Seats;
  * record; this takes the seats again through `Seats::retake()`, one per confirmed assignment, over the option's limit
  * when it is full (a staff act never refuses), and the caller (the admission or restore use case) tells staff
  * with the "full" warning for each. A proposed assignment holds none. Nobody is moved out of a seat to make
- * room. [UNAPPROVED N11]
+ * room.
  */
 final class AssignmentSeats
 {
@@ -31,7 +31,7 @@ final class AssignmentSeats
 
     /**
      * The pools of the registration's confirmed assignments, in set order: the seats `retake()` takes. A plain read,
-     * for the status acts' report and preview. [UNAPPROVED N528]
+     * for the status acts' report and preview.
      *
      * @return list<SeatPool>
      */

@@ -61,4 +61,26 @@ final class GridModelOrderTest extends TestCase
 
         self::assertSame(['code', 'field:a', 'status', 'serial', 'decision:x'], $ordered);
     }
+
+    /** The display name field's column says so (the app shows the name beside the code); no other column does. */
+    public function testOnlyTheNameFieldsColumnIsMarkedAsTheName(): void
+    {
+        $fields = [
+            'a' => new FieldDefinition('a', 'kalaka/name-field', 'Név', [], false, 'string'),
+            'b' => new FieldDefinition('b', 'kalaka/text-field', 'Megjegyzés', [], false, 'string'),
+        ];
+        $model = (new \ReflectionClass(GridModel::class))->newInstanceWithoutConstructor();
+        $meta = new \ReflectionMethod(GridModel::class, 'meta');
+
+        /** @var array<string, mixed> $name */
+        $name = $meta->invoke($model, 'field:a', $fields, 1);
+        /** @var array<string, mixed> $other */
+        $other = $meta->invoke($model, 'field:b', $fields, 1);
+        /** @var array<string, mixed> $code */
+        $code = $meta->invoke($model, 'code', $fields, 1);
+
+        self::assertTrue($name['name']);
+        self::assertArrayNotHasKey('name', $other);
+        self::assertArrayNotHasKey('name', $code);
+    }
 }

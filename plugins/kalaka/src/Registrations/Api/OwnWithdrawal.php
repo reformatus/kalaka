@@ -20,7 +20,8 @@ final class OwnWithdrawal
     }
 
     /**
-     * @param bool $preview true: `{allowed, paid, owed_after}` of the registrant's own payer, nothing written
+     * @param bool $preview true: `{allowed, paid, owed_after, retained, surplus}` of the registrant's own payer,
+     *     nothing written
      * @return array<string, mixed> `{changed, status}`, or the preview
      * @throws \Kalaka\Foundation\Api\Error\KalakaException as the use case throws it
      */

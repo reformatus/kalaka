@@ -1,0 +1,29 @@
+/* The manual mail dialog (prototype, unapproved look): WordPress's own components and spacing; only the lists. */
+.km-dialog .km-members {
+	margin: 0 0 16px;
+	padding-left: 20px;
+	max-height: 12em;
+	overflow: auto;
+	list-style: disc;
+}
+
+.km-dialog .km-code-text,
+.km-members .km-code-text {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.km-dialog .components-base-control,
+.km-dialog .components-checkbox-control {
+	margin-bottom: 16px;
+}
+
+.km-dialog .km-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+.km-dialog .km-err {
+	color: #cc1818;
+}

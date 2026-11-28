@@ -10,7 +10,7 @@ namespace Kalaka\Registrations\Api;
  * and withdraw is also the participant's own act (`WithdrawOwnRegistration`, by the secret-link actor); nothing else
  * changes a status after the submit set it. The table of what each allows and does is here, once:
  * the use cases, the preview and the detail read's `can` flags all read it. A restore is full access only: it
- * carries no grant action (`action()` is null). [UNAPPROVED N510]
+ * carries no grant action (`action()` is null).
  */
 enum StatusAct: string
 {
@@ -39,7 +39,7 @@ enum StatusAct: string
     /**
      * The status the act leaves the registration in. A restore returns the registration to the status it left from:
      * `registered` when it was ever registered (`$wasRegistered`: it has a `registered_at`), `waitlisted` when it was
-     * never registered. [UNAPPROVED N519]
+     * never registered.
      */
     public function target(bool $wasRegistered = true): RegistrationStatus
     {
@@ -71,7 +71,7 @@ enum StatusAct: string
         return $status === ($this === self::Restore ? RegistrationStatus::Registered : $this->target());
     }
 
-    /** Whether the act needs a reason: none does (N514); kept in the shape, always false. [UNAPPROVED N514] */
+    /** Whether the act needs a reason: none does (N514); kept in the shape, always false. */
     public function reasonRequired(): bool
     {
         return false;

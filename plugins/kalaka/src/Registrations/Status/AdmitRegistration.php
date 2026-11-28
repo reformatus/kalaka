@@ -6,7 +6,7 @@ namespace Kalaka\Registrations\Status;
 
 use Kalaka\Registrations\Api\StatusAct;
 
-/** Admit a waitlisted registration: it becomes `registered` and takes its seats again. [UNAPPROVED N510] */
+/** Admit a waitlisted registration: it becomes `registered` and takes its seats again. */
 final class AdmitRegistration extends StatusChange
 {
     public static function name(): string

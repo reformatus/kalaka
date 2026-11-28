@@ -27,8 +27,10 @@ use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\Request;
+use Kalaka\Registrations\Api\RequestKind;
+use Kalaka\Registrations\Api\Requests;
 use Kalaka\Pricing\Cli\SettingsDocument;
-use Kalaka\Support\Api\OfferSelected;
 use Kalaka\Support\Offers\OfferClaims;
 use Kalaka\Support\Offers\OfferRequests;
 use Kalaka\Support\Offers\OfferSeatPool;
@@ -299,7 +301,8 @@ final class OffersTest extends OffersTestCase
         $this->applyOffers([self::offer('keret', '8000', request: true, limit: 1)]);
         $key = $this->registerSelecting('00A0', 'keret');
 
-        self::assertFalse($this->awaits($key));
+        // The panel reads no request; the rule (and so awaits()) does not test seats: a submit always holds one.
+        self::assertSame([], (new Requests())->states($key));
         self::assertSame('30000', $this->balance($key));
     }
 
@@ -330,6 +333,28 @@ final class OffersTest extends OffersTestCase
         self::assertTrue($again['over_limit']);
         self::assertTrue($this->holds($anna, 'keret'));
         self::assertSame('22000', $this->balance($anna));
+    }
+
+    public function testAnUnlimitedOfferHasAPoolForTheAnswerActSoARefusalFreesItsSeatAndAYesTakesOne(): void
+    {
+        $this->applyOffers([self::offer('szabad', '1000', request: true)]);
+        $anna = $this->register('00A0');
+        $this->holdSeat($anna, 'szabad');
+        $this->writeValue($anna, 'szabad', '1');
+        $request = new Request(OfferRequests::PREFIX . 'szabad', RequestKind::Offer, 'Szabad');
+
+        $pool = (new OfferRequests())->seatPool($anna, $request);
+        self::assertInstanceOf(OfferSeatPool::class, $pool);
+        self::assertNull($pool->limit());
+        $unknown = new Request(OfferRequests::PREFIX . 'nincs', RequestKind::Offer, 'Nincs');
+        self::assertNull((new OfferRequests())->seatPool($anna, $unknown));
+
+        $this->answer($anna, 'szabad', 'no');
+        self::assertFalse($this->holds($anna, 'szabad'));
+
+        $again = $this->answer($anna, 'szabad', 'yes');
+        self::assertFalse($again['over_limit']);
+        self::assertTrue($this->holds($anna, 'szabad'));
     }
 
     public function testReleaseAllFreesAnOfferSeat(): void
@@ -379,9 +404,8 @@ final class OffersTest extends OffersTestCase
             $this->applyOffers([self::offer('csalad', '3000')]);
             self::fail('The save went through.');
         } catch (RuleViolation $refused) {
-            self::assertInstanceOf(OfferSelected::class, $refused);
             self::assertInstanceOf(ItemChosen::class, $refused);
-            self::assertSame('kalaka_offer_selected', $refused->errorCode());
+            self::assertSame('kalaka_item_chosen', $refused->errorCode());
             self::assertCount(2, $this->offers->offers($this->event));
         }
 
@@ -636,7 +660,8 @@ final class OffersTest extends OffersTestCase
         $key = $this->register('00A0', RegistrationStatus::Waitlisted);
         $this->writeValue($key, 'keret', '1');
 
-        self::assertFalse($this->awaits($key));
+        // The panel reads no request; the rule (and so awaits()) does not test seats, and a waitlisted one awaits.
+        self::assertSame([], (new Requests())->states($key));
         self::assertSame([], $this->lineSources($key));
     }
 
@@ -699,24 +724,74 @@ final class OffersTest extends OffersTestCase
         }
     }
 
-    /** @return list<string> the net of each support item's charge lines as "source payer amount", nets of zero left out */
-    private function lineSources(RegistrationKey $key): array
+    /** @return list<string> the codes of the event's registrations core's compiled condition says await an answer */
+    private function awaitingBySql(): array
     {
-        $net = [];
-        foreach ($this->charges($key) as $line) {
-            [$source, $payer, $amount] = explode(' ', $line);
-            if (str_starts_with($source, 'support:')) {
-                $net[$source . ' ' . $payer] = ($net[$source . ' ' . $payer] ?? 0) + (int) $amount;
-            }
-        }
-        $lines = [];
-        foreach ($net as $item => $amount) {
-            if ($amount !== 0) {
-                $lines[] = $item . ' ' . $amount;
-            }
-        }
-        sort($lines);
+        global $wpdb;
+        $table = $wpdb->prefix . 'kalaka_field_values';
+        [$condition, $args] = (new Requests([new OfferRequests()]))->awaitingCondition($this->event, $table);
+        $sql = 'SELECT r.code FROM %i r WHERE r.event_id = %d AND (' . $condition . ') ORDER BY r.code';
+        $codes = $wpdb->get_col(
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test inspection; the text is the table placeholders and the condition's own placeholders
+            $wpdb->prepare($sql, $wpdb->prefix . 'kalaka_registrations', $this->event, ...$args)
+        );
 
-        return $lines;
+        return array_map('strval', $codes);
+    }
+
+    public function testTheAwaitingRuleMeansWhatTheRequestSourceMeans(): void
+    {
+        $this->applyOffers([
+            self::offer('egyhaz', '1000', request: true),
+            self::offer('masik', '700', request: true),
+            self::offer('nemkell', '500'),
+            self::offer('korlatos', '200', request: true, limit: 2),
+        ]);
+        $awaiting = [
+            $this->registerSelecting('00A0', 'egyhaz'),
+            $this->registerSelecting('00A2', 'egyhaz'),
+            $this->registerSelecting('00A5', 'egyhaz', 'masik'),
+            $this->registerSelecting('00B0', 'korlatos'),
+        ];
+        $this->holdSeat($awaiting[3], 'korlatos');
+        $this->writeValue($awaiting[1], 'egyhaz_answer', '');
+        $this->writeValue($awaiting[2], 'masik_answer', 'approved');
+        $this->writeValue($this->registerSelecting('00B3', 'egyhaz'), 'egyhaz_answer', 'approved');
+        $this->writeValue($this->registerSelecting('00B6', 'egyhaz'), 'egyhaz_answer', 'refused');
+        $this->registerSelecting('00B9', 'nemkell');
+        $this->register('00E2');
+        $waitlisted = $this->register('00E5', RegistrationStatus::Waitlisted);
+        $this->writeValue($waitlisted, 'egyhaz', '1');
+        $withdrawn = $this->register('00E8', RegistrationStatus::Withdrawn);
+        $this->writeValue($withdrawn, 'egyhaz', '1');
+
+        $bySql = $this->awaitingBySql();
+
+        self::assertSame(['00A0', '00A2', '00A5', '00B0'], $bySql);
+        $requests = new Requests([new OfferRequests()]);
+        $byStates = [];
+        $byRule = [];
+        $rule = (new OfferRequests())->awaitingRule($this->event) ?? throw new \LogicException();
+        foreach (['00A0', '00B3', '00B6', '00B9', '00A2', '00A5', '00E2', '00E5', '00E8', '00B0'] as $code) {
+            $key = new RegistrationKey($this->event, $code);
+            $status = (new Registrations())->find($key)->status ?? throw new \LogicException();
+            if ($status === RegistrationStatus::Registered && $requests->awaits($key, $status)) {
+                $byStates[] = $code;
+            }
+            if ($status === RegistrationStatus::Registered && $rule->matches((new Registrations())->values($key))) {
+                $byRule[] = $code;
+            }
+        }
+        sort($byStates);
+        sort($byRule);
+        self::assertSame($byStates, $bySql);
+        self::assertSame($byRule, $bySql);
+    }
+
+    public function testNoOfferThatNeedsApprovalGivesNoRule(): void
+    {
+        $this->applyOffers([self::offer('nemkell', '500')]);
+
+        self::assertNull((new OfferRequests())->awaitingRule($this->event));
     }
 }

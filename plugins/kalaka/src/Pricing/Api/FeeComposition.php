@@ -14,6 +14,7 @@ use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\Requests;
 
 /**
  * The one fee composition (money.md, "Materializer"), read-only: the event's current settings, the
@@ -30,6 +31,7 @@ final class FeeComposition
         private readonly Registrations $registrations = new Registrations(),
         private readonly Ledger $ledger = new Ledger(),
         private readonly EventRetention $retention = new EventRetention(),
+        private readonly Requests $requests = new Requests(),
     ) {
     }
 
@@ -68,7 +70,7 @@ final class FeeComposition
             return null;
         }
         if ($becoming !== null) {
-            $facts = $facts->becoming($becoming, $now);
+            $facts = $facts->becoming($becoming, $now, $this->requests->awaits($key, $becoming));
         }
 
         return new ComposedFee(
@@ -80,7 +82,8 @@ final class FeeComposition
                 $this->composer->compose($facts, $event->currency, $now, $this->components->list()),
                 $this->components->list(),
                 $now
-            )
+            ),
+            self::stagesOf($this->components->list())
         );
     }
 
@@ -120,9 +123,10 @@ final class FeeComposition
         }
         ksort($paid, SORT_STRING);
         try {
-            $fee = $this->composer->compose($facts->asIfRegistered($now), $currency, $now, $components);
+            $awaits = $this->requests->awaits($facts->registration, RegistrationStatus::Registered);
+            $fee = $this->composer->compose($facts->asIfRegistered($now, $awaits), $currency, $now, $components);
         } catch (FeeComponentFailed) {
-            // The leaving does not fail on a fee component: the rule is told it cannot be said. [UNAPPROVED N674]
+            // The leaving does not fail on a fee component: the rule is told it cannot be said.
             $fee = null;
         }
         $kept = [];
@@ -158,5 +162,19 @@ final class FeeComposition
         }
 
         return $composed;
+    }
+
+    /**
+     * @param list<FeeComponent> $components
+     * @return array<string, FeeStage>
+     */
+    private static function stagesOf(array $components): array
+    {
+        $stages = [];
+        foreach ($components as $component) {
+            $stages[$component->id()] = $component->stage();
+        }
+
+        return $stages;
     }
 }

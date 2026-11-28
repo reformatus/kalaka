@@ -24,16 +24,16 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * award, or an award of 0 (the answer "no"), writes no line; while the request awaits its answer the award field
  * is empty, so there is no reduction. It reads only the registration's facts and the event's settings (or the
  * proposed ones in a preview), never a charge line. The line is named by the event's aid label
- * (`NamedFeeComponent`). [UNAPPROVED N115, N118, N119, N123]
+ * (`NamedFeeComponent`). [UNAPPROVED N119]
  */
 final class AidComponent implements ConfigurableFeeComponent, NamedFeeComponent
 {
     public const ID = 'aid';
 
-    /** The award participant field, extension-only. [UNAPPROVED N115] */
+    /** The award participant field, extension-only. */
     public const AWARD_FIELD = 'aid_award';
 
-    /** The item key of the aid line, so its source is `aid:award`. [UNAPPROVED N118] */
+    /** The item key of the aid line, so its source is `aid:award`. */
     public const ITEM = 'award';
 
     /**
@@ -72,7 +72,7 @@ final class AidComponent implements ConfigurableFeeComponent, NamedFeeComponent
 
     /**
      * The aid line is named by the event's aid label, the organizers' text (`LineName::COMPONENT`). An event with
-     * no label has no aid and so no line. [UNAPPROVED N123]
+     * no label has no aid and so no line.
      */
     public function lineNames(RegistrationKey $registration, array $items): array
     {

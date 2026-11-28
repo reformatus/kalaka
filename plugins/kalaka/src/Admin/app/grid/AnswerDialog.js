@@ -1,24 +1,35 @@
 /**
  * The answer dialog (slice B): yes or no for a request, for an aid "yes" the amount awarded, and a note, optional
- * except for a "yes" to an offer (`kalaka/answer-request`). A failed save keeps the dialog and what was typed, and
- * while it runs the dialog does not close. A refused "yes" over the limit is not refused: the warning stands above the buttons and
- * the answer may be given. [UNAPPROVED N7]
+ * for every answer (a "yes" to an offer included: owner 2026-11-26, N985). A failed save keeps the dialog and what
+ * was typed, and while it runs the dialog does not close. A refused "yes" over the limit is not refused: the warning
+ * stands above the buttons and the answer may be given.
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, RadioControl, TextControl, TextareaControl } from '@wordpress/components';
 import * as api from './api';
-import { asksAmount, asksReason, buildAnswer, savedText, validateAnswer, validateNote, warnsFull } from './requests';
+import {
+	aidFigures,
+	asksAmount,
+	buildAnswer,
+	hintedAmount,
+	savedText,
+	validateAnswer,
+	validateNote,
+	warnsFull,
+} from './requests';
+import { formatMoney } from './money';
 import { MONEY, REQUESTS } from './texts';
 
 /**
  * @param {Object}   props
- * @param {Object}   props.config  window.kalakaGrid
- * @param {string}   props.code    the registration's code
- * @param {Object}   props.item    the request as the read gives it
+ * @param {Object}   props.config   window.kalakaGrid
+ * @param {string}   props.code     the registration's code
+ * @param {string}   props.currency the read's currency
+ * @param {Object}   props.item     the request as the read gives it
  * @param {Function} props.onClose closes the dialog
  * @param {Function} props.onDone  called with the snackbar text once it is saved; empty when nothing changed
  */
-export default function AnswerDialog( { config, code, item, onClose, onDone } ) {
+export default function AnswerDialog( { config, code, currency, item, onClose, onDone } ) {
 	const [ answer, setAnswer ] = useState( '' );
 	const [ amount, setAmount ] = useState( '' );
 	const [ note, setNote ] = useState( '' );
@@ -104,10 +115,22 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 					onChange={ ( value ) => {
 						// Another choice starts afresh for the choice and the amount; the note's message stays.
 						setAnswer( value );
+						// A "yes" to an aid hints the amount asked for (owner 2026-11-27, walkthrough 6.8); the
+						// read carries it only for a holder with the money fields. [UNAPPROVED T8]
+						setAmount( asksAmount( item, value ) ? hintedAmount( item ) : '' );
 						setErrors( ( now ) => ( now.note ? { note: now.note } : {} ) );
 					} }
 					help={ fieldError( 'answer' ) }
 				/>
+				{ asksAmount( item, answer ) && aidFigures( item ).length > 0 && (
+					<ul className="kg-aid">
+						{ aidFigures( item ).map( ( figure ) => (
+							<li key={ figure.key }>
+								{ figure.label }: { formatMoney( figure.value, currency ) }
+							</li>
+						) ) }
+					</ul>
+				) }
 				{ asksAmount( item, answer ) && (
 					<TextControl
 						label={ REQUESTS.amountField }
@@ -121,8 +144,12 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 						__nextHasNoMarginBottom
 					/>
 				) }
+				{ /* Always „Megjegyzés”, for every request and every answer: 6.8 accepted the lektor text, so the
+				     „Indoklás” swap goes. */ }
 				<TextareaControl
-					label={ asksReason( item, answer ) ? MONEY.reasonField : REQUESTS.noteField }
+					// The note is always „Megjegyzés”, never a reason, for every request kind (owner 2026-11-27,
+					// walkthrough 6.8).
+					label={ REQUESTS.noteField }
 					value={ note }
 					onChange={ setNote }
 					rows={ 3 }

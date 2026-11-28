@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Divi4;
 
 use Kalaka\Divi4\DiviThemeAdapter;
 use Kalaka\Divi4\Module;
+use Kalaka\Forms\Api\ContentFrame;
 use Kalaka\Forms\Api\ElementRole;
 use Kalaka\Forms\Api\FieldWrapper;
 use Kalaka\Forms\Api\ThemeAdapterInput;
@@ -89,6 +90,9 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
             self::assertSame(['et_pb_contact_form'], $divi4->requiredAssets([], $form));
             self::assertSame(['et_pb_contact_form'], $divi4->requiredAssets(['et_pb_contact_form'], $form));
             self::assertSame([], $divi4->requiredAssets([], 'no form here'));
+            // The status block's card payment button wears the form's button class.
+            self::assertSame(['et_pb_contact_form'], $divi4->requiredAssets([], '[kalaka_status]'));
+            self::assertSame(['et_pb_contact_form'], $divi4->requiredAssets([], '<!-- wp:kalaka/status /-->'));
             self::assertSame([], (new Module(self::divi('5.0.0')))->requiredAssets([], $form), 'Divi 5');
         } finally {
             remove_filter('template', $template);
@@ -114,7 +118,16 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         self::assertStringContainsString(Module::IPHONE_CONTROLS, $css);
         self::assertStringContainsString('.et_pb_contact_form .kalaka-number__affix', $css);
         self::assertStringContainsString('--kalaka-number-affix-colour', $css);
-        self::assertStringContainsString('padding-left:var(--kalaka-number-prefix-room,0)', $css);
+        // The padding is scoped to the modifier classes: a number without an affix keeps Divi's own padding.
+        self::assertStringContainsString(
+            '.et_pb_contact_form .kalaka-number--prefix input{padding-left:var(--kalaka-number-prefix-room,0)}',
+            $css
+        );
+        self::assertStringContainsString(
+            '.et_pb_contact_form .kalaka-number--suffix input{padding-right:var(--kalaka-number-suffix-room,0)}',
+            $css
+        );
+        self::assertStringNotContainsString('.kalaka-number input{', $css);
         // Scoped to Kaláka's fields inside the form Divi styles, and only to checkboxes and radio buttons;
         // the ranking's +/× toggle, a checkbox Kaláka draws itself, is left out.
         self::assertSame(
@@ -170,6 +183,100 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         );
     }
 
+    public function testAMoneyTableInTheContentIsTheStatusBlockOrTheShortcode(): void
+    {
+        self::assertTrue(Module::holdsMoneyTable('<!-- wp:kalaka/status /-->'));
+        self::assertTrue(Module::holdsMoneyTable('[et_pb_section][et_pb_text][kalaka_status][/et_pb_text]'));
+        self::assertFalse(Module::holdsMoneyTable('<!-- wp:kalaka/transfer /-->[kalaka_transfer]'));
+        self::assertFalse(Module::holdsMoneyTable('<!-- wp:paragraph --><p>kalaka_status</p><!-- /wp:paragraph -->'));
+    }
+
+    /** The adapter's CSS of a page with the given content, under Divi 4 ('' when none is enqueued). */
+    private function divi4Css(string $content): string
+    {
+        $post = self::factory()->post->create(['post_content' => $content]);
+        $this->go_to((string) get_permalink($post));
+        // A fresh style queue: the tests share WordPress's global one.
+        $GLOBALS['wp_styles'] = null;
+        $template = static fn (): string => 'Divi';
+        add_filter('template', $template);
+        try {
+            (new Module(self::divi('4.27.4')))->enqueue();
+        } finally {
+            remove_filter('template', $template);
+        }
+
+        return wp_style_is('kalaka-divi4', 'enqueued')
+            ? implode('', (array) wp_styles()->get_data('kalaka-divi4', 'after'))
+            : '';
+    }
+
+    public function testTheAboveTheFoldFilterNamesDivisFormStylesOnlyOnAFormOrStatusPageUnderDivi4(): void
+    {
+        $module = new Module();
+        $module->boot();
+        // After Divi's own callback (priority 10), which replaces the list.
+        self::assertSame(11, has_filter('et_dynamic_assets_modules_atf', [$module, 'aboveTheFoldAssets']));
+
+        self::assertSame([], $module->aboveTheFoldAssets([], '[kalaka_form id="8"]'), 'not Divi');
+
+        $template = static fn (): string => 'Divi';
+        add_filter('template', $template);
+        try {
+            self::assertSame([], $module->aboveTheFoldAssets([], '[kalaka_form id="8"]'), 'no Divi 4');
+
+            $divi4 = new Module(self::divi('4.27.4'));
+            self::assertSame(['et_pb_contact_form'], $divi4->aboveTheFoldAssets([], '[kalaka_form id="8"]'));
+            self::assertSame(['et_pb_contact_form'], $divi4->aboveTheFoldAssets([], '<!-- wp:kalaka/status /-->'));
+            self::assertSame(
+                ['et_pb_text', 'et_pb_contact_form'],
+                $divi4->aboveTheFoldAssets(['et_pb_text'], '[kalaka_status]')
+            );
+            self::assertSame(
+                ['et_pb_contact_form'],
+                $divi4->aboveTheFoldAssets(['et_pb_contact_form'], '[kalaka_form]')
+            );
+            self::assertSame(['et_pb_text'], $divi4->aboveTheFoldAssets(['et_pb_text'], 'no form here'));
+            self::assertSame('x', $divi4->aboveTheFoldAssets('x', '[kalaka_form]'), 'array only');
+            $divi5 = new Module(self::divi('5.0.0'));
+            self::assertSame([], $divi5->aboveTheFoldAssets([], '[kalaka_form id="8"]'), 'Divi 5');
+        } finally {
+            remove_filter('template', $template);
+        }
+    }
+
+    public function testTheButtonIconKeepsDivisGlyphWithAnEmptyTextAlternativeForKalakasButtonsOnly(): void
+    {
+        self::assertSame(
+            '.et_pb_contact_form[data-wp-interactive="kalaka/form"] .et_pb_button:after,'
+                . '.kalaka-pay-card .et_pb_button:after{content:"\35";content:"\35" / ""}',
+            Module::BUTTON_ICON
+        );
+        self::assertStringContainsString(Module::BUTTON_ICON, $this->divi4Css('[kalaka_form id="8"]'));
+        self::assertStringContainsString(Module::BUTTON_ICON, $this->divi4Css('<!-- wp:kalaka/status /-->'));
+        // The focus ring Divi's `:focus { outline: 0 }` takes away, and the card button without the submit's margin.
+        self::assertStringContainsString(Module::BUTTONS, $this->divi4Css('[kalaka_form id="8"]'));
+        self::assertStringContainsString(Module::BUTTONS, $this->divi4Css('<!-- wp:kalaka/status /-->'));
+    }
+
+    public function testUnderDivi4AStatusPageGetsTheMoneyTablesRowLineAndNothingOfTheForm(): void
+    {
+        $css = $this->divi4Css('<!-- wp:kalaka/status /-->');
+
+        // Divi's `#eee` line of a `td`, on the row header too; not on the rows core separates itself.
+        self::assertSame(Module::MONEY_TABLE . Module::BUTTON_ICON . Module::BUTTONS, $css);
+        self::assertStringContainsString(
+            '.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}',
+            $css
+        );
+    }
+
+    public function testAFormPageGetsNoMoneyTableRule(): void
+    {
+        self::assertStringNotContainsString('kalaka-money', $this->divi4Css('[kalaka_form id="8"]'));
+        self::assertStringContainsString('et_pb_contact_form', $this->divi4Css('[kalaka_form id="8"]'));
+    }
+
     public function testAPageWithoutAFormGetsNoStylesheet(): void
     {
         $post = self::factory()->post->create(['post_content' => 'Nincs itt űrlap.']);
@@ -185,5 +292,15 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         }
 
         self::assertFalse(wp_style_is('kalaka-divi4', 'enqueued'));
+    }
+
+    public function testTheCardReturnPageGetsDivisPageFrameAndFullWidthBodyFromTheClosedLists(): void
+    {
+        $adaptation = self::divi('4.27.4')->adapt(new ThemeAdapterInput('Divi', 'Divi'));
+
+        self::assertNotNull($adaptation);
+        self::assertSame(ContentFrame::Page, $adaptation->frame);
+        self::assertSame(['et_full_width_page'], $adaptation->classes(ElementRole::PageBody));
+        self::assertSame(['et_left_sidebar', 'et_right_sidebar'], $adaptation->pageBodyOff());
     }
 }

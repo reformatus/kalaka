@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Mail;
 
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\Body\MailRenderer;
 use Kalaka\Mail\BodyUnusable;
 use Kalaka\Mail\Body\MailValues;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\Requests;
+use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /** The renderer: a mail's body, its layout and its context. mail.md, "Content". */
 final class MailRendererTest extends MailBodyTestCase
@@ -162,6 +166,25 @@ final class MailRendererTest extends MailBodyTestCase
         self::assertStringNotContainsString('várólistáról', $restored);
     }
 
+    public function testABodyMayBranchOnWhetherARequestAwaitsAnAnswer(): void
+    {
+        $event = $this->create();
+        $asking = $this->registration($event, '12A3', ['email' => 'teszt@example.test', 'support' => 'church']);
+        $plain = $this->registration($event, '00B0');
+        $values = new MailValues(new Registrations(requests: new Requests([new TestRequestSource()])));
+
+        self::assertSame(
+            ['yes'],
+            $values->context($asking, self::now())->get('registration.awaits_answer')->data
+        );
+        self::assertSame('', $values->context($asking, self::now())->get('registration.awaits_answer')->text);
+        self::assertSame(['no'], $values->context($plain, self::now())->get('registration.awaits_answer')->data);
+        self::assertSame(
+            ValueType::Choice,
+            $values->types($event)['registration.awaits_answer']
+        );
+    }
+
     public function testAnEventDateThatIsNotSetReadsAsNone(): void
     {
         $event = $this->create('Teszt tábor');
@@ -224,9 +247,9 @@ final class MailRendererTest extends MailBodyTestCase
         $event = $this->create();
         $key = $this->registration($event);
         $body = $this->document($event, $this->paragraph('<span data-kalaka-value="registration.link">link</span>'));
-        $this->switchOn($event, 'link_regenerated', $body);
+        $this->switchOn($event, 'registered', $body);
 
-        $html = (new MailRenderer())->render($event, 'link_regenerated', $key, self::now())->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         self::assertSame(1, preg_match('/<span\s*>([^<]+)<\/span>/', $html, $match));
         $url = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5);
@@ -257,12 +280,14 @@ final class MailRendererTest extends MailBodyTestCase
         self::assertSame('b' . $revision['latest_id'] . '-l1', $mail->version);
     }
 
-    public function testAMailThatDoesNotUseTheLayoutIsNotWrapped(): void
+    public function testATemplateThatDoesNotUseTheFrameIsNotWrapped(): void
     {
         $event = $this->create();
         $key = $this->registration($event);
         $this->setLayout($event, '<p>Fejléc</p>{{content}}');
-        $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')), false);
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->usesFrame($body, false);
+        $this->switchOn($event, 'registered', $body);
 
         $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 

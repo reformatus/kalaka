@@ -14,7 +14,7 @@ use Kalaka\Registrations\Api\RegistrationFacts;
  * would owe if it were still `registered`, from its own registration time (component ID → payer → amount). The
  * fee is null when a fee component failed while composing it ("cannot say"): the leaving does not fail for that,
  * since core's rules do not need the fee; a rule that does decides what to do with null (or throws, which
- * flags `money/retention`). [UNAPPROVED N671, N674]
+ * flags `money/retention`).
  */
 final readonly class RetentionInput
 {

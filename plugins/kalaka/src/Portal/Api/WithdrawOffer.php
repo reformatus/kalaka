@@ -34,6 +34,7 @@ final readonly class WithdrawOffer
         public ?Money $owedAfter = null,
         public bool $previewFailed = false,
         public ?string $unavailable = null,
+        public string $nonce = '',
     ) {
     }
 }

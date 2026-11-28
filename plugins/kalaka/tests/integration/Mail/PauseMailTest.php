@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Mail;
 
+use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Mail\ClaimDelivery;
-use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Mail\Api\MailHold;
 use Kalaka\Mail\Api\MailStats;
 use Kalaka\Mail\ClearEventMail;
 use Kalaka\Mail\ClearMailQueue;
 use Kalaka\Mail\FailDelivery;
 use Kalaka\Mail\Pause\PauseMail;
 use Kalaka\Mail\Pause\ResumeMail;
+use Kalaka\Mail\Pause\ResumeNeedsPerson;
+use Kalaka\Mail\EventMailNotHeld;
 use Kalaka\Mail\RecordDelivery;
 
 /** Pausing, resuming and clearing the queue by hand; who may run the Mail use cases. mail.md, "Pausing". */
@@ -115,9 +119,40 @@ final class PauseMailTest extends MailTestCase
         try {
             $this->exec(new ClearEventMail(), ['event_id' => $event]);
             self::fail('A published event\'s mail should not be cleared.');
-        } catch (RuleViolation) {
+        } catch (EventMailNotHeld $e) {
+            self::assertSame('kalaka_mail_not_held', $e->errorCode());
             self::assertCount(1, $this->deliveries());
         }
+    }
+
+    public function testTheClearIsOfferedOnlyWhileTheEventsMailIsHeld(): void
+    {
+        $events = new Events();
+        $held = $events->find($this->unpublished());
+        $published = $events->find($this->published());
+        self::assertNotNull($held);
+        self::assertNotNull($published);
+
+        self::assertTrue(MailHold::mayClear($held));
+        self::assertFalse(MailHold::mayClear($published));
+    }
+
+    public function testOnlyAPersonResumesSending(): void
+    {
+        $this->exec(new PauseMail(), []);
+
+        foreach ([new SystemActor(), new CliActor(null)] as $actor) {
+            try {
+                $this->exec(new ResumeMail(), [], $actor);
+                self::fail('A non-person should not resume sending.');
+            } catch (ResumeNeedsPerson $e) {
+                self::assertSame('kalaka_mail_resume_needs_person', $e->errorCode());
+                self::assertNotNull($this->stateRow()['paused_at'] ?? null);
+            }
+        }
+
+        self::assertTrue($this->exec(new ResumeMail(), [], new CliActor($this->fullAccessUser())));
+        self::assertNull($this->stateRow()['paused_at']);
     }
 
     public function testOnlyFullAccessAndTheCliRunTheMailUseCases(): void

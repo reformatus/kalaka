@@ -12,7 +12,8 @@ namespace Kalaka\Events\Api;
  * the behaviour before accounts: no sign-up and no owner.
  *
  * Changing the mode is refused while a published registration form of the event lacks the block, and the
- * broken-forms list is refreshed after a mode change (S72's event setting).
+ * broken-forms list is refreshed after a mode change (`UpdateEvent` through `Events::update()`; S72's screen
+ * will set it the same way).
  */
 enum AccountMode: string
 {

@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\ParticipantFields\Api\FieldDecimalsHeld;
 use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\MoneySettings;
@@ -24,12 +25,12 @@ use Kalaka\Pricing\CoreFeeComponents;
  * Core writes
  * and reads the fixed price; every other component is a `ConfigurableFeeComponent` that does its own.
  * Reading follows `ProposedMoneySettings`: a `fixed_price` or `retention` that is null or missing, and a component not
- * named, stay as they are; what `show` prints read back changes nothing. [UNAPPROVED N2]
+ * named, stay as they are; what `show` prints read back changes nothing.
  */
 final class SettingsDocument
 {
-    /** The code of kalaka-support's `OfferSelected`: an offer a save would change is selected by open registrations. */
-    private const OFFER_SELECTED = 'kalaka_offer_selected';
+    /** The code of core's `ItemChosen`: an item a save would remove is chosen by open registrations. [UNAPPROVED N699] */
+    private const ITEM_CHOSEN = 'kalaka_item_chosen';
 
     public function __construct(
         private readonly MoneySettings $settings = new MoneySettings(),
@@ -126,6 +127,18 @@ final class SettingsDocument
             } catch (InvalidInput $invalid) {
                 $error = new CommandFailure('The settings of "' . $id . '" are not valid.', $invalid);
                 throw $error;
+            } catch (FieldDecimalsHeld $held) {
+                $forms = implode(', ', array_map(
+                    static fn (array $form): string => '#' . $form['form_id'] . ' "' . $form['title'] . '"',
+                    $held->forms
+                ));
+                $error = new CommandFailure(
+                    'The settings of "' . $id . '" are refused: the key "' . $held->key . '" is a number charge, '
+                    . 'which fixes its decimals at 0, and these forms of the event hold a number field with that '
+                    . 'key and other decimals: ' . $forms . '. Change the fields to 0 decimals or choose another key.',
+                    $held
+                );
+                throw $error;
             } catch (FieldKeyHeld $refused) {
                 $error = new CommandFailure(
                     'The settings of "' . $id . '" are refused: a key they declare is held by a participant field of '
@@ -135,9 +148,9 @@ final class SettingsDocument
                 );
                 throw $error;
             } catch (RuleViolation $refused) {
-                // By code, not by type: only an offer selected by open registrations is named here; any other
+                // By code, not by type: only an item chosen by open registrations is named here; any other
                 // rule violation goes on to the command's boundary as it is.
-                if ($refused->errorCode() !== self::OFFER_SELECTED) {
+                if ($refused->errorCode() !== self::ITEM_CHOSEN) {
                     throw $refused;
                 }
                 $error = new CommandFailure(

@@ -38,3 +38,31 @@ Events is events, their states, timeline points, date types, capacity and the
   `kalaka/reopen-event` write the latch.
 - Only a published event takes the full latch.
 - `currency` is `utf8mb4_nopad_bin`: compared exactly.
+- `status_page_post_id` is the event's one status-page slot: a plain
+  WordPress post ID, null for none. Nothing reads, writes or validates it
+  yet (the PWA scope is parked).
+- The payment and account settings (`account_mode`, `payment_due_days`, the three
+  transfer texts) are written only by `kalaka/update-event`, as optional keys; the
+  readers take the texts as entered, so no shape beyond the column's length is checked.
+- A change of the account mode to one with accounts is refused while a published
+  registration form of the event lacks the account block, or while the event's
+  "registered" mail is off or its body lacks the set-password link
+  ([Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation)).
+  The forms and the mail's problem (`Mail\Api\AccountMail::modeProblem()`) are read before the
+  run (`Api\Events::update()`; a use case reads no post or mail) and the broken-form list is
+  refreshed after it.
+- `wp kalaka event` (`Cli/`) is a thin entry point: it changes only through the
+  module's use cases, as the command line or as WP-CLI's `--user`, and prints a use
+  case's own refusal. It checks nothing itself (no state, field or value rule): it runs
+  the permission check first, then the use case. Nothing it does re-evaluates a
+  registration, so it asks nothing except that `archive` (read-only for good) needs `--yes`.
+  The file's `version` goes to the use case, whose `VersionConflict` is the one stale-write
+  check, and `update --dry-run` runs `kalaka/update-event` with `preview: true`, which makes every
+  check of a real run and writes nothing; the command keeps no version check or dry run of its own.
+- The refusal of `kalaka/publish-event` for an event that lacks fields is `Api\EventNotReady`
+  (`missing`: the field keys), and the refusal of an account mode a published form cannot take
+  is `Api\AccountBlockMissing` (`forms`: the form IDs). Both are rule violations with the
+  same Hungarian text and their own error codes; the keys and IDs are typed properties for the
+  operator's console (`wp kalaka event`) and are never sent to REST (`toWpError()` is unchanged).
+  The refusal of an account mode the "registered" mail cannot back is `Api\AccountMailNotReady`
+  (`kalaka_account_mail_not_ready`); its message is `AccountLinkRule`'s own text on every path.

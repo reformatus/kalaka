@@ -211,12 +211,15 @@ describe( 'one message per field', () => {
 } );
 
 describe( 'the note', () => {
-	test( 'a yes to an offer names the note its reason and sends without one', async () => {
+	test( 'always names the note „Megjegyzés”, never a reason, and sends without one (N1183)', async () => {
 		await render( offer );
 		await choose( 'yes' );
-		expect( noteField().closest( 'div' ).parentElement.textContent ).toContain( MONEY.reasonField );
+		expect( noteField().closest( 'div' ).parentElement.textContent ).toContain( REQUESTS.noteField );
+		// The base's 6.8 ruling renamed every such field to „Megjegyzés”, so `MONEY.reasonField` is that word
+		// too; what must not show is the old „Indoklás” wording.
+		expect( host.textContent ).not.toContain( 'Indoklás' );
 		await submit();
-		expect( host.textContent ).not.toContain( MONEY.noteRequired );
+		expect( errorsIn( host ) ).toEqual( [] );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 	} );
 
@@ -294,5 +297,51 @@ describe( 'the save', () => {
 		await submit();
 		expect( apiFetch ).toHaveBeenCalledTimes( 2 );
 		expect( done ).toHaveBeenCalledWith( REQUESTS.saved );
+	} );
+} );
+
+describe( 'the aid context (walkthrough 6.8)', () => {
+	const held = {
+		...aid,
+		aid: {
+			full_price: '30000.00000000',
+			can_pay: null,
+			asked: '12000.00000000',
+			max_award: '30000.00000000',
+		},
+	};
+
+	test( 'shows the figures the read carries and hints the asked amount', async () => {
+		await render( held );
+
+		await choose( 'yes' );
+
+		const figures = Array.from( host.querySelectorAll( '.kg-aid li' ), ( li ) => li.textContent );
+		expect( figures ).toEqual( [
+			`${ REQUESTS.figures.full_price }: 30\u00a0000\u00a0Ft`,
+			`${ REQUESTS.figures.asked }: 12\u00a0000\u00a0Ft`,
+			`${ REQUESTS.figures.max_award }: 30\u00a0000\u00a0Ft`,
+		] );
+		expect( amountField().value ).toBe( '12000' );
+	} );
+
+	test( 'refuses an award above the full price with the act\'s sentence and sends nothing', async () => {
+		await render( held );
+		await choose( 'yes' );
+
+		await type( amountField(), '30001' );
+		await submit();
+
+		expect( errorsIn( host.querySelector( 'form' ) ) ).toContain( REQUESTS.aidAbovePrice );
+		expect( apiFetch ).not.toHaveBeenCalled();
+	} );
+
+	test( 'without the figures the dialog shows none and hints nothing', async () => {
+		await render( aid );
+
+		await choose( 'yes' );
+
+		expect( host.querySelector( '.kg-aid' ) ).toBeNull();
+		expect( amountField().value ).toBe( '' );
 	} );
 } );

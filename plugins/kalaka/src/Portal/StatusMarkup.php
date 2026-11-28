@@ -7,11 +7,16 @@ namespace Kalaka\Portal;
 use Kalaka\Forms\Api\DateText;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Portal\Api\ActiveRegistration;
 use Kalaka\Foundation\Api\Money\MoneyText;
+use Kalaka\Forms\Api\ThemeStyle;
 use Kalaka\Portal\Api\Availability;
-use Kalaka\Portal\Api\PaymentView;
+use Kalaka\Portal\Api\MovementRow;
+use Kalaka\Portal\Api\ParticipantMoney;
 use Kalaka\Portal\Api\RegistrationStatusView;
 use Kalaka\Portal\Api\WithdrawOffer;
+use Kalaka\Portal\Api\Withdrawal;
+use Kalaka\Portal\Rest\CardPaymentRoute;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
@@ -28,7 +33,7 @@ final class StatusMarkup
     /** SB-11: the active registration's event is not open (unpublished, a draft or archived). */
     public const EVENT_CLOSED = 'A jelentkezésed állapota jelenleg nem érhető el.';
 
-    public const BAD_LINK = 'Ez a link nem érvényes. Nyisd meg a legutóbb kapott e-mailben lévő linket.';
+    public const BAD_LINK = ActiveRegistration::BAD_LINK_TEXT;
 
     /** [UNAPPROVED T765] The button that starts the registrant's own withdrawal. */
     public const WITHDRAW_BUTTON = 'Jelentkezés lemondása';
@@ -88,7 +93,6 @@ final class StatusMarkup
     public const WITHDRAW_AFTER_CLOSE = 'A jelentkezés lezárult, ezért ezt a jelentkezést itt már nem tudod lemondani.'
         . ' Ha mégsem tudsz részt venni, jelezd a szervezőknek.';
 
-    private const MINUS = "\u{2212}";
 
     /** The status block "Jelentkezésem állapota". */
     public static function status(?RegistrationStatusView $view, bool $badLink, ?WithdrawOffer $withdraw = null): string
@@ -105,7 +109,7 @@ final class StatusMarkup
             return $html . '<p>' . esc_html(self::EVENT_CLOSED) . '</p></section>';
         }
 
-        $html .= '<p>Azonosító: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
+        $html .= '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
             . '</span></p>';
 
         switch ($view->status) {
@@ -115,10 +119,12 @@ final class StatusMarkup
                     'very-light-gray'
                 ) . self::withdraw($withdraw) . '</section>';
             case RegistrationStatus::Withdrawn:
-                return $html . '<p><strong>Lemondtad ezt a jelentkezést.</strong></p>'
-                    . self::withdraw($withdraw) . '</section>';
+                return $html . '<p><strong>Lemondtad ezt a jelentkezést.</strong></p>' . self::moneySection($view)
+                    . self::withdraw($withdraw)
+                    . '</section>';
             case RegistrationStatus::Removed:
                 return $html . '<p><strong>A szervezők törölték ezt a jelentkezést.</strong></p>'
+                    . self::moneySection($view)
                     . self::withdraw($withdraw) . '</section>';
             case RegistrationStatus::Registered:
                 break;
@@ -129,13 +135,7 @@ final class StatusMarkup
             return $html . self::withdraw($withdraw) . '</section>';
         }
         $confirmed = $view->confirmation !== null && $view->confirmation->confirmed;
-        if ($payment->awaitsAnswer) {
-            $state = self::box(
-                '<p><strong>Elbírálás alatt.</strong> Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges'
-                . ' összeget.</p>',
-                'pale-pink'
-            );
-        } elseif ($payment->overdue) {
+        if ($payment->overdue) {
             $state = self::box('<p><strong>Lejárt a fizetési határidő.</strong></p>', 'pale-pink');
         } elseif ($confirmed) {
             // SQ-8: the text on handling an overpayment is the stakeholders'; until then the table's
@@ -145,8 +145,50 @@ final class StatusMarkup
             $state = '<p><strong>Fizetésre vár.</strong></p>';
         }
 
-        return $html . $state . '<h3>Pénzügyek</h3>' . self::payment($payment) . self::withdraw($withdraw)
+        return $html . $state . self::moneySection($view) . self::payByCard($view) . self::withdraw($withdraw)
             . '</section>';
+    }
+
+    /**
+     * A bare link to pay by card, only while `can.payCard`: a form that posts to the card payment route, with
+     * no look of its own. [UNAPPROVED T81] It exists so the flow can be tried; the button is the UX prototype's.
+     */
+    private static function payByCard(RegistrationStatusView $view): string
+    {
+        if (!$view->can->payCard) {
+            return '';
+        }
+        $back = is_singular() ? get_permalink() : false;
+
+        return '<form class="kalaka-pay-card" method="post" action="' . esc_url(CardPaymentRoute::url()) . '">'
+            . '<input type="hidden" name="_wpnonce" value="'
+            . esc_attr(wp_create_nonce(CardPaymentRoute::NONCE_ACTION)) . '">'
+            . ($back === false ? '' : '<input type="hidden" name="return_url" value="' . esc_attr($back) . '">')
+            . '<button type="submit" class="' . esc_attr(ThemeStyle::buttonClass()) . '">'
+            . 'Fizetés bankkártyával</button></form>';
+    }
+
+    /**
+     * "Pénzügyek" with the money table and, while payment is open, the deadline, and the note under the table.
+     * A withdrawn or removed registration always shows the table (owner topic 11) and has no deadline line.
+     */
+    private static function moneySection(RegistrationStatusView $view): string
+    {
+        if (!$view->showsMoney()) {
+            return '';
+        }
+        $money = $view->money;
+        $html = '<h3>Pénzügyek</h3>' . self::table($money);
+        $payment = $view->payment;
+        if (
+            $payment !== null && $money->due !== null && $money->due->isPositive() && !$payment->awaitsAnswer
+            && $payment->paymentDue !== null
+        ) {
+            $day = $payment->paymentDue->setTimezone(wp_timezone())->modify('-1 day')->format('Y-m-d');
+            $html .= '<p class="kalaka-deadline">Fizetési határidő: ' . esc_html(DateText::of($day)) . '</p>';
+        }
+
+        return $html . '<p>Az átutalásokat kézzel rögzítjük, ezért néhány napba is telhet, mire itt megjelennek.</p>';
     }
 
     /**
@@ -170,38 +212,51 @@ final class StatusMarkup
     }
 
     /**
-     * The payment table (lines, total, paid, then still due or overpaid), the deadline and the note on
-     * hand-recorded payments. Only the amount still due is bold, and only while it is payable now.
+     * The leave block: one bare form with one button, no look of its own beyond core's button class. The
+     * label is a stand-in.
      */
-    private static function payment(PaymentView $payment): string
+    public static function leave(string $action, string $returnUrl): string
     {
-        $participant = $payment->participant;
+        return '<form class="kalaka-leave" method="post" action="' . esc_url($action) . '">'
+            . '<input type="hidden" name="return_url" value="' . esc_attr($returnUrl) . '">'
+            . '<button type="submit" class="wp-element-button">' . esc_html(ParticipantBlocks::LEAVE_LABEL)
+            . '</button></form>';
+    }
+
+    /**
+     * The money table of the owner's design (topics 10 and 11, rounds 2 and 3): the owed lines as a signed running
+     * sum with „Fizetendő összesen”, one row per money movement, „Befizetve összesen”, and the last row, always
+     * bold: „Még fizetendő”, or „Túlfizetés” when overpaid. A separator above the first movement (above
+     * „Befizetve összesen” when nothing was paid) and above the last row.
+     */
+    private static function table(ParticipantMoney $money): string
+    {
         $html = '<table class="kalaka-money"><tbody>';
-        foreach ($payment->lines as $index => $line) {
-            $sign = $index === 0 ? '' : ($line->sign < 0 ? self::MINUS : '+');
-            $html .= self::moneyRow($line->label, $sign, $line->amount);
+        foreach ($money->owed as $row) {
+            $html .= self::moneyRow(
+                $row->label,
+                MoneyWords::sign($row->amount),
+                MoneyWords::absolute($row->amount),
+                '',
+                'kalaka-owed'
+            );
         }
-        $html .= self::moneyRow('Fizetendő összesen', '', $participant->charged);
-        $html .= self::moneyRow('Befizetve', '', $participant->paid, false, 'kalaka-rule');
-
-        $balance = $participant->balance;
-        $due = $balance->roundedUpToPayableUnit();
-        $payableNow = $due->isPositive() && !$payment->awaitsAnswer;
-        if ($balance->isNegative() && !$balance->countsAsZero()) {
-            $html .= self::moneyRow('Túlfizetés', '', $balance->negated(), false, 'kalaka-rule');
-        } else {
-            $shown = $due->isPositive() ? $due : Money::zero($due->currency());
-            $class = $payableNow ? 'kalaka-rule kalaka-due' : 'kalaka-rule';
-            $html .= self::moneyRow('Még fizetendő', '', $shown, $payableNow, $class);
+        $html .= self::moneyRow('Fizetendő összesen', '', $money->owedTotal, 'em', 'kalaka-total');
+        foreach ($money->movements as $movement) {
+            $html .= self::movementRow($movement, $movement === $money->movements[0]);
         }
-        $html .= '</tbody></table>';
+        $html .= self::moneyRow(
+            'Befizetve összesen',
+            '',
+            $money->paidTotal,
+            'em',
+            $money->movements === [] ? 'kalaka-total kalaka-rule' : 'kalaka-total'
+        );
+        $html .= $money->overpaid !== null
+            ? self::moneyRow('Túlfizetés', '', $money->overpaid, 'strong', 'kalaka-rule kalaka-due')
+            : self::moneyRow('Még fizetendő', '', $money->due ?? $money->balance, 'strong', 'kalaka-rule kalaka-due');
 
-        if ($payableNow && $payment->paymentDue !== null) {
-            $day = $payment->paymentDue->setTimezone(wp_timezone())->modify('-1 day')->format('Y-m-d');
-            $html .= '<p class="kalaka-deadline">Fizetési határidő: ' . esc_html(DateText::of($day)) . '</p>';
-        }
-
-        return $html . '<p>A befizetéseket kézzel rögzítjük, ezért néhány napba is telhet, mire itt megjelennek.</p>';
+        return $html . '</tbody></table>';
     }
 
     /**
@@ -258,6 +313,8 @@ final class StatusMarkup
             . self::withdrawMoney($offer)
             . '<input type="hidden" name="code" value="' . esc_attr($offer->code) . '">'
             . '<input type="hidden" name="return_url" value="' . esc_attr($errorUrl) . '">'
+            . '<input type="hidden" name="' . esc_attr(Withdrawal::NONCE_FIELD) . '" value="'
+            . esc_attr($offer->nonce) . '">'
             . '<div class="kalaka-withdraw-actions" style="display: flex; flex-wrap: wrap; gap: 0.75em">'
             . '<button type="submit"' . $class . $describedBy . '>' . esc_html(self::WITHDRAW_CONFIRM) . '</button>'
             . '<button type="submit" form="kalaka-withdraw-cancel"' . $class . '>' . esc_html(self::WITHDRAW_CANCEL)
@@ -305,7 +362,8 @@ final class StatusMarkup
     public static function withdrawRefusalText(string $code): string
     {
         return match ($code) {
-            'kalaka_withdraw_stale' => self::WITHDRAW_STALE,
+            // [UNAPPROVED N1346] An old page's nonce (#253's `kalaka_withdraw_bad_nonce`) reads as T771.
+            'kalaka_withdraw_stale', 'kalaka_withdraw_bad_nonce' => self::WITHDRAW_STALE,
             'kalaka_withdraw_unavailable', 'kalaka_status_act_refused' => self::WITHDRAW_UNAVAILABLE,
             'kalaka_version_conflict' => self::WITHDRAW_VERSION_CONFLICT,
             // [UNAPPROVED N1029] The page maps `kalaka_withdraw_closed` itself (extends N771's table).
@@ -321,18 +379,61 @@ final class StatusMarkup
             . ' has-black-color">' . $inner . '</div>';
     }
 
+    /**
+     * An owed or total row: the label spans the type and method columns; no day, no info button. `$emphasis` is
+     * the element that carries the row's emphasis in the markup, so it reads without any CSS: `em` for the totals
+     * (owner topic 10), `strong` for the last row (always bold), `''` for an owed line.
+     */
     private static function moneyRow(
         string $label,
         string $sign,
         Money $amount,
-        bool $strong = false,
+        string $emphasis = '',
         string $class = '',
     ): string {
-        $text = esc_html(MoneyText::of($amount));
+        return '<tr' . ($class === '' ? '' : ' class="' . esc_attr($class) . '"') . '><th scope="row" colspan="2">'
+            . self::emphasised($emphasis, esc_html($label)) . '</th><td class="kalaka-sign">' . esc_html($sign)
+            . '</td><td class="kalaka-amount">' . self::emphasised($emphasis, esc_html(MoneyText::of($amount)))
+            . '</td><td class="kalaka-date"></td><td class="kalaka-info"></td></tr>';
+    }
 
-        return '<tr' . ($class === '' ? '' : ' class="' . esc_attr($class) . '"') . '><th scope="row">'
-            . esc_html($label) . '</th><td class="kalaka-sign">' . esc_html($sign) . '</td><td class="kalaka-amount">'
-            . ($strong ? '<strong>' . $text . '</strong>' : $text) . '</td></tr>';
+    /** Escaped HTML inside the emphasis element (`em` or `strong`), or as it is for no emphasis or no content. */
+    private static function emphasised(string $element, string $html): string
+    {
+        return $element === '' || $html === '' ? $html : '<' . $element . '>' . $html . '</' . $element . '>';
+    }
+
+    /**
+     * One money movement: the type word (row header), the method cell (italic; the method, then its note after
+     * ` · `; a correction's text alone), the sign, the amount, the day (always italic) and the info mark. The
+     * details (`Type · Method · day` and the whole note) are the browser's own tooltip, the `title` of the info mark
+     * and of a shortened note, and the info mark's accessible name. The info mark shows on every row up to 1160 px,
+     * and above that only on a row with a shortened note (`kalaka-more`). [UNAPPROVED N1262]
+     */
+    private static function movementRow(MovementRow $movement, bool $first): string
+    {
+        $note = $movement->note;
+        $short = $note === null ? null : MoneyWords::shortened($note);
+        $cut = $note !== null && $short !== $note;
+        $details = MoneyWords::headline($movement) . ($note === null ? '' : "\n" . MoneyWords::quoted($note));
+        $noteCell = $short === null ? '' : ($cut
+            ? '<span class="kalaka-note" title="' . esc_attr($details) . '">'
+                . esc_html(MoneyWords::quoted($short)) . '</span>'
+            : esc_html(MoneyWords::quoted($short)));
+        $method = $movement->methodLabel;
+        $cell = $method === null
+            ? $noteCell
+            : esc_html($method) . ($noteCell === '' ? '' : ' · ' . $noteCell);
+        $day = MoneyWords::day($movement->valueDay);
+        $classes = 'kalaka-move' . ($first ? ' kalaka-rule' : '') . ($cut ? ' kalaka-more' : '');
+
+        return '<tr class="' . $classes . '"><th scope="row">' . esc_html(MoneyWords::typeOf($movement->type))
+            . '</th><td class="kalaka-method">' . self::emphasised('em', $cell) . '</td><td class="kalaka-sign">'
+            . esc_html(MoneyWords::sign($movement->amount)) . '</td><td class="kalaka-amount">'
+            . esc_html(MoneyText::of(MoneyWords::absolute($movement->amount))) . '</td><td class="kalaka-date">'
+            . self::emphasised('em', esc_html($day)) . '</td><td class="kalaka-info">'
+            . '<span class="kalaka-info-button" role="img" title="' . esc_attr($details) . '" aria-label="'
+            . esc_attr($details) . '">ⓘ</span></td></tr>';
     }
 
     private static function transferRow(string $label, string $value): string

@@ -26,6 +26,7 @@ final class FieldEditInputTest extends StaffEditTestCase
         $this->declare('choice', 'kalaka/choice-field', 'form', $options);
         $this->declare('consent', 'kalaka/consent-field', 'staff');
         $this->declare('scale', 'kalaka/scale-field');
+        $this->declare('born', 'kalaka/date-field');
         $this->declare('decision', 'kalaka/text-field', 'system');
         $this->declare('award', 'kalaka/text-field', 'extension');
         $this->declare('extra', 'kalaka/text-field', 'extension', null, true);
@@ -86,6 +87,21 @@ final class FieldEditInputTest extends StaffEditTestCase
         self::assertSame('3', $this->stored('scale', 3));
     }
 
+    public function testADateTakesTheStoredFormAndTheTypesOwnCheckRefusesTheRest(): void
+    {
+        self::assertSame('2010-05-17', $this->stored('born', '2010-05-17'));
+        self::assertSame('2010-05-17', $this->stored('born', ' 2010-05-17 '));
+        self::assertNull($this->stored('born', null));
+        foreach (['2010-02-30', '17/05/2010', '2010-5-17', 'tegnap'] as $bad) {
+            try {
+                $this->stored('born', $bad);
+                self::fail('A date that is not a real YYYY-MM-DD is refused: ' . $bad);
+            } catch (InvalidInput) {
+                self::assertTrue(true);
+            }
+        }
+    }
+
     public function testABlankTextIsRefusedAndOnlyNullClears(): void
     {
         foreach (['', '   '] as $blank) {
@@ -128,15 +144,16 @@ final class FieldEditInputTest extends StaffEditTestCase
         $this->stored('nincs', 'x');
     }
 
-    public function testTheReasonIsRequiredAndAtMost500Characters(): void
+    public function testTheReasonIsOptionalAndAtMost500Characters(): void
     {
-        foreach (['', '   ', str_repeat('é', 501)] as $reason) {
-            try {
-                $this->stored('name', 'X', ['reason' => $reason]);
-                self::fail('The reason is 1 to 500 characters.');
-            } catch (InvalidInput) {
-                self::assertTrue(true);
-            }
+        try {
+            $this->stored('name', 'X', ['reason' => str_repeat('é', 501)]);
+            self::fail('The reason is at most 500 characters.');
+        } catch (InvalidInput) {
+            self::assertTrue(true);
+        }
+        foreach (['', '   ', null] as $reason) {
+            self::assertSame('X', $this->stored('name', 'X', ['reason' => $reason]));
         }
         self::assertSame('X', $this->stored('name', 'X', ['reason' => str_repeat('é', 500)]));
     }

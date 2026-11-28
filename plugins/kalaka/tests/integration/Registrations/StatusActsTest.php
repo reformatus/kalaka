@@ -43,6 +43,7 @@ use Kalaka\Pricing\Api\RetentionInput;
 use Kalaka\Pricing\Api\RetentionRule;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\SetFixedPrice;
+use Kalaka\Pricing\SetManualConfirmation;
 use Kalaka\Registrations\Api\FieldCorrections;
 use Kalaka\Registrations\Api\RegisteredBy;
 use Kalaka\Registrations\Api\RegistrationSubmit;
@@ -114,12 +115,13 @@ final class StatusActsTest extends StaffEditTestCase
     private function mailOn(string $mail): void
     {
         global $wpdb;
+        $body = self::factory()->post->create(['post_type' => 'kalaka_mail', 'post_title' => 'Teszt levél']);
         $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
             'event_id' => $this->event,
             'mail' => $mail,
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => $body,
         ]);
     }
 
@@ -874,7 +876,6 @@ final class StatusActsTest extends StaffEditTestCase
     {
         require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
         \WP_CLI::reset();
-        \WP_CLI::$answersYes = true;
         $command = new RegistrationCommand($this->runner, $this->corrections(), new StatusActions($this->runner));
         $this->capacity(1);
 
@@ -903,7 +904,6 @@ final class StatusActsTest extends StaffEditTestCase
 
         // No act needs a reason, the command included.
         \WP_CLI::reset();
-        \WP_CLI::$answersYes = true;
         $command->remove([(string) $this->event, '00A2'], []);
         self::assertSame('removed', $this->row('00A2')['status']);
         $command->restore([(string) $this->event, '00A2'], []);
@@ -1361,7 +1361,11 @@ final class StatusActsTest extends StaffEditTestCase
             self::assertSame('everything_paid', (new MoneySettings($this->runner))->retention($this->event)->id());
         }
         $this->expectException(InvalidInput::class);
-        (new MoneySettings($this->runner))->preview($this->event, new ProposedMoneySettings(retention: 'bogus'));
+        (new MoneySettings($this->runner))->preview(
+            $this->event,
+            new ProposedMoneySettings(retention: 'bogus'),
+            new CliActor(null)
+        );
     }
 
     public function testARestoreTakesTheRetentionLineBackAndTheFullFeeReturns(): void
@@ -1402,7 +1406,7 @@ final class StatusActsTest extends StaffEditTestCase
         $settings = new MoneySettings($this->runner);
         $proposed = new ProposedMoneySettings(retention: 'nothing');
 
-        $rows = $settings->preview($this->event, $proposed);
+        $rows = $settings->preview($this->event, $proposed, new CliActor(null));
 
         $byCode = [];
         foreach ($rows as $row) {
@@ -1416,7 +1420,7 @@ final class StatusActsTest extends StaffEditTestCase
         // Without a proposed rule the leavers are left out, as the apply does not touch them.
         $codes = array_map(
             static fn ($row): string => $row->registration->code,
-            $settings->preview($this->event, new ProposedMoneySettings())
+            $settings->preview($this->event, new ProposedMoneySettings(), new CliActor(null))
         );
         self::assertNotContains('00A0', $codes);
         $report = $settings->apply($this->event, $proposed, new CliActor(null));
@@ -1437,5 +1441,108 @@ final class StatusActsTest extends StaffEditTestCase
             '00A0'
         )));
         self::assertNotContains('refund', $kinds);
+    }
+
+    // --- the manual confirmation flag and a leaving (owner 2026-11-27) ---
+
+    private function confirmManually(string $code): void
+    {
+        $this->exec(new SetManualConfirmation(), ['event_id' => $this->event, 'code' => $code, 'reason' => 'Teszt']);
+    }
+
+    /** @return array<string, ?string>|null the flag's row */
+    private function flagRow(string $code): ?array
+    {
+        return $this->rowOf('kalaka_manual_confirmations', $this->event, $code);
+    }
+
+    /** @return array<string, ?string> the latest audit entry of the action */
+    private function lastEntryOf(string $action): array
+    {
+        $found = null;
+        foreach ($this->entries() as $entry) {
+            if ($entry['action'] === $action) {
+                $found = $entry;
+            }
+        }
+        self::assertNotNull($found);
+
+        return $found;
+    }
+
+    public function testWithdrawingClearsTheManualConfirmationInTheSameAuditedAct(): void
+    {
+        $this->confirmManually('00A0');
+        self::assertNull($this->flagRow('00A0')['revoked_at']);
+        self::assertSame(['confirmed'], $this->confirmations('00A0'));
+
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        self::assertNotNull($this->flagRow('00A0')['revoked_at']);
+        self::assertSame(['confirmed', 'unconfirmed'], $this->confirmations('00A0'));
+        $entry = $this->lastEntryOf('kalaka/withdraw-registration');
+        self::assertSame('succeeded', $entry['outcome']);
+        self::assertStringContainsString('revoked_at', (string) $entry['changes']);
+    }
+
+    public function testRemovingClearsTheManualConfirmationToo(): void
+    {
+        $this->confirmManually('00A0');
+
+        $this->act(StatusAct::Remove, '00A0');
+
+        self::assertNotNull($this->flagRow('00A0')['revoked_at']);
+        self::assertStringContainsString(
+            'revoked_at',
+            (string) $this->lastEntryOf('kalaka/remove-registration')['changes']
+        );
+    }
+
+    public function testARestoreDoesNotBringTheManualConfirmationBack(): void
+    {
+        $this->confirmManually('00A0');
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        $this->act(StatusAct::Restore, '00A0');
+
+        self::assertSame('registered', $this->row('00A0')['status']);
+        self::assertNotNull($this->flagRow('00A0')['revoked_at']);
+        self::assertSame(['confirmed', 'unconfirmed'], $this->confirmations('00A0'));
+    }
+
+    public function testARestoreOfAManuallyConfirmedRegistrationIsConfirmedAgainOnlyByTheRules(): void
+    {
+        $this->confirmManually('00A0');
+        $this->pay('00A0');
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        $this->act(StatusAct::Restore, '00A0');
+
+        // Paid in full, so the payments confirm it, not the cleared flag.
+        self::assertSame(['confirmed', 'unconfirmed', 'confirmed'], $this->confirmations('00A0'));
+        self::assertNotNull($this->flagRow('00A0')['revoked_at']);
+    }
+
+    public function testALeavingWithoutAManualConfirmationWritesNoFlag(): void
+    {
+        $this->pay('00A0');
+
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        self::assertNull($this->flagRow('00A0'));
+        self::assertStringNotContainsString(
+            'revoked_at',
+            (string) $this->lastEntryOf('kalaka/withdraw-registration')['changes']
+        );
+    }
+
+    public function testAWithdrawnWaitlistedRegistrationAndARepeatLeaveAnotherFlagAlone(): void
+    {
+        $this->confirmManually('00A2');
+
+        $this->act(StatusAct::Withdraw, '00A0');
+        $this->act(StatusAct::Remove, '00A5');
+
+        self::assertNull($this->flagRow('00A2')['revoked_at']);
     }
 }

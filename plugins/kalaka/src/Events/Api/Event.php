@@ -62,7 +62,7 @@ final readonly class Event
 
     /**
      * Whether registration has closed: `$now` is at or after the closing instant. False for an event with no closing
-     * instant. The participant's own withdrawal ends here (N661). [UNAPPROVED N661]
+     * instant. The participant's own withdrawal ends here (N661).
      */
     public function registrationHasClosed(\DateTimeImmutable $now): bool
     {
@@ -71,21 +71,29 @@ final readonly class Event
 
     /**
      * Payment due, the core date type (money.md, "Core money scope"; events-and-forms.md, "Date
-     * references"): N days after the registration last became `registered`; the day ends at midnight in
-     * the site time zone. The instant returned is that midnight, in UTC; null without N or without the
-     * instant. Not stored: computed on every read.
+     * references"): N days after the later of the moment the registration last became `registered` and its
+     * last answer to a request; the day ends at midnight in the site time zone. The instant returned is that
+     * midnight, in UTC; null without N, without the registration's instant, and while a request awaits an
+     * answer (no due date is shown then). Not stored: computed on every read. [UNAPPROVED N83]
      *
-     * The caller passes the instant the registration last became `registered`: its `registered_at`, set
-     * only by submit, admission and restore (Registrations/AGENTS.md), so an admission from the waitlist or
-     * a restore restarts the clock. The restart from a decision on a pending request (S21/S32) is not built.
+     * `RegistrationFacts::paymentDue()` passes the inputs, so every caller gets the same date: the instant the
+     * registration last became `registered` (its `registered_at`, set only by submit, admission and restore, so
+     * an admission from the waitlist or a restore restarts the clock); the last answer
+     * (`Requests::lastAnsweredAt()`), which restarts it too when it is later (an answer given while waitlisted
+     * counts only from the admission [UNAPPROVED N87]); and whether a request awaits an answer now
+     * (`Requests::awaits()`).
      */
-    public function paymentDue(?\DateTimeImmutable $lastRegistered): ?\DateTimeImmutable
-    {
-        if ($lastRegistered === null || $this->paymentDueDays === null) {
+    public function paymentDue(
+        ?\DateTimeImmutable $lastRegistered,
+        ?\DateTimeImmutable $lastAnswered = null,
+        bool $awaitsAnswer = false,
+    ): ?\DateTimeImmutable {
+        if ($lastRegistered === null || $this->paymentDueDays === null || $awaitsAnswer) {
             return null;
         }
+        $from = $lastAnswered !== null && $lastAnswered > $lastRegistered ? $lastAnswered : $lastRegistered;
         $zone = wp_timezone();
-        $day = $lastRegistered->setTimezone($zone)->format('Y-m-d');
+        $day = $from->setTimezone($zone)->format('Y-m-d');
         $end = (new \DateTimeImmutable($day . ' 00:00:00', $zone))->modify('+' . ($this->paymentDueDays + 1) . ' days');
 
         return $end->setTimezone(new \DateTimeZone('UTC'));
