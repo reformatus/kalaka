@@ -81,7 +81,7 @@ final class StatusRead
                 $decisions[ConfirmationRule::KIND]->effectiveAt ?? null
             );
             $facts = $this->registrations->factsOf($key, $event, $now);
-            $awaits = $facts !== null && $facts->awaitsAnswer;
+            $awaits = $facts !== null && $facts->awaitsAnswer === true;
             $payment = $this->payment($registration, $event, $confirmed, $awaits, $now, $facts?->paymentDue());
             $transfer = $this->transfer($key, $event, $availability, $payment);
         }

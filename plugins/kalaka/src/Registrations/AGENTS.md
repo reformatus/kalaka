@@ -271,20 +271,29 @@ the waitlist and reference codes
     amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
     award of 0 Ft: an absent answer awaits, a zero is an answer. The note, a "yes" to an offer's
     reason included, is always optional.
-  - "Awaits an answer" is computed, never stored (`Requests::awaits()`, batched `awaitsOf()`): a request whose
-    source says it is not answered (`RequestSource::isAnswered()`, read from the source's own answer field: an
-    offer's `<key>_answer`, the aid award, empty = awaiting, "0" = refused), for a registration that is not
-    withdrawn or removed. The field is the truth: the `kalaka_answers` rows record the act (who, when, the note,
-    `lastAnsweredAt`, the mail key) and decide nothing else; a request re-stated after an answer reads as
-    answered until staff answer again. It is `registration.awaits_answer` in the fact source, and it
-    hides the due date and the transfer block in Portal. It never blocks confirmation.
-  - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits
-    until admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`);
-    `awaits_answer` stays computed for it. A refusing offer answer frees the offer's seat and a "yes" after a
-    refusal takes one again. Both use slice A's one seat rule, `Seats`: the request source builds its pool
-    (`RequestSource::seatPool(): ?SeatPool`; null, as for aid, means no limit and no seat call), so core never
-    parses a pool key, and the act locks it before the registration lock. A full pool never refuses the "yes":
-    `retake()` answering `SeatOutcome::Over` is `over_limit`, and the detail read's `seat_full` is
+  - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request whose source says it is not
+    answered (`RequestSource::isAnswered()`, read from the source's own answer field: an offer's `<key>_answer`, the
+    aid award, empty = awaiting, "0" = refused), for a registration that is `registered`. The field is the truth: the
+    `kalaka_answers` rows record the act (who, when, the note, `lastAnsweredAt`, the mail key) and decide nothing
+    else; a request re-stated after an answer reads as answered until staff answer again. It is
+    `registration.awaits_answer` in the fact source, and it hides the due date and the transfer block in Portal. It
+    never blocks confirmation.
+  - The admin grid asks the same question in SQL (`Requests::awaitingCondition()`, no statement of its own): the
+    registration is `registered` and some source's `RequestSource::awaitingRule()` holds. The rule is data (an
+    `AwaitingRule`: any-of groups of all-of `FieldTest`s: filled, empty, one of, none of, over the registration's
+    field values); core alone compiles it to SQL (no source writes SQL or gets database access) and `awaits()`
+    evaluates the same rule in PHP with `matches()`, and it must mean exactly what the source's `requestsOf()` and
+    `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). It has three values
+    (owner 2026-11-27: N/A is different from „Nem”): yes or no for a `registered` registration, and N/A for every
+    other status, NULL in SQL, so a waitlisted registration is neither; `awaits()` (the rule in PHP) returns null
+    for every status but `registered` too, one meaning for the fact, the column and the panel.
+  - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits until
+    admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`); `awaits_answer`
+    is N/A for it (neither yes nor no) and yes again by itself at admission. A refusing offer answer frees the
+    offer's seat and a "yes" after a refusal takes one again. Both use slice A's one seat rule, `Seats`: the request
+    source builds its pool (`RequestSource::seatPool(): ?SeatPool`; null, as for aid, means no limit and no seat
+    call), so core never parses a pool key, and the act locks it before the registration lock. A full pool never
+    refuses the "yes": `retake()` answering `SeatOutcome::Over` is `over_limit`, and the detail read's `seat_full` is
     `Seats::wouldOverfill()`.
   - An aid "yes" above the full price the participant has to pay is refused with `AidAbovePrice` (a
     `RuleViolation`, code `kalaka_aid_over_price`) and nothing is written. The price comes from the request source's
