@@ -89,6 +89,13 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   outside a mail's render, and none for a waitlisted registration, as its page shows none. Only a mail body's
   editor offers them (`Module::OWN_BLOCKS`, the mail `BlockHost`'s `hostOnly`). A mail is HTML only:
   no plain-text twin.
+- The same two blocks typed by hand: a paragraph or an HTML block that holds only `{{money_table}}` or
+  `{{transfer_details}}` is the matching block (`Body\MailBlocks::expand()`, at any depth, in a condition's branch
+  too). Both readers of a body, `Body\BodyCheck` and `Body\MailRenderer`, read the body through it; the stored body
+  stays as typed. The two keys are not values of the mail's context (`MailValues::types()` does not declare them), so
+  placed anywhere else (inline in a text, in an attribute, in a binding or a condition) they are unknown placeholders:
+  refused at save and a failed mail at send (`BodyUnusable`), never dropped. No second renderer: the typed key and the
+  block render through `MailBlocks` and `MailMoney`.
 - A mail is rendered at send time by `Body\MailRenderer`, through
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and

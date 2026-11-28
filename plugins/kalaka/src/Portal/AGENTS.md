@@ -32,7 +32,9 @@ page, and the account area
   reads the module Apis and the clock only.
 - The participant blocks show only the participant payer's side: totals,
   owed lines, money movements with their notes, and the transfer amount; the
-  money table is read for every status. A balance below zero shows as an
+  money table is read for every status. The read also carries one table per
+  other payer with lines, built by the same code, in Ledger's payer order,
+  for every status but waitlisted; the blocks do not show them yet. A balance below zero shows as an
   overpayment, never as a negative amount to pay. Only the last row is bold:
   „Még fizetendő”, or „Túlfizetés” when overpaid, whether or not anything is payable now.
 - The money table is built from `ParticipantMoney` alone (`StatusMarkup`; the mail look is `MailMarkup`, reached
@@ -43,7 +45,9 @@ page, and the account area
 - The transfer block renders nothing unless the registration is `registered`,
   its event is published, no request awaits an answer, the participant's balance is
   above zero after rounding up to the payable unit, and the event's bank
-  details are set.
+  details are set. The first four are one rule, `Api\PayableNow`, which starting a
+  card payment (Payments) reads too, through `StatusRead::payableNow()`: from the
+  participant's balance in `Ledger::balancesOf()`, never from the display summary.
 - Payment due and overdue are computed on every read, never stored. Payment
   due is Events' date type (`Events\Api\Event::paymentDue()`), read through the
   registration's fact source (`RegistrationFacts::paymentDue()`), which holds

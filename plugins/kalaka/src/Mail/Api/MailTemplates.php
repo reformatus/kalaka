@@ -19,9 +19,10 @@ use Kalaka\Mail\Catalogue\UpdateActionMail;
  * post of the event with an empty body, assigned to the point, which is switched off. The post is made here,
  * outside any use case (WordPress data is never written in a transaction), the way `wp kalaka action-mail body`
  * makes one: the actor passes the use case's access check first, the post is made, and the assignment goes
- * through `UpdateActionMail`, which switches the point off as any change of its template does; if that is
- * refused the post is removed again. Nothing is made for a point that already holds a template the use case
- * would not let go (the "registered" mail of an event with accounts stays on, and a draft cannot be its template).
+ * through `UpdateActionMail`, which switches the point off as any change of its template does. Only the access
+ * check comes before the post: the use case's own refusal needs the post's facts, so it comes after, and then the
+ * post is removed again. A refused assignment (the "registered" mail of an event with accounts stays on, and a
+ * draft cannot be its template: `PointTemplateUnpublished`) so makes the post for a moment and leaves none.
  *
  * `createDraft()` makes the same draft without a point (the screen's unassigned templates): no point changes and
  * nothing switches off. Both entry points are outside the abilities, as `wp kalaka action-mail body` is: the post

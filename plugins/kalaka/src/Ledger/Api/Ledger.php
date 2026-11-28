@@ -189,6 +189,16 @@ final class Ledger
     }
 
     /**
+     * Whether the registration holds a ledger line whose idempotency key starts with the prefix, matched
+     * literally: for a reader that knows a key's front part and not the rest (a provider's request, whose items
+     * name the end). A plain read.
+     */
+    public function holdsLineKeyStartingWith(RegistrationKey $registration, string $prefix): bool
+    {
+        return $this->lines->existsWithKeyPrefix($registration, $prefix);
+    }
+
+    /**
      * The registration's manual fees, oldest first: a fact read, never a line read, for the `manual` fee
      * component. A plain read, without a lock.
      *

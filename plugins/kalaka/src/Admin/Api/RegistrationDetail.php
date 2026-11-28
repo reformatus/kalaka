@@ -425,16 +425,11 @@ final class RegistrationDetail
         $money = Currency::from($currency);
         $zero = Money::zero($money);
 
-        // The participant first, then the event's other payer kinds (with or without lines), then payers that
-        // have lines but no declared kind, in the order the lines are shown. Each payer's totals are the
-        // Ledger's, never recomputed here.
-        $order = [];
-        foreach ($this->payerKinds->of($key->eventId) as $kind) {
-            $order[$kind->id] = $kind->label;
-        }
-        foreach ($entries as $entry) {
-            $order[$entry->payer] ??= null;
-        }
+        // The participant first, then the event's applying payer kinds (with or without lines), then payers that
+        // have lines but no applying kind (a kind that stopped applying, or none), in the order the lines are
+        // shown. A throwing kind source is contained here: that kind is skipped and logged. Each payer's totals
+        // are the Ledger's, never recomputed here.
+        $order = $this->payerKinds->payersOf($key, $entries, contained: true);
 
         $payers = [];
         $charged = $zero;

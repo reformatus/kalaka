@@ -235,7 +235,7 @@ final class MailPointTemplateTest extends MailAdminTestCase
             [
                 'registered' => true,
                 'waitlisted' => true,
-                'payment_recorded' => false,
+                'payment_recorded' => true,
                 'confirmed' => true,
                 'answered' => true,
             ],
