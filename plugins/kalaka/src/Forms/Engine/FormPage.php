@@ -93,13 +93,13 @@ final class FormPage
         }
 
         $form = $formId > 0 ? $this->forms->form($formId) : null;
-        $facts = $form === null ? null : $this->host->facts($form);
+        $now = Runner::current()->clock()->now();
+        $facts = $form === null ? null : $this->host->facts($form, $now);
         $post = $form === null ? null : get_post($form->id);
         if ($form === null || $facts === null || !$post instanceof \WP_Post) {
             return FormPageView::refused(FormPageView::UNAVAILABLE);
         }
 
-        $now = Runner::current()->clock()->now();
         $refusals = $this->refusals($form, $post, $now);
         if ($refusals !== []) {
             return $this->refusal($refusals[0], $form, $now, $post);
@@ -152,9 +152,11 @@ final class FormPage
             ),
             AccessRefusal::OutsideRegistrationWindow => FormPageView::refused($this->outsideWindow($form, $now)),
             // The account never refuses the page (`withoutAccount()`); listed for the match only.
-            AccessRefusal::EventNotOpen, AccessRefusal::AccountRequired => FormPageView::refused(
-                FormPageView::UNAVAILABLE
-            ),
+            AccessRefusal::EventNotOpen,
+            AccessRefusal::OutsideOpenPeriod,
+            AccessRefusal::AccountRequired,
+            AccessRefusal::RegistrationMayNotSubmit => FormPageView::refused(FormPageView::UNAVAILABLE),
+            AccessRefusal::NoActiveRegistration => FormPageView::refused(FormPageView::NO_ACTIVE_REGISTRATION),
         };
     }
 

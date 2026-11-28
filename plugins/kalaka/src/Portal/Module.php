@@ -61,6 +61,8 @@ SQL;
         add_action('template_redirect', [$this, 'preventCaching']);
         add_shortcode(ParticipantBlocks::STATUS_SHORTCODE, [ParticipantBlocks::class, 'status']);
         add_shortcode(ParticipantBlocks::TRANSFER_SHORTCODE, [ParticipantBlocks::class, 'transfer']);
+        add_shortcode(ParticipantBlocks::LEAVE_SHORTCODE, [ParticipantBlocks::class, 'leave']);
+        add_action('rest_api_init', [new LeaveRoute(), 'register']);
     }
 
     /** @internal the `init` callback (priority 0): the secret link and the active-registration cookie */
@@ -89,7 +91,7 @@ SQL;
         (new LinkHandler())->logout();
     }
 
-    /** @internal the `init` callback: the stylesheet and the two blocks, from `build/` */
+    /** @internal the `init` callback: the stylesheet and the three blocks, from `build/` */
     public function register(): void
     {
         // Plain CSS, which the build does not copy, so it is served from `src/` (the zip carries `src/`).
@@ -103,6 +105,7 @@ SQL;
         $renders = [
             'status' => [ParticipantBlocks::STATUS_BLOCK, [ParticipantBlocks::class, 'status']],
             'transfer' => [ParticipantBlocks::TRANSFER_BLOCK, [ParticipantBlocks::class, 'transfer']],
+            'leave' => [ParticipantBlocks::LEAVE_BLOCK, [ParticipantBlocks::class, 'leave']],
         ];
         foreach ($renders as $folder => [$name, $render]) {
             if (is_file($built . $folder . '/block.json')) {

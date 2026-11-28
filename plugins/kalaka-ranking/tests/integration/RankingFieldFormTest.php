@@ -50,8 +50,6 @@ final class RankingFieldFormTest extends FormsTestCase
             'event_id' => $this->event,
             'name' => 'Modulok',
             'required' => false,
-            'window_opens_at' => null,
-            'window_closes_at' => null,
             'published' => false,
         ], new CliActor(null));
         foreach (self::OPTIONS as $position => $option) {
@@ -59,7 +57,7 @@ final class RankingFieldFormTest extends FormsTestCase
                 'set_id' => $this->set,
                 'key' => $option['value'],
                 'label' => $option['label'],
-                'capacity' => null,
+                'limit' => null,
                 'leaders' => '',
                 'place' => '',
                 'position' => $position,
