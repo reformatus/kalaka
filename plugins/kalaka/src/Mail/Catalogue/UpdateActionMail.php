@@ -9,6 +9,7 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Mail\Api\ActionMail;
@@ -17,14 +18,14 @@ use Kalaka\Mail\Body\AccountLinkRule;
 
 /**
  * Changes one action mail of an event (mail.md, "Configuration"): switches it on or off, assigns its body
- * (a `kalaka_mail` post of the event) and whether the event's layout wraps it. A mail is on only with a
- * body, a body serves one mail only (mail.md, "Words": one to one), and only a published body is assigned or
- * switched on (a mail switched off may keep a body that is no longer published). Site-level, like every Mail
+ * (a `kalaka_mail` post of the event). A mail is on only with a body, a body serves one mail only (mail.md,
+ * "Words": one to one), and only a published body is assigned or switched on (a mail switched off may keep a body
+ * that is no longer published). Site-level, like every Mail
  * use case: only full access, WP-CLI and the system run it.
  *
  * It reads no WordPress data in its transaction: the body's facts (`MailBody`) are read before the run and
  * passed in, by `Api\ActionMailSettings::update()`. Run without them, it refuses any change that needs them
- * (a body assigned, a mail switched on); a layout switch or a switch-off still passes.
+ * (a body assigned, a mail switched on); a switch-off still passes.
  */
 final class UpdateActionMail implements AdminUseCase
 {
@@ -42,12 +43,12 @@ final class UpdateActionMail implements AdminUseCase
     /**
      * The pre-read facts of the body; refused without them, since they cannot be read here.
      *
-     * @throws RuleViolation when they were not read for this body
+     * @throws SystemFailure when they were not read for this body: the caller's programming error
      */
     private function body(int $id): MailBody
     {
         if ($this->body === null || $this->body->id !== $id) {
-            $error = new RuleViolation();
+            $error = new SystemFailure(null, new \LogicException('The body was not read before the run.'));
             throw $error;
         }
 
@@ -68,7 +69,6 @@ final class UpdateActionMail implements AdminUseCase
                 'mail' => ['type' => 'string', 'enum' => array_column(ActionMail::cases(), 'value')],
                 'enabled' => ['type' => 'boolean'],
                 'body_id' => ['type' => ['integer', 'null'], 'minimum' => 1],
-                'layout' => ['type' => 'boolean'],
             ],
             'required' => ['event_id', 'mail'],
             'minProperties' => 3,
@@ -126,19 +126,15 @@ final class UpdateActionMail implements AdminUseCase
         if (array_key_exists('enabled', $input)) {
             $entry->enabled = (bool) $input['enabled'];
         }
-        if (array_key_exists('layout', $input)) {
-            $entry->layout = (bool) $input['layout'];
-        }
         if ($entry->enabled && $entry->bodyId === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
             throw new RuleViolation(self::NO_BODY);
         }
         // Judged only for what this input changes: a body newly assigned, or the mail switched on. Another edit
-        // (the layout switch) of a mail that is on passes.
+        // of a mail that is on passes.
         $changed = $entry->bodyId !== $storedBody || ($entry->enabled && !$wasEnabled);
         if ($changed && $entry->bodyId !== null && !$this->body($entry->bodyId)->published) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
-            throw new RuleViolation(self::BODY_UNPUBLISHED);
+            throw new BodyUnpublished();
         }
         // S15: while the event has accounts, "Jelentkezés rögzítve" carries the set-password link (`AccountLinkRule`).
         if ($action === ActionMail::Registered && $event->accountMode !== AccountMode::Off) {

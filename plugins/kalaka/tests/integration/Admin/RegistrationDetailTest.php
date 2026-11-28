@@ -916,7 +916,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
         ObjectCache::clear();
 
