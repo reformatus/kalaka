@@ -164,6 +164,9 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-none { color: #50575e; margin: 8px 0; }
 .kg-tabs-money .components-tab-panel__tabs { border-bottom: 1px solid #dcdcde; margin-bottom: 12px; }
 .kg-tabs-money .components-tab-panel__tab-content { padding: 0; }
+/* Four tabs do not fit a 375px panel at the default padding: narrower tab padding at phone width, so the panel never scrolls
+   sideways. [UNAPPROVED N1008] */
+@media (max-width: 600px) { .kg-tabs-money .components-tab-panel__tabs-item { padding-inline: 12px; } }
 .kg-table-wrap { overflow-x: auto; margin: 0 0 12px; }
 table.kg-money { border-collapse: collapse; width: 100%; font-size: 13px; }
 table.kg-money th, table.kg-money td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
@@ -197,3 +200,38 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
    button, below core's modal layer; the opened WordPress menu goes over it. */
 @media (max-width: 600px) { .kg-panel { top: 0; z-index: 99999; } .kg-snacks { z-index: 100001; } }
 .wp-responsive-open .kg-panel { z-index: 99; }
+
+/* S39 on #247: the status acts row. [UNAPPROVED N721] Unboxed look, kept for the owner's eye: the row's margin, the
+   capacity list's spacing after the money table, the money section's 13px heading and, boxed in N721, its 16px
+   bottom margin and the 6px top margin of its paragraphs. The money table is the panel's money tab's
+   (`table.kg-money`, a row header when there are several payer rows and only `is-num` figures with tabular-nums
+   with one, headers over their figures). At 600px and narrower it stacks as a list (N714). The order the block is
+   in is N1310's: the table, the capacity list, the sentences. */
+.kg-act-block { margin: 0 0 16px; }
+.kg-act-capacity { margin: 4px 0 0; padding: 0; list-style: none; }
+.kg-act-capacity li { margin: 0 0 4px; overflow-wrap: anywhere; }
+.kg-act-figure { white-space: nowrap; } /* N716: „6 / 6” never breaks inside */
+.kg-act-money { margin: 0; }
+.kg-act-money h3 { font-size: 13px; margin: 0 0 4px; }
+.kg-act-serial, .kg-act-sentence { margin: 6px 0 0; }
+.kg-act-money table.kg-money .is-num { white-space: nowrap; }
+@media (max-width: 600px) {
+	.kg-act-money table.kg-money thead { display: none; }
+	.kg-act-money table.kg-money, .kg-act-money table.kg-money tbody, .kg-act-money table.kg-money tr, .kg-act-money table.kg-money th, .kg-act-money table.kg-money td { display: block; width: auto; }
+	.kg-act-money table.kg-money tr { margin: 0 0 8px; }
+	.kg-act-money table.kg-money th, .kg-act-money table.kg-money td { border: 0; padding: 2px 0; text-align: left; white-space: normal; font-weight: 400; }
+	.kg-act-money table.kg-money th::before, .kg-act-money table.kg-money td::before { content: attr(data-label) ': '; font-weight: 600; }
+}
+
+/* B5-2 on #249: the field list and its edit buttons. [UNAPPROVED N249] Unboxed look, kept for the owner's eye: the
+   labels' grey (#50575e, as the panel's own meta line), the row borders and the 2fr/3fr two-column grid at desktop
+   width (one column at 600px and narrower, N243). */
+.kg-fields { margin: 8px 0 12px; }
+.kg-field-list { margin: 0; }
+.kg-field { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 4px 12px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center; }
+.kg-field dt { color: #50575e; overflow-wrap: anywhere; }
+.kg-field dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; overflow-wrap: anywhere; min-width: 0; }
+.kg-field-value { min-width: 0; }
+.kg-multi { border: 0; margin: 0 0 16px; padding: 0; }
+.kg-multi .components-base-control { margin-bottom: 8px; }
+@media (max-width: 600px) { .kg-field { grid-template-columns: minmax(0, 1fr); } }

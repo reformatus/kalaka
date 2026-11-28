@@ -4,6 +4,7 @@
  */
 import apiFetch from '@wordpress/api-fetch';
 import { buildCall } from './money';
+import { abilityOf, inputOf } from './statusActs';
 
 /** The query parameters of the grid's filters and search; none when nothing narrows. */
 function narrowing( params, narrow ) {
@@ -180,3 +181,26 @@ export const setManualConfirmation = ( config, code, reason, unconfirm ) =>
  * @param {Object} input see `buildAnswer`
  */
 export const answerRequest = ( input ) => runAbility( 'kalaka/answer-request', input );
+
+/**
+ * Runs one status act (`kalaka/admit-registration`, `-withdraw-`, `-remove-`, `-restore-`; #247), or with
+ * `preview` asks what it would do (no reason, nothing written, no audit row). Answers `{ changed, status,
+ * over_capacity, seats, warnings }`; a preview adds `money`, `money_hidden` and `retention` (#247). An act is not idempotent by key: a repeat answers `{ changed: false }`.
+ *
+ * @param {Object}  config  window.kalakaGrid
+ * @param {string}  act     `admit`, `withdraw`, `remove` or `restore`
+ * @param {string}  code    the registration's code
+ * @param {string}  reason  the reason, '' for none
+ * @param {boolean} preview ask only
+ */
+export const runStatusAct = ( config, act, code, reason, preview = false ) =>
+	runAbility( abilityOf( act ), inputOf( config.event, code, reason, preview ) );
+
+/**
+ * Changes one field's value by staff (`kalaka/edit-field-value`, #249). Answers `{ changed, over_limit }`: a
+ * value equal to the stored one answers `{ changed: false }`; a stored value other than `expected` is a 409
+ * `kalaka_version_conflict`. `input` is `inputOf`'s (fieldEdit.js).
+ *
+ * @param {Object} input see `inputOf`
+ */
+export const editFieldValue = ( input ) => runAbility( 'kalaka/edit-field-value', input );

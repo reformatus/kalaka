@@ -144,6 +144,8 @@ export default function AnswerDialog( { config, code, currency, item, onClose, o
 						__nextHasNoMarginBottom
 					/>
 				) }
+				{ /* Always „Megjegyzés”, for every request and every answer: 6.8 accepted the lektor text, so the
+				     „Indoklás” swap goes. */ }
 				<TextareaControl
 					// The note is always „Megjegyzés”, never a reason, for every request kind (owner 2026-11-27,
 					// walkthrough 6.8).

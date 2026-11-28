@@ -1,11 +1,11 @@
 /**
- * The requests block of the detail panel: when it shows, the state word of each request and the button that
- * only `can.answer_request` gives. Real RequestsBlock with small stand-ins for wp-components and the dialog.
- * [UNAPPROVED N7]
+ * The „Kérelmek” tab of the detail panel: the state word of each request and the button that only
+ * `can.answer_request` gives, an inactive request with „–” and no button, and the empty tab's own text. Real
+ * RequestsList with small stand-ins for wp-components and the dialog. [UNAPPROVED N7] [UNAPPROVED T1308]
  */
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import RequestsBlock from '../../src/Admin/app/grid/RequestsBlock';
+import { RequestsList } from '../../src/Admin/app/grid/RequestsBlock';
 import { REQUESTS } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
@@ -28,18 +28,8 @@ async function render( items, can ) {
 	host = document.createElement( 'div' );
 	document.body.appendChild( host );
 	root = createRoot( host );
-	const detail = { requests: { currency: 'HUF', items }, can: { answer_request: can } };
 	await act( async () => {
-		root.render(
-			createElement( RequestsBlock, {
-				config: { rest: '', event: 7 },
-				code: '92F7',
-				detail,
-				stale: false,
-				reload: () => Promise.resolve(),
-				onSaved: () => {},
-			} )
-		);
+		root.render( createElement( RequestsList, { items, currency: 'HUF', start: () => {}, can } ) );
 	} );
 }
 
@@ -48,7 +38,7 @@ afterEach( () => {
 	host.remove();
 } );
 
-describe( 'the requests block', () => {
+describe( 'the requests tab', () => {
 	test( 'an awaiting request shows its state word and, with the ability, the button', async () => {
 		await render( [ item( 'awaiting' ) ], true );
 		expect( host.querySelector( '.kg-requests' ).textContent ).toContain( `Egyházi támogatás: ${ REQUESTS.awaiting }` );
@@ -71,9 +61,9 @@ describe( 'the requests block', () => {
 		expect( host.querySelector( 'button' ) ).toBeNull();
 	} );
 
-	test( 'no requests, no block', async () => {
+	test( 'no requests: the tab says so (the tab is still there)', async () => {
 		await render( [], true );
 		expect( host.querySelector( '.kg-requests' ) ).toBeNull();
-		expect( host.textContent ).toBe( '' );
+		expect( host.textContent ).toBe( REQUESTS.none );
 	} );
 } );
