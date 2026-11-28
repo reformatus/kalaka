@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms;
 
 use Kalaka\Assignments\Api\AssignmentSets;
+use Kalaka\Forms\Api\MoneyRelevantFieldType;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Actor\Actor;
@@ -140,6 +141,7 @@ final class ParticipantFieldSync
      *         options: ?list<array{value: string, label: string}>,
      *         latest: bool,
      *         settings: array<string, mixed>,
+     *         money_relevant: bool,
      *     }>,
      *     list<string>,
      * }
@@ -196,6 +198,11 @@ final class ParticipantFieldSync
         }
 
         $union += $clashing;
+        // The block type says whether the field's value is money relevant; the participant field keeps the flag.
+        $fieldTypes = $contributions->fieldTypes();
+        foreach ($union as $key => $field) {
+            $union[$key]['money_relevant'] = ($fieldTypes[$field['type']] ?? null) instanceof MoneyRelevantFieldType;
+        }
 
         return [array_values($union), $conflicts];
     }

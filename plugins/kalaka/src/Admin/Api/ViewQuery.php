@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Decision\DecisionTables;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Query\Query;
 use Kalaka\Foundation\Api\Time\Instant;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationTables;
@@ -30,6 +31,9 @@ final class ViewQuery extends Query
     /** The most rows one page may ask for. */
     public const MAX_LIMIT = 500;
 
+    /** The most registration codes one call may ask the display names for. */
+    public const MAX_NAMES = 100;
+
     /** The columns a view lists for display only: neither sortable nor filterable. */
     private const DISPLAY_ONLY = ['registered_at', 'submitted_at'];
 
@@ -39,6 +43,7 @@ final class ViewQuery extends Query
     public function __construct(
         private readonly Serials $serials = new Serials(),
         private readonly Decisions $decisions = new Decisions(),
+        private readonly Forms $forms = new Forms(),
         private readonly Requests $requests = new Requests(),
     ) {
         parent::__construct();
@@ -77,6 +82,34 @@ final class ViewQuery extends Query
             );
 
             return (int) ($rows[0]['found'] ?? 0);
+        });
+    }
+
+    /**
+     * The codes of every registration the view's filter matches, narrowed by the grid's ad hoc filters and search
+     * when given: all of them, with no paging limit, in the default order (the sorszám order, then the code). The
+     * very conditions of `count()` and `page()`, so a bulk act on "everything the grid shows" reaches the rows
+     * the grid's pages add up to and no others. One statement.
+     *
+     * @return list<string>
+     * @throws InvalidInput when a narrowing filter names a column the view does not list
+     */
+    public function codesOf(HeldView $view, ?Narrowing $narrowing = null): array
+    {
+        [$conditions, $args] = $this->conditions($view->shape(), $view->bound());
+        [$narrow, $narrowArgs] = $this->narrowed($view, $narrowing);
+        $conditions .= $narrow;
+        array_push($args, ...$narrowArgs);
+
+        return $this->scope(function () use ($view, $conditions, $args): array {
+            $rows = $this->select(
+                'registration',
+                'SELECT r.code FROM %i r WHERE r.event_id = %d' . $conditions
+                . ' ORDER BY ' . RegistrationTables::serialOrder('r'),
+                [$this->table(RegistrationTables::REGISTRATIONS), $view->eventId, ...$args]
+            );
+
+            return array_map(static fn (array $row): string => (string) $row['code'], $rows);
         });
     }
 
@@ -140,7 +173,7 @@ final class ViewQuery extends Query
         if ($sort === 'status') {
             $order = 'r.status' . $direction . ', ' . $serialOrder;
         } elseif ($sort === 'serial') {
-            // The computed sorszám as a number [UNAPPROVED N64]; the rows with none (withdrawn, removed) sort first
+            // The computed sorszám as a number; the rows with none (withdrawn, removed) sort first
             // ascending, and a tie (the same number in `registered` and `waitlisted`) falls back to the default order.
             [$ranked, $joinArgs] = RegistrationTables::serialNumbers(
                 $this->table(RegistrationTables::REGISTRATIONS),
@@ -261,7 +294,8 @@ final class ViewQuery extends Query
      * One registration as the views that hold it show it, the union of their columns. The views must be the
      * ones `Access::holding()` found to hold it (or the master view of full access): this read does not
      * check the filter again. Null when the event has no such registration. The times of `registered_at` and
-     * the first submission are shown to the master view only, as no column lists them.
+     * the first submission are shown only where a held view lists the column (`registered_at`, `submitted_at`),
+     * and always to full access.
      *
      * @param non-empty-list<HeldView> $views
      */
@@ -466,6 +500,73 @@ final class ViewQuery extends Query
     }
 
     /**
+     * The display name of each given registration, as the view shows it: the value of the display-name field of
+     * the slot form's version the registration was submitted with (the name field is resolved through `Forms`,
+     * as the detail read does), or null when the view does not list that column (no name access), the code is
+     * no registration of the event, the view's filter does not hold it, or the field has no answer. Full access
+     * (the master view) sees every name. A name is personal data, so a code outside the view's filter is never
+     * read or revealed.
+     *
+     * The reads are the view's own conditions on the given codes (`heldCodes()`), their slot forms, and the
+     * name values; the name field is read through WordPress posts, outside the query's scope, so this read is
+     * for the screens, never inside a use case's transaction.
+     *
+     * @param list<string> $codes at most `MAX_NAMES`, each once
+     * @return array<string, ?string> the name by code, in the order the codes were given; null where there is none
+     * @throws InvalidInput when more than `MAX_NAMES` codes are given
+     */
+    public function namesOf(HeldView $view, array $codes): array
+    {
+        if (count($codes) > self::MAX_NAMES) {
+            throw new InvalidInput();
+        }
+        $codes = array_values(array_unique($codes));
+        if ($codes === []) {
+            return [];
+        }
+        $eventId = $view->eventId;
+        $shape = $view->shape();
+        $full = $shape === null;
+
+        $held = $this->scope(fn (): array => $this->heldCodes($view, $codes));
+        $slotForms = $this->scope(fn (): array => $this->slotForms($eventId, $codes));
+
+        // The display-name field key of each code's slot form, once per distinct version.
+        $nameKeys = [];
+        $resolved = [];
+        foreach ($slotForms as $code => $slot) {
+            $slotKey = $slot['form_id'] . ':' . $slot['form_version'];
+            if (!array_key_exists($slotKey, $resolved)) {
+                $resolved[$slotKey] = $this->forms->contactKeys($slot['form_id'], $slot['form_version'])['name'];
+            }
+            $nameKeys[$code] = $resolved[$slotKey];
+        }
+
+        // Read a value only for a code the view holds and whose name column the view lists.
+        $readCodes = [];
+        $wanted = [];
+        foreach ($codes as $code) {
+            $nameKey = $nameKeys[$code] ?? null;
+            if (!isset($held[$code]) || $nameKey === null || (!$full && !$shape->lists('field:' . $nameKey))) {
+                continue;
+            }
+            $readCodes[] = $code;
+            $wanted[] = $nameKey;
+        }
+        $values = $readCodes === [] ? [] : $this->scope(
+            fn (): array => $this->fieldValues($eventId, $readCodes, array_values(array_unique($wanted)))
+        );
+
+        $names = [];
+        foreach ($codes as $code) {
+            $nameKey = $nameKeys[$code] ?? null;
+            $names[$code] = $nameKey === null ? null : ($values[$code][$nameKey] ?? null);
+        }
+
+        return $names;
+    }
+
+    /**
      * The view's own condition as the grid shows it above the table, one term per filter term: the column and
      * the values it holds (S37). A parameter term shows the grant's bound value; for full access, which has no
      * bound value, it shows `null` ("the value given at each grant"); for a grant with no bound value it is
@@ -562,7 +663,7 @@ final class ViewQuery extends Query
         $text = is_string($value) ? $value : '';
 
         if ($column === 'serial') {
-            // The computed sorszám as a number, with the operators of any number column. [UNAPPROVED N65]
+            // The computed sorszám as a number, with the operators of any number column.
             [$ranked, $rankedArgs] = RegistrationTables::serialNumbers(
                 $this->table(RegistrationTables::REGISTRATIONS),
                 $eventId
@@ -881,6 +982,57 @@ final class ViewQuery extends Query
         }
 
         return $values;
+    }
+
+    /**
+     * The given codes that are registrations of the event and that the view's filter holds now, as a set. One
+     * statement on the event's rows; the view's own conditions are reused, so a code outside the filter is left
+     * out and never read further.
+     *
+     * @param list<string> $codes
+     * @return array<string, true>
+     */
+    private function heldCodes(HeldView $view, array $codes): array
+    {
+        [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
+        $rows = $this->select(
+            'held_code',
+            'SELECT r.code FROM %i r WHERE r.event_id = %d AND r.code IN ('
+            . implode(', ', array_fill(0, count($codes), '%s')) . ')' . $conditions,
+            [$this->table(RegistrationTables::REGISTRATIONS), $view->eventId, ...$codes, ...$conditionArgs]
+        );
+        $held = [];
+        foreach ($rows as $row) {
+            $held[(string) $row['code']] = true;
+        }
+
+        return $held;
+    }
+
+    /**
+     * The slot form (its id and the submitted version) of each code's first submission, by code; a code without
+     * one is left out. One statement on the submissions' event-first key.
+     *
+     * @param list<string> $codes
+     * @return array<string, array{form_id: int, form_version: int}>
+     */
+    private function slotForms(int $eventId, array $codes): array
+    {
+        $rows = $this->select(
+            'slot_form',
+            'SELECT code, form_id, form_version FROM %i WHERE event_id = %d AND number = 1 AND code IN ('
+            . implode(', ', array_fill(0, count($codes), '%s')) . ')',
+            [$this->table(RegistrationTables::SUBMISSIONS), $eventId, ...$codes]
+        );
+        $forms = [];
+        foreach ($rows as $row) {
+            $forms[(string) $row['code']] = [
+                'form_id' => (int) $row['form_id'],
+                'form_version' => (int) $row['form_version'],
+            ];
+        }
+
+        return $forms;
     }
 
     /**

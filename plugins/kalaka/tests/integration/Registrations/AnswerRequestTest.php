@@ -296,7 +296,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-03 10:00');
@@ -427,7 +427,6 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'version' => 1,
             'enabled' => $enabled ? 1 : 0,
             'body_id' => $body,
-            'layout' => 1,
         ]);
     }
 
@@ -484,7 +483,6 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
         ]);
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-03 10:00');

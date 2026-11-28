@@ -16,7 +16,8 @@ use Kalaka\Foundation\Api\Module\Contributions;
 /**
  * Checks a document's block markup (a mail body) when it is saved, against the keys and types its context
  * will declare: every chain's placement and every condition in it, in every branch whether it would hold or
- * not, every `kalaka/value` binding and every inline value. What it accepts, `Renderer` renders for any
+ * not, every `kalaka/value` binding, every inline value and every placeholder typed as `{{key}}`. What it
+ * accepts, `Renderer` renders for any
  * context with those keys. Its walk (`walk()`) is also `DefinitionParser`'s check of a form's after-submit
  * section, which refuses some blocks there and does not check values.
  */
@@ -24,15 +25,18 @@ final class DocumentCheck
 {
     private const ATTRIBUTE = 'data-kalaka-value';
 
-    public function __construct(private readonly ConditionParser $parser = new ConditionParser())
-    {
+    public function __construct(
+        private readonly ConditionParser $parser = new ConditionParser(),
+        private readonly Placeholders $placeholders = new Placeholders(),
+    ) {
     }
 
     /**
      * @param array<string, ValueType> $declared
      * @param list<string> $paths the declared keys whose value is a path (`Api\PathFieldType`): never `equals`
      * @throws SystemFailure the first problem, `<code> <subject>`: `orphan_branch`, `invalid_condition <key>`,
-     *     `unknown_value_key <key>`, `field_in_document <block>`, `form_block_in_document <block>`
+     *     `unknown_value_key <key>`, `unknown_placeholder <typed keys joined with ", ">`,
+     *     `field_in_document <block>`, `form_block_in_document <block>`
      */
     public function check(string $content, array $declared, array $paths = []): void
     {
@@ -55,11 +59,36 @@ final class DocumentCheck
         $this->inlineKeys($content, static function (string $key) use ($scope): void {
             $scope->typeOf($key);
         });
+        $unknown = $this->unknownPlaceholders($content, $declared);
+        if ($unknown !== []) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and typed keys, never a value
+            throw new SystemFailure('unknown_placeholder ' . implode(', ', $unknown));
+        }
     }
 
     /**
-     * The keys a document places as values: every `kalaka/value` binding and every outermost inline value
-     * span, as `check()` reads them. A key that only a condition names is not placed.
+     * The placeholders typed as `{{key}}` in the document's text and attributes whose key is not declared, as they
+     * are typed and each once, in order: `{{content}}` is never declared, and an opening `{{` that nothing closes
+     * in the same text or attribute is listed as `{{`.
+     *
+     * @param array<string, ValueType> $declared
+     * @return list<string>
+     */
+    public function unknownPlaceholders(string $content, array $declared): array
+    {
+        $unknown = [];
+        foreach ($this->placeholders->tokens($content) as [$typed, $key]) {
+            if ($key === '' || !isset($declared[$key])) {
+                $unknown[$typed] = $typed;
+            }
+        }
+
+        return array_values($unknown);
+    }
+
+    /**
+     * The keys a document places as values: every `kalaka/value` binding, every outermost inline value
+     * span and every typed placeholder, as `check()` reads them. A key that only a condition names is not placed.
      *
      * @return list<string>
      */
@@ -70,6 +99,11 @@ final class DocumentCheck
         $this->inlineKeys($content, static function (string $key) use (&$keys): void {
             $keys[] = $key;
         });
+        foreach ($this->placeholders->tokens($content) as [, $key]) {
+            if ($key !== '') {
+                $keys[] = $key;
+            }
+        }
 
         return array_values(array_unique($keys));
     }

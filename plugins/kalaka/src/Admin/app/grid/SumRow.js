@@ -5,18 +5,26 @@
  *
  * A column that can count offers its counting menu from the number itself (owner, 2026-11-27): the number is
  * the trigger, there is no down arrow, and a column that can count but has nothing counted yet shows a grey
- * placeholder with a dotted underline. Columns that cannot count keep a plain value. [UNAPPROVED N1046]
+ * placeholder with a dotted underline. Columns that cannot count keep a plain value.
+ *
+ * When the table carries row actions, DataViews puts a selection column before the fields and an actions column
+ * after them; `framed` adds an empty cell at each end so every sum stays under its own column. The cell under the
+ * actions column is sticky like the column's own cells, so a sum that scrolls under the header does not show
+ * through below the sticky „Műveletek”. [UNAPPROVED N295]
  */
 import { createPortal, useLayoutEffect, useState } from '@wordpress/element';
 import { sumParts } from './format';
 import { GRID } from './texts';
 
-export default function SumRow( { root, columns, order, sums, menuFor, narrowed } ) {
+export default function SumRow( { root, columns, order, sums, menuFor, narrowed, framed } ) {
 	const [ row ] = useState( () => {
 		const tr = document.createElement( 'tr' );
 		tr.className = 'kg-sumtr';
 		return tr;
 	} );
+	// Whether DataViews draws the divider on its own sticky cells (its header cell carries `--stuck`); the sum's
+	// frame cell follows it. [UNAPPROVED N295]
+	const [ stuck, setStuck ] = useState( false );
 	// While filtered or searched the sums follow the filter: italics (CSS) and a tooltip say so.
 	useLayoutEffect( () => {
 		row.classList.toggle( 'is-narrowed', !! narrowed );
@@ -30,10 +38,11 @@ export default function SumRow( { root, columns, order, sums, menuFor, narrowed 
 			if ( thead && thead.lastElementChild !== row ) {
 				thead.appendChild( row );
 			}
+			setStuck( !! root.querySelector( 'table thead th.dataviews-view-table__actions-column--stuck' ) );
 		};
 		ensure();
 		const observer = new window.MutationObserver( ensure );
-		observer.observe( root, { childList: true, subtree: true } );
+		observer.observe( root, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ] } );
 		return () => {
 			observer.disconnect();
 			row.remove();
@@ -66,5 +75,12 @@ export default function SumRow( { root, columns, order, sums, menuFor, narrowed 
 				</td>
 			);
 		} );
-	return createPortal( cells, row );
+	return createPortal(
+		<>
+			{ framed && <td className="kg-sumtd kg-sumtd-frame" /> }
+			{ cells }
+			{ framed && <td className={ 'kg-sumtd kg-sumtd-frame kg-sumtd-actions dataviews-view-table__actions-column--sticky' + ( stuck ? ' dataviews-view-table__actions-column--stuck' : '' ) } /> }
+		</>,
+		row
+	);
 }

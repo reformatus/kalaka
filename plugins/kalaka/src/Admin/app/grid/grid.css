@@ -59,10 +59,10 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 /* An inactive registration (waitlisted, withdrawn, removed) is dimmed; it still opens (S38) and still counts.
    An active row keeps DataViews' own table text colour; only an inactive row is set apart, in the design
    system's own disabled foreground token (lighter than the table text, about 3.3:1 on white; the choice and its
-   alternative, a reduced opacity, are N25's). [UNAPPROVED N25] */
+   alternative, a reduced opacity, are N25's). */
 #kalaka-grid .kg-inactive { color: var(--wpds-color-foreground-interactive-neutral-disabled, #8d8d8d); }
 
-/* A long field wraps within its column, never cut (owner 2026-11-27, walkthrough 9.4 b). [UNAPPROVED N1260] */
+/* A long field wraps within its column, never cut (owner 2026-11-27, walkthrough 9.4 b). */
 .kg-long { display: block; max-width: 240px; white-space: normal; overflow-wrap: anywhere; }
 
 /* DataViews inside wp-admin. */
@@ -78,10 +78,12 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 /* The sum row inside DataViews' <thead>. */
 #kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
 #kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
+/* The frame cell under the sticky actions column is sticky too, so no sum shows through below the header. */
+#kalaka-grid thead tr.kg-sumtr td.kg-sumtd-actions { position: sticky; right: 0; }
 .kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
 
 /* The number is the counting menu's trigger: a generous target with no down arrow. A column that can count
-   but has nothing counted yet shows a grey placeholder with a dotted underline. [UNAPPROVED N1046, N1047] */
+   but has nothing counted yet shows a grey placeholder with a dotted underline. */
 .kg-sumtd .kg-sumcount { display: inline-flex; max-width: 100%; }
 .kg-sumcount-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; margin: -2px 0; padding: 2px 8px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
 .kg-sumcount-btn:hover, .kg-sumcount-btn:focus-visible { background: rgba(0, 0, 0, 0.05); }

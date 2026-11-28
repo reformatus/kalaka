@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-// WP-CLI is not loaded in PHPUnit. This records the calls SeedCommand makes and, like the real
-// WP_CLI::error(), does not return. It is defined only when the real class is absent.
+// WP-CLI is not loaded in PHPUnit. This records the calls the commands make and, like the real
+// WP_CLI::error() and WP_CLI::confirm(), does not return. It is defined only when the real class is absent.
 namespace {
+    require_once __DIR__ . '/WpCliExitException.php';
+
     if (!class_exists('WP_CLI', false)) {
         // phpcs:ignore Squiz.Classes.ValidClassName.NotCamelCaps -- the recording double keeps the real class name WP_CLI
         final class WP_CLI
@@ -18,6 +20,7 @@ namespace {
             {
                 self::$calls = [];
                 self::$decline = false;
+                self::$exitWithoutYes = false;
             }
 
             /** @param array<string, mixed> $args */
@@ -35,11 +38,20 @@ namespace {
             /** @var bool whether confirm() answers no, as an operator declining does */
             public static bool $decline = false;
 
+            /** @var bool whether confirm() without a yes exits as the real one does on a no, instead of throwing */
+            public static bool $exitWithoutYes = false;
+
             /** @param array<string, mixed> $assoc */
             public static function confirm(string $question, array $assoc = []): void
             {
                 self::$calls[] = ['confirm', $question];
-                if (!isset($assoc['yes']) && self::$decline) {
+                if (isset($assoc['yes'])) {
+                    return;
+                }
+                if (self::$exitWithoutYes) {
+                    throw new \WP_CLI\ExitException(0, 'WP_CLI::confirm');
+                }
+                if (self::$decline) {
                     throw new \RuntimeException('WP_CLI::confirm declined');
                 }
             }

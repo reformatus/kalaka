@@ -33,7 +33,7 @@ describe( 'the reason', () => {
 	} );
 
 	test( 'both messages are the dialog\'s', () => {
-		expect( CONFIRM.reasonTooLong ).toBe( 'Az indoklás legfeljebb 500 karakter lehet.' );
+		expect( CONFIRM.reasonTooLong ).toBe( 'A megjegyzés legfeljebb 500 karakter lehet.' );
 	} );
 } );
 

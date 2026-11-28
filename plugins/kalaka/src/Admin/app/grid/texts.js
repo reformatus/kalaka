@@ -14,12 +14,12 @@ export const GRID = {
 	tabsLabel: 'Nézetek',
 	toolbar: 'Műveletek',
 	// The one reset (search, filters, sort and counting): DataViews' own, already approved „Visszaállítás”
-	// (`Translations::OVERRIDES`), so no new string. [UNAPPROVED T38]
+	// (`Translations::OVERRIDES`), so no new string.
 	reset: 'Visszaállítás',
-	// Filters and search. [UNAPPROVED N10]
+	// Filters and search.
 	followsFilter: 'Az összesítő sor és a másolás a szűrt sorokra vonatkozik.',
 	noMatch: 'Nincs megfelelő jelentkező.',
-	// A view or a filter set with no registrations at all. [UNAPPROVED N10]
+	// A view or a filter set with no registrations at all.
 	emptyView: 'Nincs jelentkező.',
 	// One more value in a list column's own filter; the owner's own word (2026-11-21).
 	unanswered: 'Nincs válasz',
@@ -37,10 +37,9 @@ export const SUM = {
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
 	// The number in a sum cell opens the counting menu; its counting group and its screen-reader name.
-	// [UNAPPROVED T3, T4]
 	counting: 'Számolás',
 	open: 'Összesítés: %s',
-	// The sum row's own load failure, above a table whose rows are on screen. [UNAPPROVED T6]
+	// The sum row's own load failure, above a table whose rows are on screen.
 	loadFail: 'Az összesítő sor betöltése nem sikerült.',
 };
 
@@ -104,7 +103,7 @@ export const MONEY = {
 	dateField: 'Dátum',
 	methodField: 'Fizetési mód',
 	noteField: 'Közlemény',
-	reasonField: 'Indoklás',
+	reasonField: 'Megjegyzés', // the owner's 6.8 ruling: always „Megjegyzés”
 	// The dialogs' preview (topic 10): „Tartozás” replaces „egyenleg”.
 	balanceNow: 'Jelenlegi tartozás',
 	balanceAfter: 'Tartozás mentés után',
@@ -163,7 +162,7 @@ export const MONEY = {
 /**
  * The manual confirmation (S20): the button, its two dialogs, the line that says who set it and the snackbars.
  * The decision's own labels („Visszaigazolás”, „Visszaigazolva”, „Nincs visszaigazolva”) come from the server and
- * are approved, and so are the rest: the set button and its dialog title (T3 of #213), the field „Indoklás” only
+ * are approved, and so are the rest: the set button and its dialog title (T3 of #213), the field „Megjegyzés” only
  * (its message „Add meg az indoklást.” is gone), the line under the tab, the snackbars, the message for a reason
  * over the limit. The re-confirm snackbar is gone: that unconfirm is disabled now. The help text of the disabled
  * unconfirm is the server's text (#213's T5a or T5b with the money view, T5c without it; the owner dropped the mail
@@ -173,11 +172,11 @@ export const CONFIRM = {
 	set: 'Visszaigazolás befizetés nélkül',
 	// The unconfirm button and its dialog title, approved by the owner 2026-11-20 (T24).
 	unconfirm: 'Visszaigazolás visszavonása',
-	reasonField: 'Indoklás',
-	reasonTooLong: 'Az indoklás legfeljebb 500 karakter lehet.',
+	reasonField: 'Megjegyzés', // the owner's 6.8 ruling: always „Megjegyzés”
+	reasonTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.',
 	setLine: 'Befizetés nélkül visszaigazolta: %1$s, %2$s',
 	setLineAnon: 'Befizetés nélkül visszaigazolva: %s',
-	reasonLine: 'Indoklás: %s',
+	reasonLine: 'Megjegyzés: %s',
 	saved: 'Befizetés nélküli visszaigazolás rögzítve.',
 	unconfirmed: 'Visszaigazolás visszavonva.',
 };

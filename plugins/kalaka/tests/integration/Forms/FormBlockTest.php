@@ -318,6 +318,18 @@ final class FormBlockTest extends FormsTestCase
         self::assertSame(0, preg_match('/[0-9a-f]{32}/', $html));
     }
 
+    /** 8.13: a typed `{{key}}` shows its value on the form page's load, beside the inline value span. */
+    public function testATypedPlaceholderShowsTheEventsNameOnTheFormPagesLoad(): void
+    {
+        $paragraph = '<!-- wp:paragraph --><p>Tábor: {{event.name}}</p><!-- /wp:paragraph -->';
+        $id = $this->formOf($paragraph, $this->eventWithWindow(name: 'Őszi tábor'));
+
+        $html = $this->render($id);
+
+        self::assertStringContainsString('<p class="wp-block-paragraph">Tábor: Őszi tábor</p>', $html);
+        self::assertStringNotContainsString('{{event.name}}', $html);
+    }
+
     public function testEveryFieldHasOneErrorElementAndTheFormAddsNoSecond(): void
     {
         $html = $this->render($this->formOf($this->sizes()));
@@ -481,14 +493,18 @@ final class FormBlockTest extends FormsTestCase
         );
     }
 
-    public function testAnAdditionalFormIsNotBoundToTheWindow(): void
+    public function testAnAdditionalFormIsNotBoundToTheRegistrationWindowButNeedsAnActiveRegistration(): void
     {
         $id = $this->insertForm(
             $this->field('text', 'note'),
             ['kalaka_event_id' => $this->eventWithWindow(-15, -5), 'kalaka_placement' => 'additional']
         );
 
-        self::assertStringContainsString('<form novalidate ', $this->render($id));
+        // No active registration: the registrant's link opens it (S60). The registration window plays no part.
+        self::assertStringContainsString(
+            'Az űrlap kitöltéséhez nyisd meg a jelentkezés után kapott e-mailben lévő linket.',
+            $this->render($id)
+        );
     }
 
     public function testAFormWithAPasswordShowsWordPressesPasswordFormUntilThereIsTheCookie(): void

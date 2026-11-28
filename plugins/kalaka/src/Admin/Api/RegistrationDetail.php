@@ -137,7 +137,7 @@ final class RegistrationDetail
             $read['requests'] = $this->requestsPart($key, $event->currency->value, $viewMoney);
         }
         $read['can'] = [
-            'answer_request' => $answer,
+            'answer_request' => $answer && $registered,
             'view_money' => $viewMoney,
             'record_money' => $record,
             // A manual charge or discount is offered only while the registration is registered ([UNAPPROVED]).

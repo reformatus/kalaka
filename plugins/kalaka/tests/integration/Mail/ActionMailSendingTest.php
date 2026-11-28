@@ -132,8 +132,8 @@ final class ActionMailSendingTest extends MailBodyTestCase
             $this->paragraph('Linked: <span data-kalaka-value="registration.link">link</span>'),
             'Új link'
         );
-        $this->switchOn($event, 'link_regenerated', $body);
-        $this->act($key, ActionMail::LinkRegenerated);
+        $this->switchOn($event, 'registered', $body);
+        $this->act($key, ActionMail::Registered);
 
         $this->realSender()->send();
 
