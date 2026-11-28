@@ -16,7 +16,6 @@ use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Pricing\Api\ProvidesBase;
 use Kalaka\Pricing\Api\StageTotals;
 use Kalaka\Registrations\Api\RegistrationFacts;
-use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * Composes the fee stage by stage (money.md, "Materializer"): tier → support → share → aid → extras. Each
@@ -47,7 +46,7 @@ final class FeeComposer
         foreach ($components as $component) {
             $composed[$component->id()] = [];
         }
-        if ($facts->status !== RegistrationStatus::Registered) {
+        if (!$facts->status->isLive()) {
             return $composed;
         }
 
