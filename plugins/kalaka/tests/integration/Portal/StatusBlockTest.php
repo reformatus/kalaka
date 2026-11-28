@@ -69,10 +69,15 @@ final class StatusBlockTest extends PortalTestCase
         self::assertStringContainsString('<p class="kalaka-deadline">Fizetési határidő: 2026. december 7.</p>', $html);
         self::assertSame(
             'Jelentkezésem állapota Jelentkezési kód: 12A3 Fizetésre vár. Pénzügyek Részvételi díj + 51 000 Ft'
-            . ' Fizetendő összesen 51 000 Ft Befizetés + 20 000 Ft 2026. 11. 29. ⓘBefizetés · 2026. 11. 29.'
+            . ' Fizetendő összesen 51 000 Ft Befizetés + 20 000 Ft 2026. 11. 29. ⓘ'
             . ' Befizetve összesen 20 000 Ft Még fizetendő 31 000 Ft Fizetési határidő: 2026. december 7. '
             . self::NOTE,
             self::text($html)
+        );
+        self::assertStringContainsString(
+            '<span class="kalaka-info-button" role="img" title="Befizetés · 2026. 11. 29."'
+            . ' aria-label="Befizetés · 2026. 11. 29.">ⓘ</span>',
+            $html
         );
         // The state word, and the last row's label and amount: the bold is in the markup, not in the CSS.
         self::assertSame(2, substr_count($html, '<strong>') - 1, 'only the state word and the last row are bold');
@@ -313,7 +318,7 @@ final class StatusBlockTest extends PortalTestCase
         );
         self::assertStringNotContainsString('Még fizetendő', $html);
         self::assertStringNotContainsString("\u{2212}", $html);
-        // The amount text only: a bare '-2' also matches element ids such as kalaka-info-20 in a full run.
+        // The amount text only: a bare '-2' also matches element ids in a full run.
         self::assertStringNotContainsString("-2\u{00A0}000", $html);
         self::assertStringNotContainsString('-2 000', $html);
         self::assertStringNotContainsString('SQ-8', $html);

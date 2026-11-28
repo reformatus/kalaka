@@ -153,6 +153,10 @@ final class MailValues
             self::AWAITS_ANSWER => ValueType::Choice,
             self::ACCOUNT_UNVERIFIED => ValueType::Choice,
             self::ACCOUNT_PASSWORD_LINK => ValueType::Text,
+            self::PAYMENT_AMOUNT => ValueType::Number,
+            self::PAYMENT_DIRECTION => ValueType::Choice,
+            self::PAYMENT_METHOD => ValueType::Choice,
+            self::PAYMENT_DATE => ValueType::Date,
             ...array_fill_keys(
                 array_map(
                     static fn (int $page): string => 'page_' . $page . '.link',
@@ -160,10 +164,6 @@ final class MailValues
                 ),
                 ValueType::Text
             ),
-            self::PAYMENT_AMOUNT => ValueType::Number,
-            self::PAYMENT_DIRECTION => ValueType::Choice,
-            self::PAYMENT_METHOD => ValueType::Choice,
-            self::PAYMENT_DATE => ValueType::Date,
         ];
     }
 
@@ -218,7 +218,7 @@ final class MailValues
         \DateTimeImmutable $now,
         bool $passwordLink = false,
         array $pages = [],
-        ?int $lineId = null
+        ?int $lineId = null,
     ): ValueContext {
         $record = $this->read($key);
         $link = $this->links->url($key, home_url('/'));

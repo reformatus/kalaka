@@ -63,7 +63,6 @@ final class MailRenderer
             throw new BodyUnusable('no_body ' . $mail);
         }
 
-        // Only the "payment recorded" mail reads a line: the `payment.*` keys are none in every other mail.
         return $this->renderBody(
             $eventId,
             $setting->bodyId,
@@ -78,7 +77,8 @@ final class MailRenderer
      * `render()` does once it has found the body, and what a manual mail (`Manual\MailBatch`) renders.
      *
      * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
-     * @param ?int $lineId the ledger line behind a "payment recorded" mail (its `payment.*` keys read it)
+     * @param ?int $lineId the ledger line a "payment recorded" mail reads: `render()` passes it only for that
+     *        mail, so the `payment.*` keys are none in every other mail and in a manual one
      * @throws SystemFailure a body without a revision, a stored layout without its one placeholder (`layout`),
      *         or what `Values::render()` and the context throw
      * @throws BodyUnusable the body's own problem, as `render()`
@@ -88,7 +88,7 @@ final class MailRenderer
         int $bodyId,
         RegistrationKey $registration,
         \DateTimeImmutable $now,
-        ?int $lineId = null,
+        ?int $lineId = null
     ): RenderedMail {
         $body = $this->posts->published($bodyId, $eventId);
         // The typed `{{money_table}}` and `{{transfer_details}}` stand for their blocks (`MailBlocks::expand()`).
@@ -100,6 +100,7 @@ final class MailRenderer
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw BodyUnusable::of($e);
         }
+        // Only the "payment recorded" mail reads a line: the `payment.*` keys are none in every other mail.
         $context = $this->values->context(
             $registration,
             $now,

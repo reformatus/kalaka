@@ -80,7 +80,7 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   plain read of that switch, for a preview that queues nothing.
 - The "payment recorded" mail is decided by `Api\ActionMails::lineRecorded()` in the use case that recorded the
   line: the participant's money in and out, a payment or a refund, by hand or online, and nothing for a
-  correction, a charge, a replay or another payer's line (which lines: `Api\PaymentRecordedLines::announces()`, the one rule, which the mail's read of the line through `Portal\Api\MailMoney` uses too); its cause is the ledger line (`ledger_line`, the line's ID), and the mail reads that line at send time
+  correction, a charge itself, a replay or another payer's line (which lines: `Api\PaymentRecordedLines::announces()`, the one rule, which the mail's read of the line through `Portal\Api\MailMoney` uses too); its cause is the ledger line (`ledger_line`, the line's ID), and the mail reads that line at send time
   as the keys `payment.amount`, `payment.direction`, `payment.method` and `payment.date`, which every mail
   declares and none but this one fills (`MailRenderer` hands the line to no other mail).
 - A mail body places the money table and the transfer block as the blocks `kalaka/mail-money` and

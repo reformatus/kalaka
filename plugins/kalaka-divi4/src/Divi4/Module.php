@@ -95,7 +95,7 @@ final class Module extends AbstractModule
      * The registrant's money table (`kalaka/status`) in Divi's look: Divi gives a table cell `td` a `#eee` line on
      * its top edge and a row header `th` none, so the first column gets the same line and the rows read as one
      * (every row but the ones with core's own darker separator, `kalaka-rule`). Core keeps the structure (the
-     * columns, the popover) and the emphasis (`em`, `strong`); nothing else of the table is styled here.
+     * columns, the info mark) and the emphasis (`em`, `strong`); nothing else of the table is styled here.
      */
     public const MONEY_TABLE = '.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}';
 

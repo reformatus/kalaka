@@ -17,8 +17,12 @@ use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeComposition;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\LineName;
+use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\ManualConfirmations;
+use Kalaka\Pricing\Api\NamedFeeComponent;
 use Kalaka\Pricing\CoreFeeComponents;
+use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 use Kalaka\Tests\Integration\Registrations\AnswerPool;
@@ -291,6 +295,74 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $lines[$this->seeded['payment']]['type'],
             $lines[$this->seeded['payment']]['side'],
         ]);
+    }
+
+    private function namingComponent(string $id, ?string $word): NamedFeeComponent
+    {
+        return new class ($id, $word) implements NamedFeeComponent {
+            public function __construct(private readonly string $id, private readonly ?string $word)
+            {
+            }
+
+            public function id(): string
+            {
+                return $this->id;
+            }
+
+            public function stage(): FeeStage
+            {
+                return FeeStage::Extras;
+            }
+
+            public function targets(FeeComponentInput $input): FeeTargets
+            {
+                return FeeTargets::none();
+            }
+
+            public function lineNames(RegistrationKey $registration, array $items): array
+            {
+                return $this->word === null
+                    ? throw new \RuntimeException('Teszt hiba a névadásban.')
+                    : ['' => new LineName(LineName::COMPONENT, $this->word)];
+            }
+        };
+    }
+
+    /**
+     * Failure isolation: a fee component whose `lineNames()` throws is skipped and logged; its line reads as the
+     * fixed price, „Díj”, and the read still answers, with the other component's names unaffected.
+     */
+    public function testAThrowingFeeComponentDoesNotFailTheDetailAndItsLineReadsAsTheFallback(): void
+    {
+        $this->addRegistration('00A0');
+        $broken = $this->addLine('charge', '1000', 'charge:broken', overrides: [
+            'source_type' => 'fee_component',
+            'source_key' => 'broken',
+            'value_date' => null,
+            'method' => null,
+        ]);
+        $fine = $this->addLine('charge', '2000', 'charge:fine', overrides: [
+            'source_type' => 'fee_component',
+            'source_key' => 'fine',
+            'value_date' => null,
+            'method' => null,
+        ]);
+        $read = new RegistrationDetail(lineNames: new LineNames(new CoreFeeComponents([
+            $this->namingComponent('broken', null),
+            $this->namingComponent('fine', 'Teszt kirándulás'),
+        ])));
+
+        $money = [];
+        $log = $this->capturedErrorLog(function () use ($read, &$money): void {
+            $money = $read->of(new UserActor($this->admin->userId), $this->event, '00A0')['money'];
+        });
+        $lines = array_column($money['lines'], null, 'id');
+
+        self::assertSame(['fee', 'Díj'], [$lines[$broken]['type'], $lines[$broken]['kind_label']]);
+        self::assertSame(['component', 'Teszt kirándulás'], [$lines[$fine]['type'], $lines[$fine]['kind_label']]);
+        self::assertStringContainsString('Kaláka: line names of fee component broken failed', $log);
+        self::assertStringContainsString('Teszt hiba a névadásban.', $log);
+        self::assertStringNotContainsString('fee component fine failed', $log);
     }
 
     /** @return array<string, mixed> */
@@ -1050,6 +1122,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'id' => 'offer:church',
                     'kind' => 'offer',
                     'label' => 'Egyházi támogatás',
+                    'fields' => ['ask' => ['support'], 'answer' => 'support_answer'],
                     'state' => 'awaiting',
                     'amount' => null,
                     'answered_at' => null,
@@ -1059,6 +1132,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'id' => 'aid',
                     'kind' => 'aid',
                     'label' => 'Támogatási kérelem',
+                    'fields' => ['ask' => ['aid_asked'], 'answer' => 'aid_award'],
                     'state' => 'awaiting',
                     'amount' => null,
                     'answered_at' => null,

@@ -247,11 +247,12 @@ final class RegistrationDetail
         $items = [];
         foreach ($this->requests->states($key) as $state) {
             $answer = $state->answer;
-            $pool = $state->source->seatPool($state->request);
+            $pool = $state->source->seatPool($key, $state->request);
             $item = [
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
                 'label' => $state->request->label,
+                'fields' => ['ask' => $state->request->askFields, 'answer' => $state->request->answerField],
                 'state' => $state->awaits()
                     ? ($registered ? 'awaiting' : 'inactive')
                     : ($answer?->approved === true ? 'approved' : 'refused'),

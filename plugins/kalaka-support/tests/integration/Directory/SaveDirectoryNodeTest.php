@@ -274,7 +274,7 @@ final class SaveDirectoryNodeTest extends SupportTestCase
         self::assertSame(20, $this->nodeCount());
     }
 
-    public function testNoFileOfThePluginDeletesOrDropsAnything(): void
+    public function testNoFileOfTheDirectoryDeletesOrDropsAnything(): void
     {
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(
             dirname(__DIR__, 3),
@@ -283,7 +283,12 @@ final class SaveDirectoryNodeTest extends SupportTestCase
         $checked = 0;
         foreach ($files as $file) {
             $path = $file->getPathname();
-            if (!str_ends_with($path, '.php') || str_contains($path, '/vendor/') || str_contains($path, '/tests/')) {
+            // The offers are settings, saved as a whole list: an offer left out is deleted, by these two files only.
+            if (
+                !str_ends_with($path, '.php') || str_contains($path, '/vendor/') || str_contains($path, '/tests/')
+                || str_ends_with($path, '/Support/Offers/OfferRepository.php')
+                || str_ends_with($path, '/Support/Offers/SetSupportOffers.php')
+            ) {
                 continue;
             }
             $checked++;
