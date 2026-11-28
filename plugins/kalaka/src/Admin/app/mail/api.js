@@ -57,11 +57,10 @@ export const previewManual = ( path, selection ) =>
  * selection again at send time (the alternative, freezing the preview's codes, is not built). The request key makes a repeat (a retry, a double click) return the first batch and
  * queue nothing.
  */
-export const sendManual = ( event, bodyId, selection, layout, requestKey ) =>
+export const sendManual = ( event, bodyId, selection, requestKey ) =>
 	runAbility( 'kalaka/send-manual-mail', {
 		event_id: event,
 		body_id: bodyId,
 		selection,
-		layout,
 		request_key: requestKey,
 	} );
