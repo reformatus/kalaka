@@ -158,3 +158,25 @@ export const MONEY = {
 	payerEmpty: 'Válassz fizetőt.',
 	saveFail: 'A mentés nem sikerült. Próbáld újra.',
 };
+
+/**
+ * The manual confirmation (S20): the button, its two dialogs, the line that says who set it and the snackbars.
+ * The decision's own labels („Visszaigazolás”, „Visszaigazolva”, „Nincs visszaigazolva”) come from the server and
+ * are approved, and so are the rest: the set button and its dialog title (T3 of #213), the field „Megjegyzés” only
+ * (its message „Add meg az indoklást.” is gone), the line under the tab, the snackbars, the message for a reason
+ * over the limit. The re-confirm snackbar is gone: that unconfirm is disabled now. The help text of the disabled
+ * unconfirm is the server's text (#213's T5a or T5b with the money view, T5c without it; the owner dropped the mail
+ * sentence, T6, on 2026-11-27), not set here.
+ */
+export const CONFIRM = {
+	set: 'Visszaigazolás befizetés nélkül',
+	// The unconfirm button and its dialog title, approved by the owner 2026-11-20 (T24).
+	unconfirm: 'Visszaigazolás visszavonása',
+	reasonField: 'Megjegyzés', // the owner's 6.8 ruling: always „Megjegyzés”
+	reasonTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.',
+	setLine: 'Befizetés nélkül visszaigazolta: %1$s, %2$s',
+	setLineAnon: 'Befizetés nélkül visszaigazolva: %s',
+	reasonLine: 'Megjegyzés: %s',
+	saved: 'Befizetés nélküli visszaigazolás rögzítve.',
+	unconfirmed: 'Visszaigazolás visszavonva.',
+};

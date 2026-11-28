@@ -7,12 +7,20 @@
  * slot each, then the tabs (N1200). N12 reboxed: every tab always shown and the last-clicked one remembered
  * (N1201; written on a click only, see `tabClicks` and [UNAPPROVED N1264]). T3 struck: the disabled „Hamarosan…”
  * tab is gone.
+ *
+ * S20: the confirmation state is its own line, the confirmation row, under the status row, and under it the
+ * manual confirmation (who set the flag, when and why, and the button(s)); `ManualConfirmation` renders the row.
+ * N30 reboxed: the state is no longer shown next to the status. When the re-read after a save fails twice, the
+ * state and what hangs under it are not shown (the old ones would look current); the load-error message says so.
+ * On a „Lemondott” or „Törölt” registration it is not shown either (owner 2026-11-27). [UNAPPROVED N30]
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
+import { unconfirmBlocked, warningOf } from './confirmation';
+import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
-import { ConfirmationRow, StatusRow } from './PanelRows';
+import { StatusRow } from './PanelRows';
 import { tabClicks } from './panel';
 import { PANEL } from './texts';
 
@@ -52,19 +60,26 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 
 	// After a save: the panel stays on the registration and shows what the server now holds. It never rejects:
 	// the entry is saved, and a failed re-read only says so.
+	// It resolves with the detail it read, or null when both reads failed.
 	const reload = useCallback( async () => {
 		const asked = code;
-		try {
-			const result = await api.fetchDetail( config, asked );
-			if ( shown.current === asked ) {
-				setDetail( result );
-				setProblem( null );
-			}
-		} catch {
-			if ( shown.current === asked ) {
-				setProblem( 'failed' );
+		// One more try before it says so.
+		for ( let attempt = 0; attempt < 2; attempt++ ) {
+			try {
+				const result = await api.fetchDetail( config, asked );
+				if ( shown.current === asked ) {
+					setDetail( result );
+					setProblem( null );
+				}
+				return result;
+			} catch {
+				// Tried again below.
 			}
 		}
+		if ( shown.current === asked ) {
+			setProblem( 'failed' );
+		}
+		return null;
 	}, [ config, code ] );
 
 	useEffect( () => {
@@ -115,14 +130,24 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 								{ registration.email && <span className="kg-panel-email">{ registration.email }</span> }
 							</p>
 						) }
-						{ /* The two state rows; their slots stay empty here, a branch above adds children. */ }
+						{ /* The two state rows: the confirmation row's slot holds the manual confirmation's buttons; the status row's stays empty here. */ }
 						{ registration.status_label && (
 							<StatusRow status={ registration.status } text={ registration.status_label } />
 						) }
-						{ typeof registration.confirmed === 'boolean' && (
-							<ConfirmationRow
+						{ detail && (
+							<ManualConfirmation
+								stale={ !! problem }
+								config={ config }
+								code={ code }
+								can={ detail.can || {} }
+								manual={ registration.manual_confirmation }
+								status={ registration.status }
+								warning={ warningOf( registration, detail.can ) }
+								blocked={ unconfirmBlocked( registration ) }
 								confirmed={ registration.confirmed }
-								text={ registration.confirmed ? PANEL.confirmed : PANEL.unconfirmed }
+								reload={ reload }
+								onSaved={ onSaved }
+								closeRef={ closeRef }
 							/>
 						) }
 					</div>

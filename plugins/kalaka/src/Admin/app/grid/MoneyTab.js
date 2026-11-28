@@ -9,7 +9,17 @@
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import RecordDialog from './RecordDialog';
-import { allowedTypes, canCorrect, entryColumns, formatBalance, formatDay, formatMoney, lineNote, showsPayerColumn, typeWord } from './money';
+import {
+	allowedTypes,
+	canCorrect,
+	entryColumns,
+	formatBalance,
+	formatDay,
+	formatMoney,
+	lineNote,
+	showsPayerColumn,
+	typeWord,
+} from './money';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import { returnFocus } from './panel';
 import { MONEY } from './texts';
