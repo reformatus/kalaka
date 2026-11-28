@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Mail;
 
+use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Mail\ClaimDelivery;
 use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Mail\Api\MailHold;
 use Kalaka\Mail\Api\MailStats;
 use Kalaka\Mail\ClearEventMail;
 use Kalaka\Mail\ClearMailQueue;
@@ -121,6 +123,18 @@ final class PauseMailTest extends MailTestCase
             self::assertSame('kalaka_mail_not_held', $e->errorCode());
             self::assertCount(1, $this->deliveries());
         }
+    }
+
+    public function testTheClearIsOfferedOnlyWhileTheEventsMailIsHeld(): void
+    {
+        $events = new Events();
+        $held = $events->find($this->unpublished());
+        $published = $events->find($this->published());
+        self::assertNotNull($held);
+        self::assertNotNull($published);
+
+        self::assertTrue(MailHold::mayClear($held));
+        self::assertFalse(MailHold::mayClear($published));
     }
 
     public function testOnlyAPersonResumesSending(): void

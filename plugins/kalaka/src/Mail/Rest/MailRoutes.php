@@ -26,8 +26,6 @@ use Kalaka\Mail\Api\MailStats;
 use Kalaka\Mail\Api\MailTemplates;
 use Kalaka\Mail\Api\ManualMails;
 use Kalaka\Mail\Api\TroubledDelivery;
-use Kalaka\Mail\ClearEventMail;
-use Kalaka\Mail\EventMailNotHeld;
 use Kalaka\Mail\Manual\SendManualMail;
 use Kalaka\Mail\Pause\MailState;
 
@@ -197,7 +195,7 @@ final class MailRoutes
                 'with_error' => $stats->withError,
                 'stuck_sending' => $stats->stuckSending,
             ],
-            'can' => ['clear_event' => self::mayClear($event)],
+            'can' => ['clear_event' => MailHold::mayClear($event)],
         ]);
     }
 
@@ -225,7 +223,7 @@ final class MailRoutes
                 'failed' => $count->failed,
                 'with_error' => $count->withError,
                 'stuck_sending' => $count->stuckSending,
-                'can' => ['clear_event' => self::mayClear($event)],
+                'can' => ['clear_event' => MailHold::mayClear($event)],
             ];
         }
         $paused = $site->paused;
@@ -414,18 +412,6 @@ final class MailRoutes
     private static function event(\WP_REST_Request $request): Event
     {
         return (new Events())->find((int) $request->get_param('id')) ?? throw new NotFound();
-    }
-
-    /** Whether `ClearEventMail` would accept the event now: its own check decides. */
-    private static function mayClear(Event $event): bool
-    {
-        try {
-            ClearEventMail::refuse($event);
-        } catch (EventMailNotHeld) {
-            return false;
-        }
-
-        return true;
     }
 
     /**

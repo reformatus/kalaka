@@ -5,7 +5,7 @@
  * On opening it asks the server who the send would reach (`POST …/mail/manual/preview`, checked against the user's
  * grant like the send): the codes that would get the mail, the ones that would be skipped with the reason, the codes
  * that do not exist (full access only), and the event's published bodies, which are the choice. Nothing is chosen
- * for the user. The send is the ability `kalaka/send-manual-mail` with a request key: the same body, layout and
+ * for the user. The send is the ability `kalaka/send-manual-mail` with a request key: the same body and
  * codes always carry the same key, so a retry after a lost answer or a double click is the same request and queues
  * nothing twice (`createKeys`); while a send runs a second submit is ignored. The answer is shown in the dialog
  * (queued, skipped, a repeat, `paused`, `held`) and the dialog then only closes. A refusal shows the server's own
@@ -13,7 +13,7 @@
  * sentence. [UNAPPROVED N291]
  */
 import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
-import { Button, CheckboxControl, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
+import { Button, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
 import * as api from './api';
 import { isTooMany, pageKeys, stateReads } from './manual';
 import { selectionSignature } from '../grid/selection';
@@ -37,7 +37,6 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 	const [ plan, setPlan ] = useState( null );
 	const [ planError, setPlanError ] = useState( null );
 	const [ bodyId, setBodyId ] = useState( '' );
-	const [ layout, setLayout ] = useState( true );
 	const [ noBody, setNoBody ] = useState( false );
 	const [ failed, setFailed ] = useState( null );
 	const [ busy, setBusy ] = useState( false );
@@ -108,13 +107,13 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 		setBusy( true );
 		try {
 			const id = parseInt( bodyId, 10 );
-			const answer = await api.sendManual( event, id, selection, layout, keyFor.current( id, layout, selection ) );
+			const answer = await api.sendManual( event, id, selection, keyFor.current( id, selection ) );
 			setResult( answer );
 			if ( onSent ) {
 				onSent( answer );
 			}
 		} catch ( error ) {
-			// The same body, layout and codes keep their key, so pressing Küldés again is a retry, not a second send.
+			// The same body and codes keep their key, so pressing Küldés again is a retry, not a second send.
 			setFailed( problemText( error, COMMON.actFail ) );
 		}
 		sending.current = false;
@@ -202,7 +201,6 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 							/>
 						</div>
 					) }
-					<CheckboxControl label={ MANUAL.layout } checked={ layout } onChange={ setLayout } __nextHasNoMarginBottom />
 				</Fragment>
 			) }
 			{ standing.paused && <Notice status="warning" isDismissible={ false }>{ RESULT.paused }</Notice> }
