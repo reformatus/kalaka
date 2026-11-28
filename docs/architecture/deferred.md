@@ -37,6 +37,7 @@ removed here.
 | File upload | building forms |
 | Absolute payment deadlines (removed 2026-11-05, [Money](money.md#core-money-scope)): how they interact with late call-ups from the waitlist | if an organization needs one |
 | Fast entry of many manual payments, and how to make it safe | after IVK registration opens |
+| The „Tétel rögzítése” dialog: making it fit its content (more compact parts) and more intuitive (the mode choice as a first step of its own, with larger option cards, each with an icon and a short explanation of what it does) | later |
 | Rate limit for self-sent mail | building the portal |
 | Post-camp settlement extension | later |
 | A view of the frozen submission | later, low priority |

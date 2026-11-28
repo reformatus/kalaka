@@ -82,6 +82,9 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   to that request only, and is never stored and never widens the view.
 - The fine check of a field change (`Access::mayWrite()`) runs inside
   `execute`, on a registration the run holds locked.
+- The detail panel shows only what the registration detail read returns and
+  never decides access: what it shows and which actions it offers come from
+  the read (its `can` included), and the server decides every call.
 - Staff correct a field value only through `kalaka/edit-field-value` (`FieldEdit\EditFieldValue`): a field change with
   no action, so rights are read-write columns of a held view and full access, never a new grant action. The field
   type turns the value into its stored form before the run (`FieldEditInput`), never inside it; no form condition is

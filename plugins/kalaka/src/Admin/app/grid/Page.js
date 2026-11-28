@@ -7,6 +7,10 @@
  * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). A countable sum
  * cell's number opens its counting menu (owner, 2026-11-27); the counting is the viewer's own for the session,
  * full access included, and is never saved (B1, round 3).
+ *
+ * S38: a row opens the detail panel (`DetailPanel`) over the grid, from the button in its first identifying cell
+ * or a click on the row. The panel is not modal: another row switches it, and the grid's filters, search, sort,
+ * page and scroll stay. × or Esc closes it and focus returns to the row.
  */
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, SelectControl, SnackbarList, Tooltip } from '@wordpress/components';
@@ -29,7 +33,8 @@ import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
 import ColumnMenu from './ColumnMenu';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
-import { GRID, SUM } from './texts';
+import DetailPanel from './DetailPanel';
+import { GRID, PANEL, SUM } from './texts';
 
 /**
  * The default order: Kód ascending, when the view lists Kód (the ordering time, then the code); a view without
@@ -79,6 +84,10 @@ export default function Page( { config } ) {
 	}
 	const [ , setPickTick ] = useState( 0 );
 	const [ sumsFail, setSumsFail ] = useState( false );
+	// The code of the registration in the panel, or null.
+	const [ open, setOpen ] = useState( null );
+	const openRef = useRef( null );
+	openRef.current = open;
 	const v = view._tab === tab.key ? view : freshView( tab, view.perPage );
 	const sort = v.sort ? v.sort.field : null;
 	const desc = v.sort ? v.sort.direction === 'desc' : false;
@@ -103,6 +112,7 @@ export default function Page( { config } ) {
 			return; // the tab on screen: nothing to switch, keep its filters and rows
 		}
 		const next = tabs.find( ( t ) => t.key === id ) || tabs[ 0 ];
+		setOpen( null ); // the panel belongs to the tab's rows
 		setCurrent( id );
 		// A tab switch starts the new tab clean: no filters, search or sort carried over or brought back later.
 		setView( freshView( next, v.perPage ) );
@@ -130,6 +140,98 @@ export default function Page( { config } ) {
 		picks.current.reset();
 		setPickTick( ( n ) => n + 1 );
 	};
+
+	// S38: the rows open the detail panel. The button sits in the first identifying cell: Kód, else the first
+	// column that is not the Sorszám (the name, when the view lists it, comes right after Kód).
+	const opener = (
+		tab.columns.find( ( c ) => c.type === 'code' ) ||
+		tab.columns.find( ( c ) => c.type !== 'serial' ) ||
+		tab.columns[ 0 ] || { column: null }
+	).column;
+	const closePanel = () => {
+		const key = openRef.current;
+		setOpen( null );
+		// Focus returns to the row's button, or to DataViews' search box when that row is gone.
+		window.requestAnimationFrame( () => {
+			const button = host && key !== null ? host.querySelector( '.kg-open[data-key="' + window.CSS.escape( key ) + '"]' ) : null;
+			const box = host && host.querySelector( '.dataviews-search input' );
+			const target = button || box;
+			if ( target ) {
+				target.focus();
+			}
+		} );
+	};
+	const closeRef = useRef( closePanel );
+	closeRef.current = closePanel;
+	// Esc closes the panel, one press for the panel only, and not while a dialog or a popup has its own Esc.
+	useEffect( () => {
+		const onKey = ( event ) => {
+			if ( event.key !== 'Escape' || event.defaultPrevented || openRef.current === null ) {
+				return;
+			}
+			if ( document.querySelector( '.components-modal__screen-overlay, .components-popover' ) ) {
+				return;
+			}
+			// Esc belongs to the control that has focus (a column menu, the search box); the panel takes it only
+			// from inside itself, from a row button, or when nothing has focus.
+			const active = document.activeElement;
+			if ( active && active !== document.body && ! active.closest( '.kg-panel' ) && ! active.classList.contains( 'kg-open' ) ) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			closeRef.current();
+		};
+		document.addEventListener( 'keydown', onKey, true );
+		return () => document.removeEventListener( 'keydown', onKey, true );
+	}, [] );
+	// The open row is marked, and every row with a button is clickable. The look is mine.
+	useLayoutEffect( () => {
+		if ( ! host ) {
+			return;
+		}
+		host.querySelectorAll( 'tbody tr' ).forEach( ( tr ) => {
+			const button = tr.querySelector( '.kg-open' );
+			tr.classList.toggle( 'kg-row-open', !! ( button && open !== null && button.dataset.key === open ) );
+			tr.classList.toggle( 'kg-row-click', !! button );
+		} );
+	} );
+	const onHostClick = ( event ) => {
+		const tr = event.target.closest && event.target.closest( 'tbody tr' );
+		if ( ! tr || event.target.closest( 'a, button, input, select, label, [role="button"]' ) ) {
+			return;
+		}
+		const button = tr.querySelector( '.kg-open' );
+		if ( button ) {
+			setOpen( button.dataset.key );
+			setAgain( ( n ) => n + 1 );
+		}
+	};
+	// After an entry is saved the grid quietly re-reads its page and sums (no loading state, scroll kept); an
+	// answer for a query that is no longer the one on screen is dropped.
+	const queryKey = JSON.stringify( [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
+	const queryRef = useRef( queryKey );
+	queryRef.current = queryKey;
+	const sumsKey = JSON.stringify( [ tab.key, narrowKey, countsKey ] );
+	const sumsRef = useRef( sumsKey );
+	sumsRef.current = sumsKey;
+	// Activating the open row again re-reads the panel when its read had failed.
+	const [ again, setAgain ] = useState( 0 );
+	const refresh = () => {
+		const asked = queryKey;
+		api.fetchPage( config, tab, { sort, desc, perPage: v.perPage, page: v.page, narrow } ).then(
+			( result ) => queryRef.current === asked && setData( result ),
+			() => {}
+		);
+		// The sums depend on the tab, the narrowing and the viewer's counting picks, not on the page or the sort.
+		const sumsAsked = sumsKey;
+		api.fetchSums( config, tab, narrow, counts ).then(
+			( result ) => sumsRef.current === sumsAsked && setSums( result ),
+			() => {}
+		);
+	};
+	const refreshRef = useRef( refresh );
+	refreshRef.current = refresh;
 
 	useEffect( () => {
 		let live = true;
@@ -230,7 +332,24 @@ export default function Page( { config } ) {
 				<span className={ filtered.has( column.column ) ? 'kg-hd is-filtered' : 'kg-hd' }>{ column.label }</span>
 			),
 			getValue: ( { item } ) => cellText( column, item ),
-			render: ( { item } ) => <Cell column={ column } item={ item } />,
+			render: ( { item } ) =>
+				column.column === opener ? (
+					<button
+						type="button"
+						className="kg-open"
+						data-key={ item.key }
+						aria-haspopup="dialog"
+						onClick={ () => {
+							setOpen( item.key );
+							setAgain( ( n ) => n + 1 );
+						} }
+						aria-label={ fmt( PANEL.openRow, cellText( column, item ) || item.key ) }
+					>
+						<Cell column={ column } item={ item } />
+					</button>
+				) : (
+					<Cell column={ column } item={ item } />
+				),
 			enableSorting: column.sortable,
 			enableHiding: false,
 			...filterSpec( column ),
@@ -238,7 +357,7 @@ export default function Page( { config } ) {
 		} ) );
 		const condition = conditionField( tab.condition );
 		return condition ? [ ...own, condition ] : own;
-	}, [ tab, narrowKey ] );
+	}, [ tab, narrowKey, opener ] );
 
 	// The copy result is a snackbar, not text beside the button: a success goes away by itself, an error stays
 	// until it is dismissed.
@@ -367,7 +486,7 @@ export default function Page( { config } ) {
 				menuFor={ menuFor }
 				narrowed={ narrowed }
 			/>
-			<div ref={ setHost } className="kg-dv">
+			<div ref={ setHost } className="kg-dv" onClick={ onHostClick }>
 				<DataViews
 					key={ tab.key }
 					data={ data.rows }
@@ -420,6 +539,9 @@ export default function Page( { config } ) {
 					onRemove={ ( id ) => setNotices( ( list ) => withoutNotice( list, id ) ) }
 				/>
 			</div>
+			{ open !== null && (
+				<DetailPanel config={ config } code={ open } again={ again } onClose={ closePanel } onSaved={ () => refreshRef.current() } />
+			) }
 		</Fragment>
 	);
 }

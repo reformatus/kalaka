@@ -3,6 +3,7 @@
  * ability through core's run endpoint (`POST /wp-abilities/v1/abilities/{name}/run`, `{ input }`).
  */
 import apiFetch from '@wordpress/api-fetch';
+import { buildCall } from './money';
 
 /** The query parameters of the grid's filters and search; none when nothing narrows. */
 function narrowing( params, narrow ) {
@@ -106,3 +107,41 @@ export const runAbility = ( name, input ) =>
 		method: 'POST',
 		data: { input },
 	} );
+
+/**
+ * One registration's detail (S38): `{ registration, fields, money?, can }`, each part only as the user's views
+ * and grants allow. The code is the identity; a row the user's views do not hold is a 404.
+ *
+ * @param {Object} config window.kalakaGrid
+ * @param {string} code   the registration's code
+ */
+export const fetchDetail = ( config, code ) =>
+	apiFetch( { path: `${ config.rest }/registrations/${ encodeURIComponent( code ) }` } );
+
+/**
+ * What a failed read means: an unknown code is a 404 ('missing'), a known code outside the holder's views a 403
+ * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'.
+ */
+export function detailProblem( error ) {
+	if ( error && error.code === 'kalaka_registration_not_in_view' ) {
+		return 'noAccess';
+	}
+	return error && error.data && error.data.status === 404 ? 'missing' : 'failed';
+}
+
+/**
+ * Records one entry through the abilities, and answers `{ id }`: a payment (`kalaka/record-payment`), a refund
+ * (`kalaka/record-refund`), a correction (`kalaka/record-correction`), or a charge or discount
+ * (`kalaka/record-charge`, `kalaka/record-discount`; SEAM, Backend #209's design note §9). Which ability
+ * and which input is `buildCall`'s (money.js), which also refuses a type the read's `can` does not allow, so a
+ * charge or discount is never called unless it is offered. The idempotency key makes a retry of the same entry
+ * safe.
+ *
+ * @param {Object} config window.kalakaGrid
+ * @param {Object} entry  see `buildCall`
+ * @param {Object} can    the read's `can`
+ */
+export const recordEntry = ( config, entry, can ) => {
+	const { ability, input } = buildCall( config.event, entry, can );
+	return runAbility( ability, input );
+};
