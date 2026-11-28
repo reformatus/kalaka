@@ -252,6 +252,7 @@ final class RegistrationDetail
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
                 'label' => $state->request->label,
+                'fields' => ['ask' => $state->request->askFields, 'answer' => $state->request->answerField],
                 'state' => $state->awaits()
                     ? ($registered ? 'awaiting' : 'inactive')
                     : ($answer?->approved === true ? 'approved' : 'refused'),

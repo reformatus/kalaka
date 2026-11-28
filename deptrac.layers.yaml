@@ -6,6 +6,7 @@ deptrac:
     - plugins/kalaka-ranking/src
     - plugins/kalaka-woocommerce/src
     - plugins/kalaka-price-ladder/src
+    - plugins/kalaka-aid/src
     - plugins/kalaka-deposits/src
   layers:
     - name: Repositories

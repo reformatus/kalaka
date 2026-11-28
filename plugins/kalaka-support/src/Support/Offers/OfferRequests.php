@@ -60,7 +60,13 @@ final class OfferRequests implements RequestSource
                     continue;
                 }
             }
-            $requests[] = new Request(self::PREFIX . $offer->key, RequestKind::Offer, $offer->label);
+            $requests[] = new Request(
+                self::PREFIX . $offer->key,
+                RequestKind::Offer,
+                $offer->label,
+                [$offer->key],
+                $offer->key . SetSupportOffers::ANSWER_SUFFIX,
+            );
         }
 
         return $requests;
@@ -90,7 +96,7 @@ final class OfferRequests implements RequestSource
         return $groups === [] ? null : new AwaitingRule($groups);
     }
 
-    /** An offer has no price to compare an answer with. [UNAPPROVED N1133] */
+    /** An offer has no price to compare an answer with. */
     public function terms(
         RegistrationKey $registration,
         Request $request,

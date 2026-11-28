@@ -697,6 +697,8 @@ final class OffersTest extends OffersTestCase
         $key = new RegistrationKey($this->event, '00A0');
         $request = $source->requestsOf($key, ['egyhaz' => '1'])[0];
 
+        self::assertSame(['egyhaz'], $request->askFields);
+        self::assertSame('egyhaz_answer', $request->answerField);
         self::assertFalse($source->isAnswered($request, ['egyhaz' => '1']));
         self::assertFalse($source->isAnswered($request, ['egyhaz' => '1', 'egyhaz_answer' => '']));
         self::assertTrue($source->isAnswered($request, ['egyhaz' => '1', 'egyhaz_answer' => 'approved']));

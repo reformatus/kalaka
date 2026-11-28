@@ -59,7 +59,22 @@ final class FeeComposition
         return new ComposedFee(
             $facts,
             $event->currency,
-            $this->composer->compose($facts, $event->currency, $now, $this->components->list())
+            $this->composer->compose($facts, $event->currency, $now, $this->components->list()),
+            self::stagesOf($this->components->list())
         );
+    }
+
+    /**
+     * @param list<FeeComponent> $components
+     * @return array<string, FeeStage>
+     */
+    private static function stagesOf(array $components): array
+    {
+        $stages = [];
+        foreach ($components as $component) {
+            $stages[$component->id()] = $component->stage();
+        }
+
+        return $stages;
     }
 }

@@ -255,7 +255,9 @@ the waitlist and reference codes
 
 - Requests and their answers (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions and
   computed values"; slice B). A request is named by a `RequestSource` a module contributes (an inside point); core
-  ships none, so with no source every read is empty and costs no statement.
+  ships none, so with no source every read is empty and costs no statement. Each `Request` a source builds names its
+  participant fields as stored keys: `askFields` (what the participant asks with) and `answerField` (where its
+  answer is written), which the admin detail groups by.
   - The one act that answers a request is `AnswerRequest` (`kalaka/answer-request`, action
     `kalaka_answer_request`), for offers and aid alike, used by staff and by a partner (a grant holder whose view
     holds only their registrations); the runner checks the target against the view. The one action gates every
