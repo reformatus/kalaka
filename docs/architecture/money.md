@@ -4,384 +4,340 @@ title: Money
 
 # Money
 
+How a registration's fee is composed, recorded and paid, in short: fee
+components compute what each payer owes from the current settings and the
+registration's facts; the materializer writes the difference into an
+append-only ledger; payments are ledger lines too; confirmation reads the
+targets and the payments.
+
 ## Core money scope
 
 - **Core:** a fixed price per registration, full payment, manual charges and
-  discounts, an event's extra charges and its donation, with its **payment
-  due** date type. Core ships no money field types.
-- **Payment due** is N days after the later of the moment the registration
-  last became `registered` (at submit, admission or restore) and its last
-  answer to a request, a changed yes or no or amount (a note added alone does
-  not move it); N is configured per event (IVK: 7 days). While a request
-  awaits an answer it has no due date. A registration admitted from the
-  waitlist counts from its admission, and a restore restarts the clock. There
-  are no absolute payment deadlines. **Passing payment due never cancels a
-  registration:** an unconfirmed registration stays `registered` until
-  someone withdraws or removes it ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
-- **Plugins:** deposits, payment tiers (the price ladder, with its tier
-  quotas), late fees, financial aid, sponsor or church support, the
-  congregation share and the wallet. Core keeps full support for extending it
-  in these ways through typed extension points
+  discounts, an event's extra charges and its donation, retention on leaving,
+  and the **payment due** date type. Core ships no money field types.
+- **Payment due** is N days (per event; IVK: 7) after the later of the moment
+  the registration last became `registered` (submit, admission or restore) and
+  its last changed answer to a request (a note alone does not move it). While a
+  request awaits an answer there is no due date. There are no absolute payment
+  deadlines. **Passing payment due never cancels a registration:** it stays
+  `registered` until someone withdraws or removes it
+  ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
+- **Plugins:** deposits, the price ladder with its tier quotas, late fees,
+  financial aid, sponsor or church support, the congregation share and the
+  wallet, through typed extension points
   ([Modules](modules-and-extensions.md#the-extension-surface)).
+- **Every money plugin declares the participant fields it acts on** (the tier
+  choice, a charge, an offer, the aid request) as `extension` fields that forms
+  join by key ([Fields](events-and-forms.md#fields)). **Who sees and may pick an
+  item is the form's condition; the money side holds no condition of its
+  own.** An item an open registration chose (a tier, an extra charge, an offer)
+  cannot be removed from the settings (for extra charges, built so with the
+  owner's approval still open).
 - **Financial aid is two separate extensions:**
-  1. adjudicated aid (the organizations call it a scholarship): the
-     participant states what they can pay, organizers decide whether and how
-     much to grant, and payment is blocked until decided. It reduces only the
-     participant's own part. Every request with a positive amount waits for a
-     decision; automatic evaluation may come later. **The award is a
-     participant field of source "extension,"** written only by the aid
-     extension's own code, its request source, never by a form
-     ([Fields](events-and-forms.md#fields)); staff and partners answer aid and
-     offers alike through the one "answer a request" act, which calls the
-     request source's writer, so the extension stays the award's only writer;
-  2. sponsor or church support: offers on an organization directory
+  1. **adjudicated aid** (`kalaka-aid`; the organizations call it a
+     scholarship): the participant states what they can pay; staff or a partner
+     decide whether and how much to grant through the one "answer a request"
+     act, and no payment is asked until decided. A "no" is an award of 0. **The
+     award is a participant field of source "extension,"** written only by the
+     aid extension's code. It reduces only the participant's own part, never by
+     more than what the participant would pay before it. [UNAPPROVED R395]
+  2. **sponsor or church support:** offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
-- **Extra charges and the donation are core,** two fee components at the
-  extras stage that the participant pays. An event's extra charges are a
-  key, a label, an amount and a field type (a consent or a number) each, set
-  through the money settings apply; each declares the participant field with
-  its key ([Fields](events-and-forms.md#fields)), which calls it, and the amount is
-  multiplied by the answer's whole value (a charge key no field uses charges
-  nobody). Each extra charge a registration owes is its own line,
-  `extras:<key>`, with no condition of its own. The donation is the value of
-  the event's number field with the fixed key `adomany`, which Kaláka sets,
-  as one `donation` line, charged exactly as stored; empty, 0 or a negative
-  value writes none, and it has no setting. Support and the congregation
-  share never cover either.
-- **The price ladder** is a fee component at the tier stage. A tier is a
-  key, a label and an amount, in order; it has no condition and no
-  deadline. A registration chooses its tier only through the participant
-  field `price_tier` the ladder declares, a choice of its tiers that forms
-  join, and the chosen tier's current amount is its base price. A
-  registration form of an event with tiers must hold `price_tier` as a
-  required field, outside any condition, or it is closed until fixed; a
-  form's own conditions on the field's options decide who may pick which
-  tier. A later change of any other answer never re-checks the tier. A
-  chosen tier no longer in the ladder, or no answer at all, is never a base
-  of zero: the use case is refused, saying why. Staff set a tier before an
-  admission or a restore, and the periodic run flags the registration
-  "evaluation failed" ([Foundation](foundation.md#failures)). The ladder
-  sets only the base price. The event's fixed price is the base only
-  without a ladder, whatever the ladder owes a registration.
-- Price-ladder tier quotas are separate from the event's waitlist. Each
-  tier's quota is configured once, and texts render from it. Places in
-  tier and support quotas follow [Quota places](#quota-places).
-- **WooCommerce stays the payment engine** for online payment, through our
-  own extension plugin ([Payments](#payments)). Without a payment plugin,
-  online payment is unavailable, and organizer-recorded payments still work.
+- **Extra charges and the donation are core,** two fee components of the extras
+  stage that the participant pays. An extra charge is a key, a label, an amount
+  and a field type: a consent (charged once) or a whole number (charged that
+  many times); each declares the field with its key, and a key no field uses
+  charges nobody. Each charge owed is its own line. **The donation** is the
+  value of the event's number field with the fixed key `adomany`, charged
+  exactly as stored; empty, 0 or negative charges nothing. Support and the
+  congregation share never cover either.
+- **The price ladder** (`kalaka-price-ladder`) is a fee component of the tier
+  stage. A tier is a key, a label, an amount and an optional limit of places, in
+  order, with **no condition and no deadline** (owner ruling 2026-11-19): date
+  and congregation guards are the form's conditions on the tier field's options.
+  A registration chooses only through `price_tier`, which every registration
+  form of an event with tiers must hold, required and outside any condition.
+  **The chosen tier applies at its current amount and is never swapped;** no
+  other answer re-checks it. A tier no longer in the ladder, or no answer, is
+  never a base of zero: the act is refused, saying why, so staff set a tier
+  before an admission or restore. **The ladder sets only the base price;** with
+  a ladder, the fixed price is never charged.
+- **WooCommerce stays the payment engine** for online payment, through our own
+  extension ([Payments](#payments)). Without a payment plugin, online payment is
+  unavailable and organizer-recorded payments still work.
+
+**What follows:** a price rule ("cheaper before December", "only for this
+church") is a form condition on an option, never a money setting, and removing
+an option somebody chose is refused rather than silently re-pricing them.
 
 ## Amounts
 
-- **WooCommerce-compatible shapes:** every monetary record carries a currency
-  code (ISO 4217). Multi-currency is possible but not built.
-- **Stored as `DECIMAL(26,8)`,** like WooCommerce's order tables.
-- **Payment requests are rounded up** to the currency's payable unit (whole
-  forints for HUF).
+- **Every monetary record carries a currency code** (ISO 4217), in
+  WooCommerce-compatible shapes. Multi-currency is possible but not built.
+- **Stored as `DECIMAL(26,8)`,** like WooCommerce's order tables; **brick/math
+  arithmetic, never floats.**
+- **Payment requests are rounded up** to the payable unit (whole forints for
+  HUF), by Kaláka itself: WooCommerce has no rounding to a payable unit.
 - **Below one fillér counts as zero** in every outstanding check: the
   confirmation threshold, "nothing due" and fully paid.
-- **Kaláka rounds payment requests itself.** WooCommerce has no method for
-  rounding to a payable unit; it rounds half-up to the store's price
-  decimals, which leaves a whole-forint amount unchanged.
-- **Arithmetic uses brick/math, never floats** (it uses bcmath or GMP when
-  present, pure PHP otherwise).
-- SQLite stores `DECIMAL` inexactly; that is accepted. Tests that fail on
-  SQLite for this reason are fixed in the tests, not by changing the type, and
-  no SQLite number formats are normalized.
+- SQLite stores `DECIMAL` inexactly; that is accepted, and tests that fail on
+  SQLite for it are fixed in the tests.
 
 ## Ledger
 
-- **One ledger per registration,** so per participant and event. Budgets and
-  accounting are separate per event by construction.
+- **One ledger per registration,** so budgets and accounting are separate per
+  event by construction.
 - **Every line has a payer.** The default is the participant; extensions
-  register other payer kinds (the congregation share registers
-  "congregation"). Each payer has its own balance, and the registration's
-  total is the sum of all lines.
-- **Sign convention:** a positive amount increases what the payer owes; a
-  negative amount decreases it. A balance is the sum of lines; above zero is
-  due, below zero is overpaid.
-- **Two sides:** every line kind, extension kinds included, declares one
-  side: owed (what the payer has to pay: charges, manual charges and
-  discounts, later support and the share pair) or paid (money that moved:
-  payments, refunds, corrections). Each payer's owed total, paid total and
-  balance (owed minus paid) come from the lines.
-- **Lines are append-only.** Every change is a new, explained line with a
+  declare other payer kinds (the share's "congregation"). Each payer has its own
+  balance; the registration's total is the sum of all lines. A payment, refund
+  or correction is accepted for a payer whose kind applies to the event or that
+  already has lines (built so; the owner's approval is still open).
+- **Sign:** positive increases what the payer owes, negative decreases it; a
+  balance above zero is due, below zero overpaid. No line is exactly zero.
+- **Two sides:** each line kind is owed (charges of every component, manual
+  charges and discounts) or paid (payments, refunds, corrections). Each payer's
+  owed, paid and balance come from the lines and are never stored.
+- **Lines are append-only:** every change is a new, explained line with a
   source reference and an idempotency key.
-- **An invoice shows every line that makes up its total, and the lines add
-  up.** No component's lines are hidden: support, the share and aid show
-  whoever the invoice is issued to (the participant or the congregation), and
-  the invoice marks the part the other party pays, from the split per payer.
-- **Ledger lines and decision records survive erasure**
-  ([Registrations](registrations-and-identity.md#attribution-and-erasure)).
+- **A line holds no free text and no personal data** (a bank reference, note or
+  reason lives where erasure can reach it), and **lines and decision records
+  survive erasure** ([Registrations](registrations-and-identity.md#attribution-and-erasure)).
+- **An invoice shows every line of its total, and the lines add up.** Support,
+  the share and aid show whoever is invoiced; the invoice marks the part another
+  payer pays.
 
 | Kind | Side | Sign | Written by |
 |---|---|---|---|
-| `charge`, per fee component and item (the fixed price; each manual charge or discount; plugin components such as a late fee or a staff discount) | owed | ± | the materializer |
-| `payment` (online or another automatic method) | paid | − | Payments, from payment-method events |
-| `refund` | paid | + | Payments, from payment-method events |
-| `manual_payment` (bank transfer, cash, card terminal) | paid | − | the "record payment" use case, or "record charge" marked as completed |
-| `manual_refund` (money returned by any recorded payment method) | paid | + | the "record refund" use case, or "record discount" marked as completed |
+| `charge`, per fee component and item (the fixed price, each extra charge, each manual charge or discount, plugin components such as support, the share, aid, retention) | owed | ± | the materializer |
+| `payment` (online) | paid | − | Payments, from the provider's report |
+| `refund` (online) | paid | + | Payments, from the provider's report |
+| `manual_payment` (bank transfer, cash, card terminal; a correction) | paid | − | "record payment", or "record charge" marked as completed |
+| `manual_refund` (money returned by any recorded method; a correction) | paid | + | "record refund", or "record discount" marked as completed |
 | feature lines (the wallet, deferred) | declared by the kind | ± | feature plugins, through an extension point |
+
+**What follows:** money is never edited or deleted; a mistake is a correction,
+a „Díj” or a „Kedvezmény”, and a changed price is a new difference line, so
+reports and invoices can always be rebuilt from the lines.
 
 ## Recording payments by hand
 
-- **One "record payment" use case** serves the bookkeeper and the
-  registration desk. One action records **one registration, one payer and one
-  amount**, with the method, the value date and an optional bank reference or
-  payer note (free text). It writes one `manual_payment` line.
-- **One permission, "record money",** covers recording payments, refunds,
-  corrections, manual charges and manual discounts.
+- **One "record payment" use case** serves the bookkeeper and the desk: **one
+  registration, one payer, one amount,** with the method, the value date and an
+  optional bank reference or payer note; one `manual_payment` line.
+- **One permission, "record money",** covers payments, refunds, corrections,
+  manual charges and discounts.
 - **A manual charge or discount** („Díj”, „Kedvezmény”) is a fact: one
-  `registered` registration, one payer, a positive amount and a required
-  title the registrant sees; the type gives the sign. A core fee component of
-  the extras stage turns each into its own `charge` line, so it counts like
-  any fee: in confirmation, retention and the money settings preview. It has
-  no method and no date. **Marked as completed,** the same act also records
-  the payment (for a charge) or the refund (for a discount) of the same
-  amount, with its method, value date and an optional comment, as a second
-  entry. The two are plain entries with no link between them, and the
-  payment is never a correction.
-- **The value date is entered as a day.** It is stored as the instant
-  00:00 of that day in the site time zone, fixed when the line is
-  recorded. A payment with that value date therefore counts as before a
-  deadline that ends at midnight at the end of the same day.
-- **"Record refund"** writes a `manual_refund` line for money returned by
-  any recorded payment method. WooCommerce refunds keep their own path
-  ([Refunds](#refunds)).
-- **A correction** is a "record payment" or "record refund" row of either
-  direction, flagged as a correction, with an optional reason, **no method and
-  no value date**: it counts from the time it is recorded. It is a payment
-  fact like any recorded payment, so confirmation and balances count it with no
-  special case. One use case records it, under the same action as "record
-  payment". Every recorded movement's note, a correction's reason included,
-  is shown to the participant on their page, and each correction is its own
-  row with its direction.
-- **A short transfer** (e.g. a foreign bank's deduction) is recorded as it
-  arrived; the rest stays due until waived with a manual discount.
-- **An unnamed transfer** is found through a view (name, code, amount) and
-  recorded there. Core has no holding area for unassigned money.
-- **Invoicing is by hand.** Kaláka offers views that show the bookkeeper what
-  to copy into the invoicing service. Automatic invoicing, if ever, is our own
-  integration, not WooCommerce's.
+  `registered` registration, one payer, a positive amount and a required title
+  the registrant sees; the type gives the sign. A core fee component turns each
+  into its own `charge` line, so it counts like any fee. **Marked as
+  completed,** the same act records the payment (for a charge) or refund (for a
+  discount) of the same amount as a second, unlinked entry, never a correction.
+- **The value date is entered as a day,** stored as 00:00 of it in the site time
+  zone, so it counts as before a deadline ending at midnight that day.
+- **"Record refund"** is for money returned by any recorded method; WooCommerce
+  refunds keep their own path ([Refunds](#refunds)).
+- **A correction** is a payment or refund row of either direction flagged as a
+  correction (owner ruling 2026-11-19), with an optional reason, **no method
+  and no value date** (it counts from when it is recorded). It is a payment fact
+  like any other, but sends no mail. Every movement's note, a correction's
+  reason included, is shown to the participant.
+- **A short transfer** is recorded as it arrived; the rest stays due until
+  waived with a „Kedvezmény”. **An unnamed transfer** is found through a view
+  (name, code, amount); core has no holding area for unassigned money.
+- **Invoicing is by hand,** from views that show the bookkeeper what to copy.
+  Automatic invoicing, if ever, is our own integration, not WooCommerce's.
 
 ## Confirmation
 
 - **Confirmation is a core decision**
-  ([Foundation](foundation.md#facts-decisions-and-computed-values)), defined
-  only for `registered` registrations. The evaluation writes its transition
-  records; nobody sets it directly. It is not a status
-  ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
-  It is checked once at the end of every pass, after money: a payment, a
-  correction, a „Kedvezmény”, an answer, an apply, an admission or a restore
-  all lead to the same check.
-- **The threshold** is a target per payer. Each payer with something owed must
-  reach its own target. In core the target is the full amount; the deposit
-  extension lowers it to the deposit through a typed point. Like every
-  amount, it follows the event's current settings
-  ([Money settings apply](#money-settings-apply)). A payer's target is what
-  the fee composition says it owes now, manual charges and discounts
-  included; **nothing is due** when every payer's target is zero or below.
-  Confirmation reads payment facts, never charge lines. A request that
-  awaits an answer does not block it: payments still count.
-- **The manual flag** ("may come without paying") is a fact: set with an
-  optional reason, audited, carrying its own set time. Staff can always take it back,
-  through staff's unconfirm; that is allowed also when payments or nothing
-  due then confirm the registration again at once.
-- **Staff's unconfirm** („Visszaigazolás visszavonása”) is the one way to take
-  a confirmation back. It is a fact: recorded with an optional reason, who and when,
-  audited, and allowed on any confirmed registration. It revokes the manual
-  flag if set and records `unconfirmed`; then confirmation is decided again at
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)), for
+  `registered` registrations only. The evaluation writes its records; **nobody
+  sets it directly;** it is not a status. It is checked once after money in
+  every pass, whatever caused it.
+- **The threshold is a target per payer:** each payer with something owed must
+  reach its own. In core it is the full amount; the deposit extension is meant
+  to lower it (not built yet). A target is what the composition says the payer
+  owes now, manual charges and discounts included; **nothing is due** when
+  every target is zero or below. Confirmation reads payment facts, never charge
+  lines; a request awaiting an answer does not block it.
+- **The manual flag** ("may come without paying") is a fact, with an optional
+  reason and its own set time.
+- **Staff's unconfirm** („Visszaigazolás visszavonása”) is the one way to take a
+  confirmation back: a fact, allowed on any confirmed registration. It revokes
+  the manual flag and records `unconfirmed`; confirmation is decided again at
   once, so payments that reach the threshold or nothing due confirm it again.
   Staff are warned before that happens.
 
 | Transition | When |
 |---|---|
 | → confirmed | payments reach the threshold, the manual flag is set, or nothing is due at the moment of the check |
-| → unconfirmed | staff unconfirm it |
+| → unconfirmed | staff unconfirm it; the registration leaves `registered` |
 
-- **Effective time:** each record carries one. It is the value date of the
-  payment that reached the last required target (the paid time for online
-  payments), or the set time of the manual flag. A confirmation after staff's
-  unconfirm is never effective before it.
-- **A later charge, a refund or a higher threshold changes nothing:** the
-  registration stays confirmed, also when a money settings apply raises its
-  amounts. While it stays `registered`, only staff's unconfirm unconfirms it;
-  a later payment that reaches the threshold then confirms it again. A lower
-  threshold can confirm more registrations at the next evaluation.
-- **No record is the base state:** a `registered` registration with no
-  confirmation record is unconfirmed, derived and never written; views filter
-  on it like any state. Other statuses have no confirmation state.
-- **Withdrawal or removal closes the sequence:** a confirmed registration gets
-  an `unconfirmed` record. Restore or admission writes a
-  new record if the registration qualifies; the old one is never revived. The
-  withdrawal or removal also revokes the manual flag if set, in the same
-  transaction and audited; a restore does not bring it back, so the
-  registration is unconfirmed unless payments or nothing due confirm it.
-- **Deposit payment request:** max(0, threshold − payments so far), capped at
-  the remaining balance. Waitlisted registrations get none.
+- **Effective time:** the value date of the payment that reached the last
+  target (the paid time online), or the flag's set time; never before a
+  preceding unconfirm.
+- **Once confirmed, it stays confirmed** while `registered` (owner rulings
+  2026-11-14 and 2026-11-19): a later charge, a refund or a higher threshold
+  changes nothing, an apply included; only staff's unconfirm unconfirms it. A
+  lower threshold can confirm more registrations at the next evaluation.
+- **No record is the base state:** a `registered` registration without one is
+  unconfirmed, never written. Other statuses have no confirmation state.
+- **Leaving closes the sequence:** a confirmed registration gets an
+  `unconfirmed` record and loses its manual flag. A restore or admission writes
+  a new record if it qualifies; the old one and the flag are never revived.
+- **Deposit payment request** (with the deposit extension, not built yet):
+  max(0, threshold − payments so far), capped at the remaining balance; none for
+  waitlisted registrations.
+
+**What follows:** "confirmed" means "this person is coming", decided once and
+kept, not "paid in full now".
 
 ## Late fee
 
-An extension decision
-([Foundation](foundation.md#facts-decisions-and-computed-values)). It looks
-only at the participant's side.
+An extension decision for REFISZ
+([Foundation](foundation.md#facts-decisions-and-computed-values)), not built
+yet; its place in the pass is settled with its slice ([Deferred](deferred.md)).
+It looks only at the participant's side.
 
 - **Assessed** when the payment deadline passes and no payment dated before it
-  (by value date, or paid time online) brought the participant's side to its
-  target, and no manual flag was set before it. The materializer writes the
-  charge.
-- **Withdrawn** ("withdrawn" transition) when a payment recorded later turns
-  out to have a value date before the deadline, for example a bank transfer
-  entered days later. The
-  materializer reverses the charge. There is no grace-period setting.
-- **A manual flag set after the deadline** does not remove the fee; admins who
-  want to drop it record a manual discount.
-- **Charged only on tiers that have it enabled** (a per-tier setting). At
-  REFISZ the normal and discounted tiers pay it; higher tiers have paid it in
-  advance. It is never charged on staff registrations.
+  (value date, or paid time online) brought the participant to the target, and
+  no manual flag was set before it. The materializer writes the charge.
+- **Withdrawn** when a payment recorded later has a value date before the
+  deadline (a transfer entered days later); the materializer reverses it. No
+  grace period.
+- **A manual flag set after the deadline** does not remove it; admins record a
+  „Kedvezmény” instead.
+- **Only on tiers that have it enabled** (at REFISZ the normal and discounted
+  tiers; higher tiers paid it in advance), and never on staff registrations.
 
 ## Quota places
 
-Tier places of the price ladder and support-offer places are seats, under the
-one seat rule
+Tier places and support-offer places are seats under the one seat rule
 ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 
-- **Taken** at submit, admission or restore, or when a `registered`
-  registration's additional form makes a new choice of a limited option, under
-  a `FOR UPDATE` lock on the tier or offer row. Waitlisted registrations hold
-  no place (and have no additional forms).
-- **A full one cannot be chosen:** the submit is refused, as for a full set
-  option. Staff can still place a registration by hand, warned that the pool
-  is full.
-- **Released** on withdrawal or removal, and when an answer refuses the
-  offer (a partner approves or refuses through the same act as staff). A tier
-  or an offer, once written, is locked like every money-relevant value, so an
-  additional form never changes it away.
-- **A restored or admitted registration** keeps what it chose and takes its
-  places, over the limit where a pool is full, with the "full" warning to
-  staff, as the one seat rule says for every staff act.
+- **Taken** at submit, admission or restore, or by a `registered`
+  registration's additional form, under a lock on the tier or offer row.
+  Waitlisted registrations hold none, and a submit that lands on the waitlist
+  may choose nothing limited.
+- **A full one cannot be chosen:** the submit is refused. Staff can still place
+  a registration by hand, warned that the pool is full.
+- **Released** on withdrawal or removal, and when an answer refuses the offer. A
+  tier or offer, once written, is locked like every money-relevant value.
+- **A restored or admitted registration** keeps its choice and takes its places,
+  over the limit with the "full" warning where needed.
+- **A limit is a setting, never a seat:** it may be set, changed or removed at
+  any time, and counts the choosers already there.
 
 ## Withdrawal, removal and substitution
 
-- **Retention applies per payer:** on withdrawal or removal (treated the
-  same), each payer's fee target becomes min(that payer's own payments, its
-  part of the retained amount), reading payment facts only, so nobody owes
-  more after leaving. Core offers "retain nothing" and "retain everything
-  paid"; the deposit extension adds "retain up to the deposit", which counts
-  against the participant first. A surplus shows as an overpayment; refunds
-  are never automatic. The rule is chosen per event in its money settings,
-  "retain everything paid" by default.
+- **Retention applies per payer:** on withdrawal or removal (the same), each
+  payer keeps owing what the event's retention rule keeps of its own payments,
+  as one retention line, **never more than it paid,** so nobody owes more after
+  leaving. Core offers "retain everything paid" (the default) and "retain
+  nothing"; the deposit extension is meant to add "retain up to the deposit",
+  counted against the participant first (not built yet). A surplus is an
+  overpayment; **refunds are never automatic.** A restore takes the line back.
 - **Moving a payment is not handled in code** (a substitute takes someone's
-  place): staff record a refund, remove the registration, and
-  record the payment on the other. A transfer helper is deferred.
+  place): staff record a refund, remove the registration and record the payment
+  on the other. A transfer helper is deferred.
 - Money moves between events only through the wallet's carry-over
   ([Deferred](deferred.md)).
 
 ## Congregation share
 
-An extension: the registrant's congregation pays part or all of the **base
-price** (the chosen tier, or the fixed price without a ladder), never extras
-such as lunch or a donation.
+An extension (`kalaka-share`): the registrant's congregation pays part or all of
+the **base price** (the chosen tier, or the fixed price without a ladder), never
+extras such as lunch or a donation.
 
-- **The ladder sets only the base price;** the share between payers is
-  decided by the registrant's answers, never by the tier. The share
-  extension declares two participant fields, `share_mode` (none, shared or
-  full) and `share_amount`, which forms join by key; a form may offer any
-  subset of the modes. A missing answer is none. The share is zero, the
-  amount the registrant declares (`share_amount`, read only when the mode is
-  shared), or the base price. A fee component writes a zero-sum pair of
-  `share` lines, participant −X′ and congregation +X′, where
-  X′ = max(0, min(share, base price − support)). Support thus reduces
-  the participant's part first, and the congregation's only below zero.
-- It reads the two answers, a per-event on/off switch in the money settings
-  and, at its fixed stage in the [fee sequence](#materializer), the base
-  price after support.
-- The congregation's payments carry the congregation payer, so its
-  overpayment never settles the participant's extras.
-- The congregation's part is always needed for confirmation
-  ([Confirmation](#confirmation)); a manual confirmation covers a late
-  payer.
+- **The ladder sets only the base price;** the split between payers is decided
+  by the registrant's answers, never by the tier (owner ruling 2026-11-19). The
+  extension declares `share_mode` (none, shared or full) and `share_amount`,
+  which forms join by key, offering any subset of the modes under their own
+  conditions. A missing answer is none.
+- **The share is zero, the declared amount, or the base price;** a fee component
+  writes a zero-sum pair of `share` lines, participant −X′ and congregation +X′,
+  with X′ = max(0, min(share, base price − support)). Support thus reduces the
+  participant's part first, the congregation's only below zero.
+- It is switched on per event in the money settings, which makes the
+  congregation payer apply.
+- **The congregation's payments carry its payer,** so its overpayment never
+  settles the participant's extras; **its part is always needed for
+  confirmation** ([Confirmation](#confirmation)), and a manual confirmation
+  covers a late payer.
+- **A congregation that declines after registration** has no path of its own:
+  staff correct each payer's balance with the ordinary entries (built so; the
+  owner's approval is still open).
+
+**What follows:** the pair sums to zero, so the share never changes a
+registration's total, only who owes it.
 
 ## Sponsor and church support
 
-- **An organization directory,** site-wide: a tree of typed nodes whose root
-  is the encompassing body (e.g. denomination → church district → deanery →
-  congregation; a body without levels is a root on its own). Nodes have an
-  external ID, aliases and an active flag; they are imported from CSV,
-  deactivated and never deleted. No data is shipped.
-- **A congregation field type** stores a node ID with a snapshot of its path:
-  each node's external ID and type, root first, taken when it is answered. A
-  new answer takes a new snapshot; a re-import never changes a stored one. Its
-  value for conditions is the path's external IDs, so "<level> is <node>" is
-  `contains`, never `equals`; its text is the node's current name. The
-  registrant searches for the congregation directly, which fills in the
-  levels above it, or goes down from the top through filtered options, each
-  level with a search. Only a
-  terminal leaf, a node with no children, is an answer; there is no free text
-  and no "not in the list". Admins add an "egyéb" leaf by hand where one is
-  needed.
-- **The tree's ancestors are looked up in the tree;** conditions, rules,
-  fees, mail and view filters read a congregation answer's stored path
-  snapshot: a view filter on a level matches the answer's snapshot (the
-  owner's ruling 2026-11-18), in SQL over the stored answer (`JSON_CONTAINS`
-  over `JSON_EXTRACT(value, '$.path[*].ext')`), under the same per-event
-  `EXPLAIN` test.
-- **Support offers per event on any node,** the root included, several per
-  node, are offered to the node and everything below it, and the registrant
-  selects them: amount, whether it needs a request (answered by staff or by
-  the body, where a partner approves, through the one "answer a request" act;
-  while the selection awaits an answer, no payment is asked and no due date is
-  shown), and an optional limit of places (people only). Who sees an offer is
-  set up on the form, as for price tiers and extra charges: an offer carries
-  no condition of its own. A selected offer with a limit takes a place
-  ([Quota places](#quota-places)).
-- **Each applying offer is one participant-side `charge` line** of the
-  support stage, written by the materializer and labelled with its granting
-  node.
-- **Support is capped at the base price,** all applying offers together, so
-  the fee never goes negative and support never pays for extras such as
-  lunch.
-- **Bodies pay in lump sums after the event,** against a report that groups
-  support lines by granting node. It is a view, not a payer, and is separate
-  from the congregation share.
+- **An organization directory** (`kalaka-support`), site-wide: a tree of typed
+  nodes whose root is the encompassing body (e.g. denomination → district →
+  deanery → congregation; a body without levels is a root alone), with external
+  IDs, aliases and an active flag, imported from CSV, deactivated and **never
+  deleted,** so a stored answer always resolves. No data is shipped.
+- **A congregation field** stores a node with a snapshot of its path (each
+  node's external ID and type, root first), taken when answered; a re-import
+  never changes it. For conditions its value is the path, so "<level> is
+  <node>" is `contains`, never `equals`; its text is the node's current name. The
+  registrant searches directly or walks down level by level. **Only a terminal
+  leaf is an answer:** no free text, no "not in the list"; admins add an "egyéb"
+  leaf where needed.
+- **Conditions, rules, fees, mail and view filters read the stored snapshot;**
+  a view filter on a level matches it in SQL (owner ruling 2026-11-18), under the
+  per-event `EXPLAIN` test.
+- **Support offers per event on any node,** the root included, several per node,
+  are offered to the node and everything below it, and the registrant selects
+  them: an amount, whether it needs a request (answered by staff, or by the body
+  where a partner approves, through the one "answer a request" act; while it
+  waits, no payment is asked and no due date shown), and an optional limit of
+  places. Who sees an offer, and whether it stacks, is set up on the form. A
+  selected offer with a limit takes a place ([Quota places](#quota-places)).
+- **Each applying offer is one participant-side line** of the support stage,
+  named by the offer's label; an offer applies when selected, approved where it
+  needs a request, and, if limited, holding its place. [UNAPPROVED R389]
+- **Support is capped at the base price,** all offers together, so the fee never
+  goes negative and support never pays for extras.
+- **Bodies pay in lump sums after the event,** against a report grouping support
+  lines by granting node: a view, not a payer, separate from the share.
+- **Requests and answers are core's,** for offers and aid alike. A module's
+  request source says what awaits an answer; the one "answer a request" act (a
+  grant action, so a partner can hold it on a view of its own registrations)
+  records each answer with who, when and an optional note, and the source writes
+  its own answer field. Every answering act mails once
+  ([Mail](mail.md#five-kinds-of-mail)). "Awaits an answer" is computed, never
+  stored, and only a `registered` registration is answered.
 
 ## Money settings apply
 
 - **There is no tariff snapshot.** Money is always computed from the event's
-  current settings plus the registration's field values and facts. A fee
-  component reads its own current settings; a registration admitted from the
-  waitlist pays today's price, with a ladder the current amount of the tier
-  it chose.
-- **Every time-dependent rule for a registration counts from the moment it
-  last became `registered`** (`registered_at`, a personal fact), never from
-  "now" and never from the submit: payment due, everything; payment due
-  alone also restarts at a later answer to a request. A price-ladder tier
-  chosen at submit is kept, also at an
-  admission from the waitlist, at the tier's current amount; any date guard on
-  an early price is the form's condition on `price_tier`'s options, checked at
-  submit. A waitlisted registration is not registered, so an admission from
-  the waitlist counts from its admission. A deadline's day ends at midnight in the site time zone
-  ([Cross-cutting rules](foundation.md#cross-cutting-rules)).
-- **Personal facts still recompute automatically:** e.g. a price-ladder
-  choice, the aid award, staff status (a field value written by the staff
-  form, an additional form), a passed deadline.
-- **A money-relevant field value is locked after its first write** unless an
-  organizer unlocked the field: an additional form may set it once, and a
-  later submit that would overwrite it is refused
+  current settings plus the registration's values and facts; a registration
+  admitted from the waitlist pays today's price (with a ladder, its tier's
+  current amount).
+- **Every time-dependent rule counts from when the registration last became
+  `registered`** (`registered_at`), never from "now" or the submit, so an
+  admission counts from the admission. A deadline's day ends at midnight in the
+  site time zone ([Cross-cutting rules](foundation.md#cross-cutting-rules)).
+- **Personal facts recompute automatically** (a tier choice, the aid award,
+  staff status, a passed deadline): every write is evaluated and re-materialized.
+  **A money-relevant value is locked after its first write** unless unlocked
   ([Changing participant fields after submit](events-and-forms.md#changing-participant-fields-after-submit)).
-  Every write is evaluated, so a change re-materializes the money.
 - **Saving money settings is preview → confirm → apply**
-  ([Bulk changes](foundation.md#bulk-changes)). The preview composes every
-  `registered` and `waitlisted` registration with the proposed settings and
-  writes nothing, showing what each payer owes now and would owe, and how
-  many registrations would become confirmed and how many "confirmed" mails
-  would go (a dry run of [Confirmation](#confirmation) against the proposed
-  composition; a registration confirmed already is not counted). The apply
-  saves the settings, then re-evaluates each of them in its own transaction,
-  and the materializer writes the difference as `charge` lines. Its report
-  lists the failed registrations, with retry and skip; a failed or skipped
-  one converges on its next evaluation, since the settings are saved. A
-  change of the retention rule reaches the withdrawn and removed registrations
-  too: the preview shows them and the apply re-evaluates them.
+  ([Bulk changes](foundation.md#bulk-changes)), full access only, for every money
+  setting (the fixed price, retention, extra charges, each plugin's). **The
+  preview** composes every `registered` and `waitlisted` registration with the
+  proposed settings and writes nothing: what each payer owes now and would owe,
+  how many would become confirmed and how many "confirmed" mails would go. **The
+  apply** saves, then re-evaluates each registration in its own transaction; its
+  report lists failures with retry and skip, and a skipped one converges on its
+  next evaluation. A retention change reaches withdrawn and removed ones too.
+
+**What follows:** raising a price raises it for everyone not withdrawn, paid or
+not, unless the form or the tier separates them; there is no grandfathering
+except through a separate tier, and confirmation never falls back because of
+it.
 
 ## Materializer
 
@@ -393,71 +349,73 @@ flowchart LR
   PF["Payment facts<br/>read from payment lines only"] --> R
   R["Fee components<br/>target amount per component, item and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
   MZ --> L[("Ledger<br/>append-only lines")]
-  PM["Payment-method plugin<br/>e.g. WooCommerce"] -->|"paid / refunded"| L
+  PM["Payment provider<br/>e.g. WooCommerce"] -->|"paid / refunded"| L
   ST["Organizers<br/>cash, bank transfer"] --> L
   L -. "payment facts" .-> PF
 ```
 
-- **Core composes the fee in a fixed sequence of named stages:** tier →
-  support → share → aid → extras. A fee component declares which stage it
-  belongs to, and core composes the stages in order; there are no order
-  numbers. Aid comes out of the participant's part only and never reduces
-  the congregation's share. A component may put computed values, never
-  stored, into the facts the later stages read, such as the price ladder's
-  applied tier, `price_tier.applied`.
-- **It converges:** it writes only the difference between target and
-  recorded, per component, item and payer, so it can run any number of times, with
-  line idempotency keys.
-- **Changes caused by an action** are materialized by the evaluation inside
-  that action ([Foundation](foundation.md#evaluation)). **Changes caused by
-  time passing** (e.g. a late fee) are applied by the periodic run, one
-  transaction per registration, under a per-registration lock.
-- **It reconciles only the fee components registered now,** and leaves lines
-  of unknown components untouched.
-- **Rules never read charge lines,** only payment facts. That avoids a
+- **Core composes the fee in fixed, named stages:** tier → support → share →
+  aid → extras. A component declares its stage; there are no order numbers. **A
+  component sees only earlier stages' totals** and the computed values they add
+  (such as the applied tier), never stored. This order is why support is capped
+  at the base price, the share comes out of what is left after support, aid
+  reduces only the participant's part, and nothing covers the extras.
+- **Only a `registered` registration composes;** a withdrawn or removed one owes
+  only its retention, a waitlisted one nothing.
+- **It converges:** only the difference between target and recorded, per
+  component, item and payer, so it can run any number of times.
+- **An act's changes** are materialized inside the act
+  ([Foundation](foundation.md#evaluation)); **time's changes** (a late fee) by
+  the periodic run.
+- **It reconciles only the components registered now,** leaving unknown
+  components' lines untouched, so turning a plugin off never erases its lines.
+- **Rules never read charge lines,** only payment facts, which avoids a
   feedback loop.
+- **A component that cannot say what is owed refuses** with a reason for staff;
+  the act is refused, and the periodic run flags the registration "evaluation
+  failed".
 
 ## Payments
 
-- **Payments is a port in core.** Core defines what it needs from a payment
-  method:
-  - create a payment request for N registration lines, each for one payer, up
-    to that payer's balance;
-  - return the pay URL;
-  - replace an open request that was never paid (a new request cancels it and
-    makes one new one, so a registration has at most one unpaid request); a
-    request open in any other state (in flight at the provider, or paid and
-    not yet recorded) refuses the new one;
-  - report paid, refunded and failed.
-- **Payment methods are pluggable,** so more automatic methods (another
-  gateway, bank-statement import, …) can be added without changing core.
-  Cash and bank transfers are recorded by organizers in core
-  ([Recording payments by hand](#recording-payments-by-hand)); WooCommerce
-  uses no offline gateway.
-- **Online payment covers the participant's lines only,** including an
-  account's "pay all outstanding".
-- **The WooCommerce extension** implements the port:
-  - only through WooCommerce's own API, so both of its order-storage modes
-    work;
-  - one hidden product line per registration line, with its name and amount
-    set per order (coupons keep working), and metadata giving its payer and
-    the registration as `12:47K3`
-    ([Registrations](registrations-and-identity.md#registrations));
-  - WooCommerce payment and refund events write ledger lines **exactly
-    once**, keyed by WooCommerce order and refund IDs;
-  - an event may have a card surcharge, a per-event setting of the extension:
-    one WooCommerce fee line on the order, never ledger money (a payment
-    records only the registration lines, and a refund gives a fee line to no
-    registration);
-  - a billing country is a valid ISO code or left out.
-- Wallet top-ups are their own payment requests and never mix with
-  registration payments. The wallet is designed later
-  ([Deferred](deferred.md)).
+- **Payments is a port in core.** A payment provider starts a request for
+  registration lines, each for one payer, up to its balance; returns the pay
+  URL; replaces a never-paid open request (so a registration has at most one
+  unpaid request); reports its latest request; and reports paid and refunded
+  money back. **One provider per site.** More automatic methods (another
+  gateway, bank-statement import) need no change in core; cash and transfers
+  are recorded by organizers ([Recording payments by hand](#recording-payments-by-hand)).
+- **Online payment covers the participant's lines only.**
+- **A card payment** is started by the registrant from the status block for the
+  amount they enter, at most what is payable now and at least a minimum.
+  **Payable now** is one rule, shared with the bank-transfer block: `registered`,
+  the event published, no request awaiting, and a balance above zero. A start is
+  refused while an earlier request is in flight or paid and not yet recorded.
+  [UNAPPROVED R396]
+- **Recording is idempotent and never gated:** each provider item writes one
+  line exactly once, whatever the status, the event's state or the balance (a
+  surplus is an overpayment). Each recorded payment or refund of the participant
+  sends the "payment recorded" mail ([Mail](mail.md#five-kinds-of-mail)).
+- **The WooCommerce extension** implements the port only through WooCommerce's
+  order API (both storage modes work) and has no table: one order per request,
+  one hidden product line per registration line with its payer and the
+  registration as `12:47K3` ([Registrations](registrations-and-identity.md#registrations));
+  payment and refund events recorded once, with a periodic reconcile for missed
+  ones; billing details from five participant fields it declares per event
+  (a country is a valid ISO code or left out); no customer IP or user agent on
+  the order; and an optional per-event **card surcharge**, a WooCommerce fee
+  line that is never ledger money.
+- Wallet top-ups are their own requests and never mix with registration
+  payments ([Deferred](deferred.md)).
+
+**What follows:** the ledger, not WooCommerce, is the truth of what was paid; a
+late or repeated report never doubles a payment.
 
 ## Paying several registrations at once
 
-An account holder pays everything outstanding, e.g. two children in two
-camps, in one payment. Each event's money still lands in its own ledger.
+An account holder pays everything outstanding, e.g. two children in two camps,
+in one payment, and each event's money still lands in its own ledger. The port
+and the WooCommerce order already carry several registrations' lines; the
+account's "pay all outstanding" is not built yet.
 
 ```mermaid
 sequenceDiagram
@@ -479,22 +437,24 @@ sequenceDiagram
 
 ## Refunds
 
-An admin-started WooCommerce refund:
+**A refund made in WooCommerce** arrives through its refund event and is
+recorded once per refund and item; one that names no item is split over the
+order's items in order, and a refunded surcharge gives nothing to a
+registration.
 
-1. writes a **refund-request record** in state `requested` inside the use
-   case's transaction (its uniqueness guards against starting the same refund
-   twice);
-2. **after commit, in the same request,** sets the record to `in progress`
-   just before calling WooCommerce, so the admin sees the result right away;
+**An admin-started WooCommerce refund** (not built yet):
+
+1. writes a **refund-request record** `requested` inside the use case (its
+   uniqueness guards against starting the same refund twice);
+2. **after commit, in the same request,** sets it `in progress` just before
+   calling WooCommerce, so the admin sees the result at once;
 3. on a **definite failure**, keeps the error on the record, with a retry
    button;
-4. on a **timeout or unknown outcome**, leaves the record `in progress` for
-   the admin to check in WooCommerce. It is **never retried automatically**,
-   which rules out a double refund.
+4. on a **timeout or unknown outcome**, leaves it `in progress` for the admin to
+   check in WooCommerce, **never retried automatically,** which rules out a
+   double refund.
 
-A record left in `requested` (the call never started) gets a retry button.
-Steps 2 and 3 each change the record through a use case of their own
-([Foundation](foundation.md#the-use-case-runner)).
-
-The refund line itself arrives through WooCommerce's refund event, exactly
-once.
+A record left `requested` gets a retry button. Steps 2 and 3 each change the
+record through a use case of their own
+([Foundation](foundation.md#the-use-case-runner)). The refund line still arrives
+through WooCommerce's refund event, exactly once.

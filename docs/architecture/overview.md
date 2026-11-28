@@ -14,16 +14,30 @@ request.
 
 | Page | Contents |
 |---|---|
-| [Overview and principles](overview.md) | Purpose, organizations, fixed inputs, guiding principles |
+| [Overview and principles](overview.md) | Purpose, organizations, fixed inputs, guiding principles, the big decisions |
 | [Foundation](foundation.md) | Layers, views and grants, the use-case runner, errors, entities, audit, deferred work and evaluation, facts, decisions and computed values, cross-cutting rules |
 | [Modules and extensions](modules-and-extensions.md) | Packaging, core modules, assignment sets, extensions in view, schema ownership, identifiers, the extension surface |
-| [Events and forms](events-and-forms.md) | Event lifecycle, dates, the registration slot, capacity, prefill, form links, fields, conditions |
-| [Registrations and identity](registrations-and-identity.md) | Accounts and presets, submissions, status and waitlist, reference codes, access, attribution |
+| [Events and forms](events-and-forms.md) | Event lifecycle, dates, the registration slot, prefill, form links, fields, conditions |
+| [Registrations and identity](registrations-and-identity.md) | Accounts and presets, submissions and drafts, status and waitlist, reference codes, access, attribution |
 | [Money](money.md) | Ledger and payers, recording payments, confirmation, withdrawal, congregation share, sponsor and church support, money settings apply, materializer, payments, refunds |
 | [Mail](mail.md) | Kinds of mail, deliveries, the sender, configuration, content |
 | [Engineering](engineering.md) | Platform, repository layout, tooling, code style, tests and CI |
 | [Release plan](release-plan.md) | What each release contains |
 | [Deferred](deferred.md) | What is decided later, and when |
+
+## How to read these pages
+
+Each page is an overview of how the system works now and why. A section
+states the design, the rules that bind it, the reason for each rule, and what
+a change would touch. Step-by-step mechanics, class names and the full lists
+of edge cases live in the code and in each module's `AGENTS.md`, which name
+the sections they implement.
+
+- **A rule stated here is binding,** whether or not the code has reached it
+  yet. Where a page and the code disagree, the owner decides which is right
+  ([`AGENTS.md`](../../AGENTS.md)).
+- **"Not built yet"** marks a rule that is decided but has no code on `main`.
+  It stays here because this page is its only record.
 
 ## Purpose
 
@@ -41,7 +55,9 @@ analyses serve only as background.
 
 - **Scale:** 500–2,000 registrations per season, kept for many years. Measured
   in 2026: about 200 per organization and season. Target hosting is low-end
-  shared hosting: good to 500 registrants, functional to 1,000.
+  shared hosting: good to 500 registrants, functional to 1,000. This is why
+  there is no job queue, no per-request heavy work and a strict per-event
+  query cost.
 - **Organizations are completely separate.** Two organizations from day one,
   more possible later. One organization-agnostic codebase, one WordPress
   install per organization; no shared people or data, only the plugin code.
@@ -88,6 +104,26 @@ analyses serve only as background.
    and comments are in English.
 9. **Nothing reaches the UI unapproved.** UI text and behavior are approved by
    the owner when the UI is built ([Deferred](deferred.md#ui-text-approved-when-built)).
+
+## The big decisions
+
+A few choices shape almost everything else. Each row only points to the
+section that holds the rule; the binding wording lives on that page alone, so
+read it there before bending the decision.
+
+| Decision | Read | What it implies |
+|---|---|---|
+| Every write is a use case | [Foundation](foundation.md#the-use-case-runner) | Every change is audited and done as a whole or not at all |
+| Access to data is a view; holding it is a grant | [Foundation](foundation.md#views-and-grants) | A new admin feature extends the view or the grants |
+| Facts, decisions and computed values are separate kinds of state | [Foundation](foundation.md#facts-decisions-and-computed-values) | Know which kind a value is before storing or filtering on it |
+| No person records | [Registrations](registrations-and-identity.md#identity-no-person-records) | The registration is the identity |
+| Participant fields belong to the event | [Fields](events-and-forms.md#fields) | Forms ask for fields; they do not define a copy |
+| One condition format and one evaluator | [Conditions](events-and-forms.md#conditions) | Visibility and offers are decided in one place |
+| One seat rule for every limited pool | [Foundation](foundation.md#facts-decisions-and-computed-values) | Read the rule before touching a limited choice |
+| No tariff snapshot | [Money](money.md#money-settings-apply) | Price changes are previewed and applied |
+| An append-only ledger per registration, with payers | [Money](money.md#ledger) | Corrections are new lines |
+| No job queue | [Foundation](foundation.md#deferred-work) | Each kind of deferred work gets its own guarantee |
+| Any load failure closes every event | [Modules](modules-and-extensions.md#failure-isolation) | There is no per-event dependency analysis |
 
 ## Context
 
