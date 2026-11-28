@@ -19,7 +19,9 @@ final class Module extends AbstractModule
      * UTC `datetime(6)`; `secret` is `utf8mb4_nopad_bin`, compared exactly. `KEY code` serves the site-wide
      * `code IN (…)` of `ReferenceCodeQuery`. `owner_user_id` is the owner account (S15): the WordPress user
      * the registration belongs to, null while it has none; set once, by a logged-in person's submit, and
-     * never changed after.
+     * never changed after. `registered_by` is the act that last made the registration `registered` (`submit`,
+     * `admission`, `restore`: `Api\RegisteredBy`), written only together with `registered_at`; null for a
+     * registration that never was.
      */
     private const REGISTRATIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_registrations (
@@ -30,6 +32,7 @@ CREATE TABLE {prefix}kalaka_registrations (
   secret varchar(22) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
   created_at datetime(6) NOT NULL,
   registered_at datetime(6) DEFAULT NULL,
+  registered_by varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
   owner_user_id bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY  (event_id,code),
   KEY code (code)
@@ -161,9 +164,8 @@ SQL;
 
     public function schema(): Schema
     {
-        // 8: the union above both sides' 7. This branch took 6 for its answers, on #228's 5 for the seats;
-        // main's 7 adds #194's drafts. One version above both, holding every table.
-        return new Schema(8, [
+        // 9: one version above main's 8 (seats, answers, drafts) and this branch's 7 (`registered_by`).
+        return new Schema(9, [
             self::REGISTRATIONS,
             self::FIELD_VALUES,
             self::SUBMISSIONS,
@@ -205,6 +207,35 @@ SQL;
             new Answer\AnswerRequest(),
             'Kérelem megválaszolása',
             'Egy jelentkező támogatási kérelmének megválaszolása.'
+        );
+
+        // The status acts' labels and descriptions are placeholders until the owner's words. [UNAPPROVED T502-T503]
+        Abilities::register(
+            new Status\AdmitRegistration(),
+            'Jelentkező felvétele a várólistáról',
+            'Egy várólistás jelentkezés rögzített állapotba helyezése; lefoglalja a helyeit, '
+            . 'akár a létszámkereten felül is.'
+        );
+        Abilities::register(
+            new Status\WithdrawRegistration(),
+            // Before: 'Jelentkezés visszavonása', 'Egy jelentkezés visszavont állapotba
+            // helyezése, mert a jelentkező visszalépett; a helyei felszabadulnak.'
+            'Megjelölés lemondottként',
+            'Egy jelentkezés megjelölése lemondottként, ha a jelentkező lemondta; a helyei felszabadulnak.'
+        );
+        Abilities::register(
+            new Status\RemoveRegistration(),
+            // Before: 'Jelentkezés törlése', 'Egy jelentkezés törölt állapotba helyezése
+            // indoklással; a helyei felszabadulnak, az adatai megmaradnak.'
+            'Megjelölés töröltként',
+            'Egy jelentkezés megjelölése töröltként; a helyei felszabadulnak, az adatai megmaradnak.'
+        );
+        Abilities::register(
+            new Status\RestoreRegistration(),
+            'Jelentkezés visszaállítása',
+            // The lektor's text; the label stays.
+            'Egy lemondott vagy törölt jelentkezés visszaállítása az előző állapotába: ha rögzített volt, '
+            . 'újra lefoglalja a helyeit, ha várólistás volt, visszakerül a várólistára.'
         );
     }
 }

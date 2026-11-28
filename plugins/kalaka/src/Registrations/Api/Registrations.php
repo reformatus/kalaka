@@ -45,6 +45,7 @@ final class Registrations
                 $registration->status,
                 $registration->registeredAt,
                 $registration->ownerUserId,
+                $registration->registeredBy,
             );
     }
 
@@ -180,6 +181,24 @@ final class Registrations
         foreach ($this->list->forEvent($eventId) as $row) {
             $status = $row['status'];
             if ($status === RegistrationStatus::Registered || $status === RegistrationStatus::Waitlisted) {
+                $keys[] = new RegistrationKey($eventId, $row['code']);
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * The event's `withdrawn` and `removed` registrations, in the list's order: the ones a money settings change of
+     * the retention rule re-evaluates besides `openOf()`'s. One statement.
+     *
+     * @return list<RegistrationKey>
+     */
+    public function leftOf(int $eventId): array
+    {
+        $keys = [];
+        foreach ($this->list->forEvent($eventId) as $row) {
+            if ($row['status'] === RegistrationStatus::Withdrawn || $row['status'] === RegistrationStatus::Removed) {
                 $keys[] = new RegistrationKey($eventId, $row['code']);
             }
         }

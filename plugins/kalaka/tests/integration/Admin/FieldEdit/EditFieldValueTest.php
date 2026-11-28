@@ -151,6 +151,7 @@ final class EditFieldValueTest extends StaffEditTestCase
         $this->addValue($this->event, '00A2', 'tier', 'b');
         $this->seat('00A2', $this->poolB);
 
+        $entries = count($this->entries());
         $result = $this->edit('00A0', 'b', 'tier', ['preview' => true]);
 
         self::assertSame(['changed' => true, 'over_limit' => ['tier']], $result);
@@ -159,9 +160,12 @@ final class EditFieldValueTest extends StaffEditTestCase
         self::assertSame(1, $this->seats->held($this->poolB));
         $same = $this->edit('00A0', 'a', 'tier', ['preview' => true]);
         self::assertSame(['changed' => false, 'over_limit' => []], $same);
-        $entry = $this->lastEntry();
-        self::assertSame('succeeded', $entry['outcome']);
-        self::assertSame('[]', $entry['changes'] ?? '[]');
+        self::assertCount($entries, $this->entries(), 'A preview writes no audit entry.');
+        // A real run is audited, an unchanged one too.
+        $this->edit('00A0', 'b', 'tier');
+        self::assertCount($entries + 1, $this->entries());
+        $this->edit('00A0', 'b', 'tier');
+        self::assertCount($entries + 2, $this->entries());
     }
 
     public function testAPreviewAndAnUnchangedRunLeaveTheRegistrationUnevaluated(): void

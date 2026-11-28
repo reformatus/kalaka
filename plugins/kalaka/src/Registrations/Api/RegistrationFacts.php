@@ -15,10 +15,10 @@ use Kalaka\Forms\Api\ValueType;
 /**
  * A registration's fact source after submit (foundation.md, "Facts, decisions and computed values"; the
  * one availability base, S76): the event's values, the registration's field values by participant-field
- * key, its code and status, and when it last became `registered` (null while it is not; a waitlisted
- * registration is not registered). Every time-dependent rule counts from it, never from the submit: payment
- * due, price-tier deadlines, everything. Payment due itself counts from the later of it and the last
- * changed answer to a request (`lastAnsweredAt`), and has none while a request awaits an answer
+ * key, its code and status, and when it last became `registered` (null while it never was; a waitlisted
+ * registration never was, a withdrawn one keeps it). Every time-dependent rule counts from it, never from the
+ * submit: payment due, price-tier deadlines, everything. Payment due itself counts from the later of it and the
+ * last changed answer to a request (`lastAnsweredAt`), and has none while a request awaits an answer
  * (`paymentDue()`, so every caller gets the same date). Read by the fee components and, later, by every
  * rule that reads registration facts. Built by `Registrations::factsOf()`; it holds values only and reads
  * nothing. `registration.awaits_answer` is computed there (`Requests::awaits()`), never stored.
@@ -98,6 +98,49 @@ final readonly class RegistrationFacts implements Facts
             [...$this->computed, ...$computed],
             $this->fieldKinds,
             $this->awaitsAnswer,
+        );
+    }
+
+    /**
+     * The same facts as if the registration were still `registered`, from its own registration time: only the
+     * status changes, so a date rule reads the stored `registered_at` (`$fallback` when there is none).
+     * `$awaitsAnswer` is what `Requests::awaits()` says of it as `registered` (the caller reads it: the facts read
+     * nothing), so a `registered` fact source never carries the N/A of a registration that is not.
+     */
+    public function asIfRegistered(\DateTimeImmutable $fallback, ?bool $awaitsAnswer): self
+    {
+        return new self(
+            $this->registration,
+            RegistrationStatus::Registered,
+            $this->registeredAt ?? $fallback,
+            $this->event,
+            $this->now,
+            $this->fieldValues,
+            [],
+            $this->fieldKinds,
+            $awaitsAnswer,
+            $this->lastAnsweredAt,
+        );
+    }
+
+    /**
+     * The same facts as they would be once the registration has the status (`registered` from now on, for a restore
+     * or an admission): what a staff dialog previews. Computed values are not carried over; they are never stored.
+     * `$awaitsAnswer` is what `Requests::awaits()` says of it with that status (null unless `registered`).
+     */
+    public function becoming(RegistrationStatus $status, \DateTimeImmutable $now, ?bool $awaitsAnswer): self
+    {
+        return new self(
+            $this->registration,
+            $status,
+            $status === RegistrationStatus::Registered ? $now : $this->registeredAt,
+            $this->event,
+            $this->now,
+            $this->fieldValues,
+            [],
+            $this->fieldKinds,
+            $awaitsAnswer,
+            $this->lastAnsweredAt,
         );
     }
 

@@ -26,8 +26,37 @@ the waitlist and reference codes
   that holds per-event data is keyed event first.
 - Status is a fact: stored, changed only by people's acts through use cases,
   never recomputed. The sorszám is computed when read and never stored.
+- The status writers are the submit's insert and the four staff acts of
+  `Status/` (`kalaka/admit-registration`, `kalaka/withdraw-registration`,
+  `kalaka/remove-registration`, `kalaka/restore-registration`, one table in
+  `Api\StatusAct`, one shape in `StatusChange`); nothing else updates a status.
+  An act on a registration already in its target state writes nothing
+  (`changed: false`); any other status it does not allow is `StatusActRefused`.
+  No act needs a reason; the one given is the audit entry's. A restore is full access only (no grant action) and
+  returns the registration to the status it left from: `registered` when it has a `registered_at` (it was ever
+  registered), `waitlisted` when it has none, with nothing else written.
 - `registered_at` is set only by the acts that make a registration
   `registered` (submit, admission, restore) and is never recomputed.
+  `registered_by` (`Api\RegisteredBy`: `submit`, `admission`, `restore`) is
+  written only together with it; withdraw and remove leave both as they are.
+  `registration.from_waitlist` reads `registered_by = admission`.
+- Admission and a restore to `registered` lock the event row, then the quota pools their claims
+  name (`Seats::inLockOrder()`), then the registration; the claims come from
+  the stored values (`Api\SeatClaims`), read before the locks and again under
+  the registration's, and a claim of a quota pool nobody locked is a
+  `VersionConflict` (nothing written). They take seats only through
+  `Seats::retake()` (claims, the event's places, `AssignmentSeats::retake()`),
+  and queue the "registered" mail (admission, caused by the registration; a restore, caused by the registration at
+  the version it wrote, so every restore mails). A restore to the waitlist queues the "waitlisted" mail the same way.
+  Withdraw and remove queue no mail, free seats only through `Seats::releaseAll()` and revoke the registration's
+  manual confirmation flag through `Pricing\Api\ManualConfirmations::revokeOnLeaving()` in the same transaction.
+  The preview (`preview: true`) reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it ignores a
+  `reason`, and says `requires_reason` (kept in the shape, always false: no act needs a reason). It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
+  count once the act is done: `taken + 1` when it takes the seat, `taken` when it frees it; a leaving act lists the
+  pools the registration holds, outcome `released`) and `limit`, the "full" warning, and for withdraw, remove and restore the per-payer money
+  effect from the same composition the materializer records (`FeeComposition::of(.., $becoming)`) with
+  `money_hidden` (no money-view: `money` is null; false with a null `money`: unpriceable); withdraw and remove add
+  the event's `retention` rule; `money` and `retention` are only for a holder of money-view.
 - Submissions are append-only: never updated or deleted. Field values hold the
   current state, one row per field, and are what edits change.
 - A submit writes field values only through the event's participant-field list

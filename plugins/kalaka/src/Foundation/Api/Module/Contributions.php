@@ -20,6 +20,8 @@ use Kalaka\Payments\Api\PaymentProvider;
 use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\SeatClaimSource;
+use Kalaka\Pricing\Api\Retention;
+use Kalaka\Pricing\Api\RetentionRule;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
 final class Contributions
@@ -55,6 +57,9 @@ final class Contributions
 
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
+
+    /** @var array<string, RetentionRule> */
+    private array $retentionRules = [];
 
     /** @var list<SeatClaimSource> */
     private array $seatClaimSources = [];
@@ -261,7 +266,8 @@ final class Contributions
     public function feeComponent(FeeComponent $component): void
     {
         $id = $component->id();
-        if (preg_match('/\A[a-z][a-z0-9_]{0,49}\z/', $id) !== 1) {
+        // `retention` is core's own line key (money.md, "Withdrawal, removal and substitution").
+        if ($id === 'retention' || preg_match('/\A[a-z][a-z0-9_]{0,49}\z/', $id) !== 1) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a component ID, never output
             throw new \InvalidArgumentException('Invalid fee component ID ' . $id . '.');
         }
@@ -270,6 +276,35 @@ final class Contributions
             throw new \InvalidArgumentException('Fee component already contributed: ' . $id . '.');
         }
         $this->feeComponents[$id] = $component;
+    }
+
+    /**
+     * A retention rule is an inside point (modules-and-extensions.md, "The extension surface"). Its ID is
+     * `[a-z][a-z0-9_]*`, at most 20 characters, and unique: a malformed or repeated ID fails the contributing
+     * module; core's own two IDs are refused here too.
+     */
+    public function retentionRule(RetentionRule $rule): void
+    {
+        $id = $rule->id();
+        if (in_array($id, Retention::CORE_RULES, true) || preg_match('/\A[a-z][a-z0-9_]{0,19}\z/', $id) !== 1) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a rule ID, never output
+            throw new \InvalidArgumentException('Invalid retention rule ID ' . $id . '.');
+        }
+        if (isset($this->retentionRules[$id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a rule ID, never output
+            throw new \InvalidArgumentException('Retention rule already contributed: ' . $id . '.');
+        }
+        $this->retentionRules[$id] = $rule;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<RetentionRule>
+     */
+    public function retentionRules(): array
+    {
+        return array_values($this->retentionRules);
     }
 
     /**

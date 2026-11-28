@@ -442,7 +442,7 @@ final class ParticipantMoneyTest extends PortalTestCase
         $key = $this->stored('12A3');
         $this->source($key, '40000', 'fixed_price');
         // An unregistered component's line, and a line of another source type.
-        $this->source($key, '-2000', 'retention');
+        $this->source($key, '-2000', 'leftover');
         $this->record($this->line($key, LineKind::Charge, '1500', 'x1', source: 'misc', sourceType: 'other'));
 
         $money = $this->tableOf($key);

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Payments;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Payments\Api\OnlineItem;
 use Kalaka\Payments\Api\OnlinePayments;
 use Kalaka\Payments\Api\PaidRequest;
 use Kalaka\Payments\Api\RefundedRequest;
+use Kalaka\Pricing\Api\ProposedMoneySettings;
+use Kalaka\Pricing\KeepNothing;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Tests\Integration\Pricing\ConfirmationTestCase;
@@ -133,6 +136,13 @@ final class OnlinePaymentsTest extends ConfirmationTestCase
     public function testAPaidOrderForAWithdrawnRegistrationStillRecordsAndASurplusIsAnOverpayment(): void
     {
         $this->setPrice('10000');
+        // The default retention keeps what a leaver paid, so only a rule that keeps nothing leaves a surplus.
+        $report = $this->settings->apply(
+            $this->event,
+            new ProposedMoneySettings(retention: KeepNothing::ID),
+            new CliActor(null)
+        );
+        self::assertSame([], $report->failed());
         $anna = $this->register('00A0', RegistrationStatus::Withdrawn);
 
         $this->online->recordPaid($this->paid('501', $this->item($anna, '12000')));

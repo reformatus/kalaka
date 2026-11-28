@@ -212,8 +212,10 @@ title: Money
   on it like any state. Other statuses have no confirmation state.
 - **Withdrawal or removal closes the sequence:** a confirmed registration gets
   an `unconfirmed` record. Restore or admission writes a
-  new record if the registration qualifies; the old one is never revived. A
-  manual flag set before the withdrawal is kept and counts at the restore.
+  new record if the registration qualifies; the old one is never revived. The
+  withdrawal or removal also revokes the manual flag if set, in the same
+  transaction and audited; a restore does not bring it back, so the
+  registration is unconfirmed unless payments or nothing due confirm it.
 - **Deposit payment request:** max(0, threshold − payments so far), capped at
   the remaining balance. Waitlisted registrations get none.
 
@@ -266,7 +268,8 @@ one seat rule
   more after leaving. Core offers "retain nothing" and "retain everything
   paid"; the deposit extension adds "retain up to the deposit", which counts
   against the participant first. A surplus shows as an overpayment; refunds
-  are never automatic.
+  are never automatic. The rule is chosen per event in its money settings,
+  "retain everything paid" by default.
 - **Moving a payment is not handled in code** (a substitute takes someone's
   place): staff record a refund, remove the registration, and
   record the payment on the other. A transfer helper is deferred.
@@ -376,7 +379,9 @@ such as lunch or a donation.
   saves the settings, then re-evaluates each of them in its own transaction,
   and the materializer writes the difference as `charge` lines. Its report
   lists the failed registrations, with retry and skip; a failed or skipped
-  one converges on its next evaluation, since the settings are saved.
+  one converges on its next evaluation, since the settings are saved. A
+  change of the retention rule reaches the withdrawn and removed registrations
+  too: the preview shows them and the apply re-evaluates them.
 
 ## Materializer
 

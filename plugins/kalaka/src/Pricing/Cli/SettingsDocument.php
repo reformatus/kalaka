@@ -16,13 +16,15 @@ use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
+use Kalaka\Pricing\Api\RetentionRules;
 use Kalaka\Pricing\CoreFeeComponents;
 
 /**
  * The money settings of an event as one JSON document, what `wp kalaka money-settings` prints and reads:
- * `{"fixed_price": "15000", "components": {"<component ID>": {…that component's settings…}}}`. Core writes
+ * `{"fixed_price": "15000", "retention": "everything_paid", "components": {"<component ID>": {…settings…}}}`.
+ * Core writes
  * and reads the fixed price; every other component is a `ConfigurableFeeComponent` that does its own.
- * Reading follows `ProposedMoneySettings`: a `fixed_price` that is null or missing, and a component not
+ * Reading follows `ProposedMoneySettings`: a `fixed_price` or `retention` that is null or missing, and a component not
  * named, stay as they are; what `show` prints read back changes nothing.
  */
 final class SettingsDocument
@@ -38,7 +40,7 @@ final class SettingsDocument
     }
 
     /**
-     * @return array{fixed_price: ?string, components: array<string, array<string, mixed>>}
+     * @return array{fixed_price: ?string, retention: string, components: array<string, array<string, mixed>>}
      * @throws NotFound when there is no such event
      */
     public function show(int $eventId): array
@@ -52,6 +54,7 @@ final class SettingsDocument
 
         return [
             'fixed_price' => $price === null ? null : PlainAmount::of($price),
+            'retention' => $this->settings->retentionId($eventId),
             'components' => $components,
         ];
     }
@@ -68,7 +71,7 @@ final class SettingsDocument
             $error = new CommandFailure('The file must hold a JSON object with "fixed_price" and "components".');
             throw $error;
         }
-        $unknown = array_diff(array_keys($document), ['fixed_price', 'components']);
+        $unknown = array_diff(array_keys($document), ['fixed_price', 'retention', 'components']);
         if ($unknown !== []) {
             $names = implode(', ', array_map('strval', $unknown));
             $error = new CommandFailure('Unknown key in the file: ' . $names . '.');
@@ -88,6 +91,18 @@ final class SettingsDocument
         } catch (InvalidInput $invalid) {
             $error = new CommandFailure($badPrice, $invalid);
             throw $error;
+        }
+
+        $retention = null;
+        if (($document['retention'] ?? null) !== null) {
+            $given = $document['retention'];
+            $retention = is_string($given) && RetentionRules::find($given) !== null ? $given : null;
+            if ($retention === null) {
+                $error = new CommandFailure(
+                    '"retention" must be one of: ' . implode(', ', RetentionRules::ids()) . '.'
+                );
+                throw $error;
+            }
         }
 
         $given = $document['components'] ?? [];
@@ -146,7 +161,7 @@ final class SettingsDocument
             }
         }
 
-        return new ProposedMoneySettings($fixed, $proposed);
+        return new ProposedMoneySettings($fixed, $proposed, $retention);
     }
 
     /** @return array<string, ConfigurableFeeComponent> by component ID, in registration order */

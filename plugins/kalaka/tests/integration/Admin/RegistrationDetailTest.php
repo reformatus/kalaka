@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Admin;
 
+use Kalaka\Foundation\Api\Module\ActionCatalogue;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Admin\Api\RegistrationNotInView;
@@ -240,6 +241,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'record_discount' => true,
                 'confirm_manually' => true,
                 'unconfirm' => false,
+                'admit' => false,
+                'withdraw' => true,
+                'remove' => true,
+                'restore' => false,
             ],
             $detail['can']
         );
@@ -451,6 +456,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'record_discount' => false,
                 'confirm_manually' => false,
                 'unconfirm' => false,
+                'admit' => false,
+                'withdraw' => false,
+                'remove' => false,
+                'restore' => false,
             ],
             $detail['can']
         );
@@ -614,6 +623,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'record_discount' => false,
                 'confirm_manually' => false,
                 'unconfirm' => false,
+                'admit' => false,
+                'withdraw' => false,
+                'remove' => false,
+                'restore' => false,
             ],
             $detail['can']
         );
@@ -634,9 +647,65 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'record_discount' => false,
                 'confirm_manually' => false,
                 'unconfirm' => false,
+                'admit' => false,
+                'withdraw' => false,
+                'remove' => false,
+                'restore' => false,
             ],
             $shown['can']
         );
+    }
+
+    /** The status acts' flags: the grant carries the act's action and the status allows it now; restore: full access. */
+    public function testTheStatusActFlagsFollowTheGrantAndTheStatus(): void
+    {
+        $before = ActionCatalogue::current();
+        $this->seedDetail();
+        ActionCatalogue::record(new ActionCatalogue([
+            'kalaka_withdraw_registration',
+            'kalaka_remove_registration',
+            'kalaka_admit_registration',
+        ]));
+        $acts = ['kalaka_admit_registration', 'kalaka_withdraw_registration', 'kalaka_remove_registration'];
+        $holder = $this->plainUser();
+        $this->grant($holder, [], [['column' => 'code', 'write' => false]], $acts);
+        $withdrawOnly = $this->plainUser();
+        $this->grant($withdrawOnly, [], [['column' => 'code', 'write' => false]], ['kalaka_withdraw_registration']);
+        try {
+            $this->addRegistration('00A5', 'waitlisted');
+            $this->addRegistration('00A8', 'withdrawn');
+            $flags = static fn (array $detail): array => array_intersect_key(
+                $detail['can'],
+                array_flip(['admit', 'withdraw', 'remove', 'restore'])
+            );
+
+            self::assertSame(
+                ['admit' => false, 'withdraw' => true, 'remove' => true, 'restore' => false],
+                $flags($this->detail($holder))
+            );
+            self::assertSame(
+                ['admit' => true, 'withdraw' => true, 'remove' => true, 'restore' => false],
+                $flags($this->detail($holder, '00A5'))
+            );
+            self::assertSame(
+                ['admit' => false, 'withdraw' => false, 'remove' => false, 'restore' => false],
+                $flags($this->detail($holder, '00A8'))
+            );
+            self::assertSame(
+                ['admit' => false, 'withdraw' => true, 'remove' => false, 'restore' => false],
+                $flags($this->detail($withdrawOnly))
+            );
+            $full = self::factory()->user->create();
+            $fullUser = get_userdata($full);
+            self::assertInstanceOf(\WP_User::class, $fullUser);
+            $fullUser->add_cap(\Kalaka\Admin\Api\AdminAccess::FULL_ACCESS);
+            self::assertSame(
+                ['admit' => false, 'withdraw' => false, 'remove' => false, 'restore' => true],
+                $flags($this->detail($full, '00A8'))
+            );
+        } finally {
+            ActionCatalogue::record($before);
+        }
     }
 
     /** The owner's ruling 2026-11-18: money-write includes money-view. */
@@ -653,6 +722,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'record_discount' => true,
                 'confirm_manually' => false,
                 'unconfirm' => false,
+                'admit' => false,
+                'withdraw' => false,
+                'remove' => false,
+                'restore' => false,
             ],
         ];
         foreach ($cases as $action => $can) {
@@ -671,7 +744,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
     {
         yield 'registered' => ['registered', 'Rögzített'];
         yield 'waitlisted' => ['waitlisted', 'Várólistás'];
-        yield 'withdrawn' => ['withdrawn', 'Visszavont'];
+        yield 'withdrawn' => ['withdrawn', 'Lemondott'];
         yield 'removed' => ['removed', 'Törölt'];
     }
 

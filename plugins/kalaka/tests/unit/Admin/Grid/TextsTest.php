@@ -14,7 +14,7 @@ final class TextsTest extends TestCase
     public function testAStatusKeepsTheServersWordWithACapital(): void
     {
         self::assertSame(
-            ['Rögzített', 'Várólistás', 'Visszavont', 'Törölt'],
+            ['Rögzített', 'Várólistás', 'Lemondott', 'Törölt'],
             array_map(
                 static fn (RegistrationStatus $status): string => Texts::status($status),
                 RegistrationStatus::cases()

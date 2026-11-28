@@ -1115,6 +1115,11 @@ final class FormValuesTest extends FormsTestCase
                 return ['kalaka_test_items', [3]];
             }
 
+            public function label(): string
+            {
+                return 'Teszt ' . $this->key();
+            }
+
             public function limit(): ?int
             {
                 throw new \RuntimeException('A pool whose limit cannot be read.');

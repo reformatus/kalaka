@@ -142,6 +142,7 @@ final class SubmitRegistrationTest extends FormsTestCase
         self::assertSame('registered', $registration['status']);
         self::assertSame('2026-11-30 08:00:00.000000', $registration['created_at']);
         self::assertSame('2026-11-30 08:00:00.000000', $registration['registered_at']);
+        self::assertSame('submit', $registration['registered_by']);
         self::assertSame(1, preg_match('/^[A-Za-z0-9_-]{22}$/', (string) $registration['secret']));
 
         $submission = $this->tableRows('kalaka_submissions', $event)[0];

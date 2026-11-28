@@ -12,9 +12,14 @@ use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\FieldCorrections;
+use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\SeatOutcome;
+use Kalaka\Registrations\Api\StatusAct;
+use Kalaka\Registrations\Api\StatusActions;
 
 /**
  * `wp kalaka registration set-field`: staff correct one field value of a registration, until the staff screens.
+ * `admit`, `withdraw`, `remove` and `restore`: the status acts, each one `kalaka/<verb>-registration`.
  *
  * The WP-CLI wrapper only: arguments, warnings, the confirmation, printing and the exit code. The work is
  * `kalaka/edit-field-value`'s.
@@ -25,6 +30,7 @@ final class RegistrationCommand
     public function __construct(
         private readonly ?Runner $runner = null,
         private readonly FieldCorrections $corrections = new FieldCorrections(),
+        private readonly StatusActions $actions = new StatusActions(),
     ) {
     }
 
@@ -121,5 +127,167 @@ final class RegistrationCommand
                 . ($over !== [] ? ' The pool is over its limit now.' : '')
             );
         });
+    }
+
+    /**
+     * Admits a waitlisted registration: it becomes registered and takes its seats again.
+     *
+     * Runs kalaka/admit-registration as the global --user (without --user the CLI has full access). A full pool
+     * never refuses it: the seat goes over the limit, and the output says so.
+     *
+     * ## OPTIONS
+     *
+     * <event>
+     * : The event's ID.
+     *
+     * <code>
+     * : The registration's reference code.
+     *
+     * [--reason=<text>]
+     * : Why, up to 500 characters. Written to the audit entry.
+     *
+     * [--yes]
+     * : Do not ask for confirmation.
+     *
+     * @param list<string> $args
+     * @param array<string, mixed> $assoc
+     */
+    public function admit(array $args, array $assoc): void
+    {
+        Boundary::cli(fn () => $this->statusAct(StatusAct::Admit, $args, $assoc));
+    }
+
+    /**
+     * Records a withdrawal: the registration leaves and frees its seats. Nobody moves up from the waitlist.
+     *
+     * Runs kalaka/withdraw-registration as the global --user (without --user the CLI has full access).
+     *
+     * ## OPTIONS
+     *
+     * <event>
+     * : The event's ID.
+     *
+     * <code>
+     * : The registration's reference code.
+     *
+     * [--reason=<text>]
+     * : Why, up to 500 characters. Written to the audit entry.
+     *
+     * [--yes]
+     * : Do not ask for confirmation.
+     *
+     * @param list<string> $args
+     * @param array<string, mixed> $assoc
+     */
+    public function withdraw(array $args, array $assoc): void
+    {
+        Boundary::cli(fn () => $this->statusAct(StatusAct::Withdraw, $args, $assoc));
+    }
+
+    /**
+     * Removes a registration: it leaves and frees its seats. Nobody moves up from the waitlist.
+     *
+     * Runs kalaka/remove-registration as the global --user (without --user the CLI has full access).
+     *
+     * ## OPTIONS
+     *
+     * <event>
+     * : The event's ID.
+     *
+     * <code>
+     * : The registration's reference code.
+     *
+     * [--reason=<text>]
+     * : Why, up to 500 characters. Written to the audit entry.
+     *
+     * [--yes]
+     * : Do not ask for confirmation.
+     *
+     * @param list<string> $args
+     * @param array<string, mixed> $assoc
+     */
+    public function remove(array $args, array $assoc): void
+    {
+        Boundary::cli(fn () => $this->statusAct(StatusAct::Remove, $args, $assoc));
+    }
+
+    /**
+     * Restores a withdrawn or removed registration to the status it left from: registered (it takes its seats again)
+     * or waitlisted (at its place by submit time).
+     *
+     * Runs kalaka/restore-registration as the global --user; a restore is full access only (without --user the CLI
+     * has full access). A full pool never refuses it: the seat goes over the limit, and the output says so.
+     *
+     * ## OPTIONS
+     *
+     * <event>
+     * : The event's ID.
+     *
+     * <code>
+     * : The registration's reference code.
+     *
+     * [--reason=<text>]
+     * : Why, up to 500 characters. Written to the audit entry.
+     *
+     * [--yes]
+     * : Do not ask for confirmation.
+     *
+     * @param list<string> $args
+     * @param array<string, mixed> $assoc
+     */
+    public function restore(array $args, array $assoc): void
+    {
+        Boundary::cli(fn () => $this->statusAct(StatusAct::Restore, $args, $assoc));
+    }
+
+    /**
+     * The wrapper of a status act: arguments in, the act as a preview first, the question, then the use case through
+     * the runner, the outcome printed. Every rule (which status allows the act, the reason) is the use case's; a
+     * refusal prints its own message. The command holds no rule of its own; `--reason` is optional for every act.
+     *
+     * @param list<string> $args
+     * @param array<string, mixed> $assoc
+     */
+    private function statusAct(StatusAct $act, array $args, array $assoc): void
+    {
+        if (count($args) < 2) {
+            $error = new CommandFailure('Give the event and the registration code.');
+            throw $error;
+        }
+        $reason = isset($assoc['reason']) && is_string($assoc['reason']) ? $assoc['reason'] : null;
+        $actor = new CliActor(get_current_user_id() ?: null);
+        $key = new RegistrationKey((int) $args[0], $args[1]);
+        // The act itself says what it would do (the same refusals, nothing written); then the operator confirms.
+        $preview = $this->actions->run($act, $key, null, $actor, true);
+        if ($preview['changed'] !== true) {
+            \WP_CLI::success($args[1] . ' is already ' . (string) $preview['status'] . '.');
+
+            return;
+        }
+        foreach ((array) $preview['warnings'] as $warning) {
+            \WP_CLI::warning((string) $warning);
+        }
+        foreach ((array) ($preview['money'] ?? []) as $row) {
+            $row = (array) $row;
+            \WP_CLI::line(
+                'Money, ' . (string) $row['payer'] . ': paid ' . (string) $row['paid'] . ', balance '
+                . (string) $row['balance_now'] . ' now, ' . (string) $row['balance_after'] . ' after.'
+            );
+        }
+        \WP_CLI::confirm($act->value . ' ' . $args[1] . '?', $assoc);
+
+        $result = $this->actions->run($act, $key, $reason, $actor);
+        $line = $args[1] . ($result['changed'] === true ? ': ' : ' is already ') . (string) $result['status'] . '.';
+        if ($result['over_capacity'] === true) {
+            \WP_CLI::warning(AssignmentSets::FULL_WARNING);
+            $line .= ' The event is over its capacity now.';
+        }
+        \WP_CLI::success($line);
+        foreach ((array) $result['seats'] as $seat) {
+            $seat = (array) $seat;
+            $outcome = (string) $seat['outcome'];
+            $note = $outcome === SeatOutcome::Over->value ? ' (over the limit)' : '';
+            \WP_CLI::line(' - ' . (string) $seat['pool'] . ': ' . $outcome . $note);
+        }
     }
 }

@@ -19,7 +19,7 @@ final class PricingSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(4, (int) get_option('kalaka_schema_pricing'));
+        self::assertSame(5, (int) get_option('kalaka_schema_pricing'));
         self::assertSame([], LoadState::current()->failures);
 
         $columns = $wpdb->get_results($wpdb->prepare(
@@ -94,7 +94,7 @@ final class PricingSchemaTest extends WP_UnitTestCase
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
         $tables = (new Module())->schema()->tables;
-        self::assertCount(3, $tables);
+        self::assertCount(4, $tables);
         foreach ($tables as $table) {
             $statement = str_replace('{prefix}', $wpdb->prefix, $table);
             self::assertSame(1, preg_match('/CREATE TABLE\s+(\S+)/', $statement, $match));

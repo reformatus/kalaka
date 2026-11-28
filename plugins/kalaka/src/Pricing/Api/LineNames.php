@@ -65,7 +65,9 @@ final class LineNames
             $stage = $source->type === Materializer::SOURCE && $source->eventId === null
                 ? ($stages[explode(':', $source->key, 2)[0]] ?? null)
                 : null;
-            $name = $named[$source->key] ?? new LineName(LineName::FEE, LineKind::Charge->label());
+            $name = $source->key === Retention::LINE && $source->type === Materializer::SOURCE
+                ? new LineName(LineName::COMPONENT, Retention::LABEL)
+                : ($named[$source->key] ?? new LineName(LineName::FEE, LineKind::Charge->label()));
             $names[$source->key] = new LineName($name->type, $name->label, $name->title, $name->recordedBy, $stage);
         }
 

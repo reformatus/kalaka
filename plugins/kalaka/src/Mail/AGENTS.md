@@ -147,7 +147,8 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   `registration.status` (with its word) and `registration.awaits_answer` from
   the one source, `Registrations::factsOf()`, and adds only the mail's own keys.
   Admission from the waitlist sends "registered", and a body tells it apart
-  with `registration.from_waitlist`.
+  with `registration.from_waitlist` (`yes` while the registration's `registered_by` is
+  `admission`).
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.
 - No Mail use case reads WordPress data in its transaction. `UpdateActionMail`
