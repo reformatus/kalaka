@@ -22,7 +22,8 @@ use Kalaka\Registrations\Api\RegistrationKey;
  *
  * One start per registration at a time: a named lock per registration is held from the provider's read of the
  * latest request until the pay URL is made. [UNAPPROVED N339] It is taken without waiting: two clicks at once
- * cannot make two orders, because the second start cannot get the lock and is refused as in flight at once.
+ * cannot make two orders, because the second start cannot get the lock and is refused as in flight at once; a
+ * later click that gets the lock replaces the never-paid request, which the provider cancels.
  */
 final class CardPayments
 {
