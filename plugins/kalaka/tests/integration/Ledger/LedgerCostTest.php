@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Ledger;
 
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\LedgerLineRepository;
+use Kalaka\Ledger\PaymentNoteRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
@@ -110,5 +111,42 @@ final class LedgerCostTest extends PerEventCostTestCase
         }
 
         return $statements;
+    }
+
+    public function testTheEntriesStayInsideTheirEvent(): void
+    {
+        $this->assertPerEventCost(
+            function (int $event): void {
+                global $wpdb;
+                $this->seedEvent($event);
+                $wpdb->query($wpdb->prepare(
+                    "INSERT INTO %i (event_id, line_id, code, version, note)"
+                    . " SELECT event_id, id, code, 1, 'Teszt' FROM %i WHERE event_id = %d AND kind = 'manual_payment'",
+                    $wpdb->prefix . 'kalaka_payment_notes',
+                    $wpdb->prefix . 'kalaka_ledger_lines',
+                    $event
+                ));
+            },
+            fn (int $event) => (new Ledger())->entriesOf(new RegistrationKey($event, '00A0'))
+        );
+    }
+
+    public function testTheNotesStayInsideTheirEvent(): void
+    {
+        $this->assertPerEventCost(
+            function (int $event): void {
+                global $wpdb;
+                for ($line = 1; $line <= 5; $line++) {
+                    $wpdb->insert($wpdb->prefix . 'kalaka_payment_notes', [
+                        'event_id' => $event,
+                        'line_id' => $line,
+                        'code' => '00A0',
+                        'version' => 1,
+                        'note' => 'Teszt',
+                    ]);
+                }
+            },
+            fn (int $event) => (new PaymentNoteRepository())->forRegistration(new RegistrationKey($event, '00A0'))
+        );
     }
 }

@@ -13,6 +13,11 @@ title: Events and forms
   dates, labels and filters, not by a layer above events.
 - **Budgets and accounting are completely separate per event.** Linking
   events (e.g. REFISZ's two camps) is not part of the lifecycle.
+- **An event has one status-page slot,** a WordPress post ID, empty when
+  the event has none. The status-page app is parked; only the slot and the
+  per-device push subscriptions (event, registration, endpoint and keys)
+  exist. A subscription is deleted on unsubscribe, on the registration's
+  withdrawal and when the event ends.
 
 ## Event lifecycle
 

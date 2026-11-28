@@ -9,8 +9,9 @@ use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 
 /**
- * The fee components registered now: core's fixed price, then the components extensions contribute
- * (`Contributions::feeComponent()`, read when listed, so after the boot), then any given here (tests).
+ * The fee components registered now: core's fixed price and its manual charges and discounts, then the
+ * components extensions contribute (`Contributions::feeComponent()`, read when listed, so after the boot), then
+ * any given here (tests).
  */
 final class CoreFeeComponents
 {
@@ -27,8 +28,8 @@ final class CoreFeeComponents
      */
     public function list(?ProposedMoneySettings $proposed = null): array
     {
-        $components = [new FixedPrice(proposed: $proposed?->fixedPrice)];
-        $seen = [FixedPrice::ID => true];
+        $components = [new FixedPrice(proposed: $proposed?->fixedPrice), new ManualFees()];
+        $seen = [FixedPrice::ID => true, ManualFees::ID => true];
         foreach ([...Contributions::current()->feeComponents(), ...$this->more] as $component) {
             $id = $component->id();
             // A colon would make `<id>:<item>` another component's ledger source (`Materializer`).

@@ -56,8 +56,8 @@ final class ActionCatalogueTest extends RunnerTestCase
                 'kalaka_withdraw_registration',
                 'kalaka_remove_registration',
                 'kalaka_admit_registration',
-                'kalaka_record_payment',
-                'kalaka_record_refund',
+                'kalaka_record_money',
+                'kalaka_view_money',
                 'kalaka_notes',
                 'kalaka_audit_history',
             ],
@@ -74,14 +74,14 @@ final class ActionCatalogueTest extends RunnerTestCase
     {
         $boot = $this->boot([
             new ActionsModule('first', ['kalaka_withdraw_registration', 'kalaka_edit_fields']),
-            new ActionsModule('second', ['kalaka_record_payment', 'kalaka_a1']),
+            new ActionsModule('second', ['kalaka_record_money', 'kalaka_a1']),
             new ActionsModule('third', []),
         ]);
 
         self::assertSame([], $boot->failures());
         self::assertTrue(LoadState::current()->isOpen());
         self::assertSame(
-            ['kalaka_withdraw_registration', 'kalaka_edit_fields', 'kalaka_record_payment', 'kalaka_a1'],
+            ['kalaka_withdraw_registration', 'kalaka_edit_fields', 'kalaka_record_money', 'kalaka_a1'],
             ActionCatalogue::current()->names()
         );
     }
