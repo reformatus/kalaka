@@ -67,9 +67,9 @@ reached; the grant defines who holds the view.**
   read or read-write. **It is the only place where permissions on data are
   defined.**
   - The master view has every column and no filter. Its columns are composed
-    by rule, never by a hand list: every core column, every participant
-    field, every decision kind and every computed column (owner ruling
-    2026-11-27). A new column joins one of those groups. A read-only variant
+    by rule, never by a hand list: every core column, every field key that
+    holds a value in the event, every decision kind and every computed column
+    (owner ruling 2026-11-27). A new column joins one of those groups. A read-only variant
     is simply another view.
   - Admins define subset views; extensions define special-case views and
     contribute columns and filterable facts.
