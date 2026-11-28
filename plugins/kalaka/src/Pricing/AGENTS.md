@@ -37,8 +37,7 @@ retention and the materializer
   and an item the component no longer returns is reversed. A component ID
   matches `[a-z][a-z0-9_]*` (no colon, which would be another component's
   item).
-- Lines of components not registered now are never touched, and
-  `adjustment` lines never count as recorded. A line of a registered
+- Lines of components not registered now are never touched. A line of a registered
   component that the composition no longer names (a withdrawal) owes zero,
   so the materializer reverses it.
 - The `manual` component composes only the Ledger's manual fee facts, one
