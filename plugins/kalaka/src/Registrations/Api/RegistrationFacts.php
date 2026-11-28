@@ -35,7 +35,11 @@ final readonly class RegistrationFacts implements Facts
     /** A choice of one: the status's value; its display text is the status's word, the one a mail shows too. */
     public const STATUS = 'registration.status';
 
-    /** A choice of one, `yes` or `no`: a request has no answer yet. It has no display text. */
+    /**
+     * A choice of one, `yes` or `no`: a request has no answer yet. It has no display text. It is none (N/A) while the
+     * registration is not `registered`: true, false and N/A stay apart, so a condition "is no" does not match a
+     * waitlisted registration, and only "empty" reads it (owner 2026-11-27, walkthrough 6.2 b, 6.3, 6.6).
+     */
     public const AWAITS_ANSWER = 'registration.awaits_answer';
 
     private ValueContext $values;
@@ -43,30 +47,70 @@ final readonly class RegistrationFacts implements Facts
     /**
      * @param \DateTimeImmutable $now the moment `time.now` reads: the caller's, one clock for the whole read
      * @param array<string, Value> $fieldValues field key → value (`Forms::participantFacts()`)
-     * @param array<string, FieldKind> $fieldKinds field key → its kind (the same call)
+     * @param array<string, Value> $computed computed values the caller puts in (never stored), dotted keys that
+     *     no other key of the source has (`withComputed()`)
+     * @param array<string, FieldKind> $fieldKinds field key → its kind (the same call as `$fieldValues`)
      */
     public function __construct(
         public RegistrationKey $registration,
         public RegistrationStatus $status,
         public ?\DateTimeImmutable $registeredAt,
         private Event $event,
-        \DateTimeImmutable $now,
-        array $fieldValues = [],
+        private \DateTimeImmutable $now,
+        private array $fieldValues = [],
+        private array $computed = [],
         private array $fieldKinds = [],
-        public bool $awaitsAnswer = false,
+        public ?bool $awaitsAnswer = false,
         public ?\DateTimeImmutable $lastAnsweredAt = null,
     ) {
         $this->values = new ValueContext($fieldValues + EventValues::of($event) + EventValues::now($now) + [
             self::CODE => Value::text($registration->code, $registration->code),
             self::STATUS => Value::choice([$status->value], $status->word()),
-            self::AWAITS_ANSWER => Value::choice([$awaitsAnswer ? 'yes' : 'no'], ''),
-        ]);
+            self::AWAITS_ANSWER => $awaitsAnswer === null
+                ? Value::none(ValueType::Choice)
+                : Value::choice([$awaitsAnswer ? 'yes' : 'no'], ''),
+        ] + $computed);
+    }
+
+    /**
+     * The same facts with computed values added (foundation.md, "Facts, decisions and computed values": computed
+     * values are put into the fact source by the caller, never stored), e.g. a fee component's applied price
+     * tier for the later stages.
+     *
+     * @param array<string, Value> $computed dotted keys
+     * @throws \InvalidArgumentException a key that is not dotted or that the source already has
+     */
+    public function withComputed(array $computed): self
+    {
+        foreach (array_keys($computed) as $key) {
+            if (!str_contains((string) $key, '.') || $this->has((string) $key)) {
+                throw new \InvalidArgumentException('A computed value takes a dotted key the facts do not have.');
+            }
+        }
+
+        return new self(
+            $this->registration,
+            $this->status,
+            $this->registeredAt,
+            $this->event,
+            $this->now,
+            $this->fieldValues,
+            [...$this->computed, ...$computed],
+            $this->fieldKinds,
+            $this->awaitsAnswer,
+        );
+    }
+
+    /** Whether the source declares the key: a reader of an optional computed value asks first. */
+    public function has(string $key): bool
+    {
+        return $this->values->has($key);
     }
 
     /** The registration's payment due: the event's date type over this fact source (money.md, "Core money scope"). */
     public function paymentDue(): ?\DateTimeImmutable
     {
-        return $this->event->paymentDue($this->registeredAt, $this->lastAnsweredAt, $this->awaitsAnswer);
+        return $this->event->paymentDue($this->registeredAt, $this->lastAnsweredAt, $this->awaitsAnswer === true);
     }
 
     /**
@@ -85,6 +129,58 @@ final readonly class RegistrationFacts implements Facts
         $types += EventValues::TYPES;
 
         return $types + [self::CODE => ValueType::Text, self::STATUS => ValueType::Choice];
+    }
+
+    /**
+     * The `registration.*` keys an additional form's conditions read, with their types: every key the source
+     * declares under that prefix but the code (an identity, no fact to decide on). A key that joins the source
+     * and `declared()` appears here with no change, so an additional form reads it too (D9, CF4).
+     *
+     * @return array<string, ValueType>
+     */
+    public static function formTypes(Event $event): array
+    {
+        $types = [];
+        foreach (self::declared($event, []) as $key => $type) {
+            if (str_starts_with($key, 'registration.') && $key !== self::CODE) {
+                $types[$key] = $type;
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * The values of `formTypes()`: what the one builder says of this registration now. They show the state as it
+     * is before the submit that reads them.
+     *
+     * @return array<string, Value>
+     */
+    public function formValues(): array
+    {
+        $values = [];
+        foreach (array_keys(self::formTypes($this->event)) as $key) {
+            $values[$key] = $this->get($key);
+        }
+
+        return $values;
+    }
+
+    /**
+     * `formValues()` as comparable text: what an additional form's submit compares between its walk's read and
+     * the read under the registration lock, to see whether a fact its conditions read has changed.
+     *
+     * @return array<string, string> key → the value's type, data and text
+     */
+    public function formRead(): array
+    {
+        $read = [];
+        foreach ($this->formValues() as $key => $value) {
+            $read[$key] = (string) wp_json_encode([$value->type->value, $value->data, $value->text]);
+        }
+        ksort($read);
+
+        return $read;
     }
 
     /** The kind of the participant field with that key; null for a key that is no participant field. */

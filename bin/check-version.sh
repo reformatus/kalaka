@@ -31,8 +31,8 @@ done
 
 # Only core defines the constant; extensions define none.
 plugin="plugins/kalaka/kalaka.php"
-constant="$(sed -nE "s/^const KALAKA_VERSION = '([^']*)';.*/\1/p" "$root/$plugin" | head -n 1)"
-bootstrap="$(sed -nE "s/^const KALAKA_VERSION = '([^']*)';.*/\1/p" "$root/phpstan-bootstrap.php" | head -n 1)"
+constant="$(sed -nE "s/^[[:space:]]*const KALAKA_VERSION = '([^']*)';.*/\1/p" "$root/$plugin" | head -n 1)"
+bootstrap="$(sed -nE "s/^[[:space:]]*const KALAKA_VERSION = '([^']*)';.*/\1/p" "$root/phpstan-bootstrap.php" | head -n 1)"
 
 compare "$plugin KALAKA_VERSION" "$constant"
 compare "phpstan-bootstrap.php KALAKA_VERSION" "$bootstrap"

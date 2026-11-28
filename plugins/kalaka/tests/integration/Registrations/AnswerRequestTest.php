@@ -296,7 +296,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
+            'body_id' => null,
         ]);
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-03 10:00');
@@ -427,7 +427,6 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'version' => 1,
             'enabled' => $enabled ? 1 : 0,
             'body_id' => $body,
-            'layout' => 1,
         ]);
     }
 
@@ -484,7 +483,6 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'mail' => 'confirmed',
             'version' => 1,
             'enabled' => 1,
-            'layout' => 1,
         ]);
         $this->addValue($this->event, self::KEY, 'support', 'church');
         $this->runner = $this->runnerAt('2026-12-03 10:00');
@@ -610,8 +608,8 @@ final class AnswerRequestTest extends ManualEntryTestCase
         $this->addRegistration($this->event, '00B0', 'withdrawn');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        self::assertFalse($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Withdrawn));
-        self::assertTrue($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+        self::assertNull($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Withdrawn));
+        self::assertNull($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
     }
 
     public function testAPartnerAnswersOnlyInsideTheirViewAndOnlyWithTheAction(): void
@@ -667,12 +665,16 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertSame('approved', (new Registrations())->values($this->key('00B0'))['support_answer']);
     }
 
-    public function testAWaitlistedRegistrationStillAwaitsAnAnswerAsAFact(): void
+    public function testAWaitlistedRegistrationAwaitsNothingUntilAdmission(): void
     {
         $this->addRegistration($this->event, '00B0', 'waitlisted');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        self::assertTrue($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+        self::assertNull($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+
+        $this->admit('00B0');
+
+        self::assertTrue($this->requests()->awaits($this->key('00B0'), RegistrationStatus::Registered));
     }
 
     private function admit(string $code): void

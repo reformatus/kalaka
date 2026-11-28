@@ -72,7 +72,7 @@ final class StatusRead
         $confirmation = null;
         $payment = null;
         $transfer = null;
-        if ($registration->status === RegistrationStatus::Registered) {
+        if ($registration->status->isLive()) {
             $now = Runner::current()->clock()->now();
             $decisions = $this->decisions->currentOf($key);
             $confirmed = Confirmations::confirmedIn($decisions);
@@ -81,7 +81,7 @@ final class StatusRead
                 $decisions[ConfirmationRule::KIND]->effectiveAt ?? null
             );
             $facts = $this->registrations->factsOf($key, $event, $now);
-            $awaits = $facts !== null && $facts->awaitsAnswer;
+            $awaits = $facts !== null && $facts->awaitsAnswer === true;
             $payment = $this->payment($registration, $event, $confirmed, $awaits, $now, $facts?->paymentDue());
             $transfer = $this->transfer($key, $event, $availability, $payment);
         }

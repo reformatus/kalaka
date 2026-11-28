@@ -215,7 +215,9 @@ describe( 'the note', () => {
 		await render( offer );
 		await choose( 'yes' );
 		expect( noteField().closest( 'div' ).parentElement.textContent ).toContain( REQUESTS.noteField );
-		expect( host.textContent ).not.toContain( MONEY.reasonField );
+		// The base's 6.8 ruling renamed every such field to „Megjegyzés”, so `MONEY.reasonField` is that word
+		// too; what must not show is the old „Indoklás” wording.
+		expect( host.textContent ).not.toContain( 'Indoklás' );
 		await submit();
 		expect( errorsIn( host ) ).toEqual( [] );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );

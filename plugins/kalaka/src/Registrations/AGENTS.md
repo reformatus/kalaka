@@ -73,6 +73,34 @@ the waitlist and reference codes
   run, the submit queues the action mail of the resulting status
   (`registered` or `waitlisted`) through `Mail\Api\ActionMails::due()`, with
   the registration as the cause; a repeat queues nothing.
+- An additional form's submit is `kalaka-portal/submit-additional-form`
+  (`SubmitAdditionalForm`, reached through `Api\RegistrationSubmit` with the
+  target registration): the same checks before the transaction and the same
+  repeat rule, the event row first, then the form's requirements (its open
+  period among them) and the registration row `FOR UPDATE`, which must be
+  `registered`: a `waitlisted` one has no additional forms (owner ruling 2026-11-25), so it is refused with
+  `Api\RegistrationNotActive` (`kalaka_registration_not_active`) and nothing is written; its form page shows the
+  form closed (`AccessRefusal::RegistrationMayNotSubmit`, as for a withdrawn or removed one). It appends a submission with the next number
+  and writes only the fields that showed: an answer replaces the value, a
+  shown field left blank deletes a value the form showed (one its type
+  prefills), and a field its participant field locks after its first write
+  (`ParticipantFields::lockedAfterFirstWrite()`) is never changed once
+  written (`Api\ValueLocked`, a `RuleViolation` with the code `kalaka_value_locked`). It never writes the registration row, its status or
+  `registered_at`, and never changes capacity or the latch (its walk reads
+  `event.seats_left` unlocked, before the transaction), and it may take
+  seats (owner ruling 2026-11-25), only for a `registered` registration: the registration's values as they would be
+  after the submit are asked of every `SeatClaimSource`, and in one run under the pools' locks
+  (`SubmitRegistration::lockedClaims()`) the new claims' seats are taken (`SeatAct::Submit`) and the pools no longer
+  claimed are freed. A full pool refuses the submit on the choice's field with `SeatsFull::TEXT` as the registration
+  form does, nothing is written and the old seat stays; that refusal is said only after the registration is locked
+  and the walk's read is checked again (a changed read runs the submit again). A value locked after its first write (D5) still cannot be re-chosen. The
+  registration's facts (`RegistrationFacts::formRead()`, built by the one builder `Registrations::factsOf()`)
+  and field values are read once per attempt before the
+  transaction, for the walk's conditions, and read again under the registration
+  lock: if either differs, the use case throws `VersionConflict` and the walk is
+  run again. A pool's places left are no part of that read.
+- An additional form's submit sends no action mail; the page shows the
+  form's after-submit text.
 - The submit token is a secret: masked in the audit, never in a log. It is
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.
@@ -82,7 +110,9 @@ the waitlist and reference codes
   it last became `registered` (`registered_at`, null while it is not), which
   every time-dependent rule counts from, never the submit. It
   holds values only; field values join in S25, over #181's participant-field
-  read.
+  read. A caller may add computed values under dotted keys the source does
+  not have (`withComputed()`, e.g. the fee composer's `price_tier.applied`);
+  they are never stored.
 - The owner account (`owner_user_id`, a WordPress user ID) is set once, by
   the submit of a logged-in person, and nothing changes or clears it. In
   the event's account mode `off` a submit records no owner; in `mandatory`
@@ -128,9 +158,43 @@ the waitlist and reference codes
 - Site-wide, the author archive of any user with no published posts is a
   404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
   participant accounts' names (N21). Authors with posts keep theirs.
+- Drafts (`kalaka_drafts`, S74) are keyed event first: a user draft is one
+  per event, form and user; a guest draft is found only by the SHA-256 of
+  its claim token (`Api\DraftClaim`), which is never stored, logged or
+  audited. A guest draft has no expiry of its own: it lives until the form is sent (the submit deletes
+  it) or the event's registration has closed (the periodic run's `DraftSweep`; owner ruling 2026-11-26),
+  in every account mode. A draft's answers and claim hash are secret columns: the audit
+  names the draft, never their values.
+- A draft is written only by its use cases: `kalaka-portal/save-draft` (a
+  logged-in person's draft, or a guest's guest draft under their cookie's
+  token: the first save creates it), `kalaka-portal/hand-over-prefill` (a
+  handoff waits as a guest draft under its own token, in the cookie
+  `kalaka_handoff`, and never reads or changes the draft the cookie
+  `kalaka_draft` names), `kalaka-portal/settle-handoff` (the next load: it
+  becomes the browser's draft, settles silently as keep_draft when it changes
+  none of a guest's values, or waits for the choice),
+  `kalaka-portal/claim-draft`, `kalaka-portal/resolve-draft-claim`,
+  `kalaka-portal/resolve-guest-handoff` (a guest's choice, settled on their
+  own guest draft; the request proves itself with both tokens, the handoff's
+  locked first),
+  `kalaka/sweep-drafts`, and the submit, which deletes the person's draft and
+  the cookie's guest draft of the form in its own transaction. A draft never
+  creates a registration and holds no place.
+- A claim that changes what a user draft holds (the guest draft becomes it,
+  merge, keep_link), or a guest's own draft (their choice on a handoff:
+  merge, keep_link), raises its `claims` count, and nothing else does. An
+  autosave carries the count its page opened with; a different count is a
+  `VersionConflict`, never a write. A link that changes none of the draft's
+  values is settled as keep_draft, with no choice.
+- A claim is settled once per claim token. The person's draft (or the guest's
+  own, for a handoff) records the
+  token's hash and the choice (`resolved_claim`, `resolved_choice`, a secret
+  column and its choice); the same choice again changes nothing and answers
+  the same, and any other choice, or a claim gone, is refused
+  (`DraftClaimRefused`).
 - A seat is a fact (`kalaka_seats`, one row per registration and pool), written only through `Api\Seats`,
-  and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore or
-  staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
+  and only inside an act that holds the registration's row: the registrant's submit, an additional form's submit
+  (a `registered` registration's, which also frees seats), an admission, a restore or staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
   before the seats are counted, so two acts for the last seat serialise and the second counts the first. A pool
   at a lock level before the registration row (a quota row) is locked before the registration row is:
   a submit locks and checks its quota pools before the registration is written, in `Seats::inLockOrder()` (by
@@ -145,14 +209,16 @@ the waitlist and reference codes
   submit is refused by a full pool. `retake()` is the one entry for admission, restore and staff placing: per
   pool it reports `held`, `over` or `none` and never refuses, and never touches the event's "full" latch. A staff
   act reads the "full" warning from that outcome; the preview before the act reads `wouldOverfill()`. Only a
-  `registered` submit takes its claims' seats: a waitlisted one holds none, and is refused when any claim is a
-  pool with a limit (see below).
-- A seat is freed only by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
-  refuses an offer). A freed seat stays free until some registration's own act takes it: nothing here moves a seat
-  from one registration to another, and a count never hands a place on.
+  `registered` submit takes its claims' seats: a waitlisted one holds none, and is refused when any claim is a pool
+  with a limit (see below).
+- A seat is freed by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
+  refuses an offer) or by the registration's own additional form no longer claiming its pool (`SeatMove`). A freed
+  seat stays free until some registration's own act takes it: nothing here moves a seat from one registration to
+  another, and a count never hands a place on.
 - A submit's seat claims come from contributed `Api\SeatClaimSource`s
   (`Contributions::seatClaimSource()`): answers in, `SeatClaim`s out; a source locks, counts and writes nothing.
-  `RegistrationSubmit` asks each on every attempt and hands the claims to the use case. `pools()` names every pool
+  `RegistrationSubmit` asks each on every attempt (for an additional form, as the `SeatMove` of its values before
+  and after) and hands the claims to the use case. `pools()` names every pool
   a source can claim (field key, option value, pool), for the form host's `seats_left.<field key>.<option value>`.
   `Seats::wouldOverfill()` is the one "would go over" read; `Seats::left()` of the event's pool is 0 while its
   latch is set.
@@ -168,9 +234,13 @@ the waitlist and reference codes
 - Removing a chosen item (a tier, an option, an offer) is refused through one call,
   `Registrations::refuseRemovingChosen()`, which throws `Api\ItemChosen` (`kalaka_item_chosen`); a module's own
   removal guard calls it and does not throw its own refusal.
+- A live registration is a registered one (owner 2026-11-27): code that means live calls `RegistrationStatus::isLive()`
+  (SQL: `RegistrationTables::isLive()`), never compares with `Registered`. Waitlisted, withdrawn and removed are
+  not live ("active registration" stays the registrant's access). Code that means the status itself (a
+  transition's target, `registered_at`, the sorszám's groups) names it.
 - `RegistrationStatus::showsDetails()` (true unless waitlisted) is the one read of what a waitlisted registrant
   sees (the registrant's page shows only that they are waitlisted: owner ruling 2026-11-25). It is not an action
-  gate: additional forms and payments stay on `=== Registered`.
+  gate: additional forms and payments stay on `isLive()`.
 - A staff correction of a field value (`Api\FieldCorrections`, used by Admin's `EditFieldValue`) writes the value
   only through `FieldValueRepository` and moves seats only through the claim sources: the seats the old value
   claimed and the new one does not are freed, the others taken, never through per-field code. The pools to take are
@@ -201,20 +271,29 @@ the waitlist and reference codes
     amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
     award of 0 Ft: an absent answer awaits, a zero is an answer. The note, a "yes" to an offer's
     reason included, is always optional.
-  - "Awaits an answer" is computed, never stored (`Requests::awaits()`, batched `awaitsOf()`): a request whose
-    source says it is not answered (`RequestSource::isAnswered()`, read from the source's own answer field: an
-    offer's `<key>_answer`, the aid award, empty = awaiting, "0" = refused), for a registration that is not
-    withdrawn or removed. The field is the truth: the `kalaka_answers` rows record the act (who, when, the note,
-    `lastAnsweredAt`, the mail key) and decide nothing else; a request re-stated after an answer reads as
-    answered until staff answer again. It is `registration.awaits_answer` in the fact source, and it
-    hides the due date and the transfer block in Portal. It never blocks confirmation.
-  - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits
-    until admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`);
-    `awaits_answer` stays computed for it. A refusing offer answer frees the offer's seat and a "yes" after a
-    refusal takes one again. Both use slice A's one seat rule, `Seats`: the request source builds its pool
-    (`RequestSource::seatPool(): ?SeatPool`; null, as for aid, means no limit and no seat call), so core never
-    parses a pool key, and the act locks it before the registration lock. A full pool never refuses the "yes":
-    `retake()` answering `SeatOutcome::Over` is `over_limit`, and the detail read's `seat_full` is
+  - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request whose source says it is not
+    answered (`RequestSource::isAnswered()`, read from the source's own answer field: an offer's `<key>_answer`, the
+    aid award, empty = awaiting, "0" = refused), for a registration that is `registered`. The field is the truth: the
+    `kalaka_answers` rows record the act (who, when, the note, `lastAnsweredAt`, the mail key) and decide nothing
+    else; a request re-stated after an answer reads as answered until staff answer again. It is
+    `registration.awaits_answer` in the fact source, and it hides the due date and the transfer block in Portal. It
+    never blocks confirmation.
+  - The admin grid asks the same question in SQL (`Requests::awaitingCondition()`, no statement of its own): the
+    registration is `registered` and some source's `RequestSource::awaitingRule()` holds. The rule is data (an
+    `AwaitingRule`: any-of groups of all-of `FieldTest`s: filled, empty, one of, none of, over the registration's
+    field values); core alone compiles it to SQL (no source writes SQL or gets database access) and `awaits()`
+    evaluates the same rule in PHP with `matches()`, and it must mean exactly what the source's `requestsOf()` and
+    `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). It has three values
+    (owner 2026-11-27: N/A is different from „Nem”): yes or no for a `registered` registration, and N/A for every
+    other status, NULL in SQL, so a waitlisted registration is neither; `awaits()` (the rule in PHP) returns null
+    for every status but `registered` too, one meaning for the fact, the column and the panel.
+  - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits until
+    admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`); `awaits_answer`
+    is N/A for it (neither yes nor no) and yes again by itself at admission. A refusing offer answer frees the
+    offer's seat and a "yes" after a refusal takes one again. Both use slice A's one seat rule, `Seats`: the request
+    source builds its pool (`RequestSource::seatPool(): ?SeatPool`; null, as for aid, means no limit and no seat
+    call), so core never parses a pool key, and the act locks it before the registration lock. A full pool never
+    refuses the "yes": `retake()` answering `SeatOutcome::Over` is `over_limit`, and the detail read's `seat_full` is
     `Seats::wouldOverfill()`.
   - An aid "yes" above the full price the participant has to pay is refused with `AidAbovePrice` (a
     `RuleViolation`, code `kalaka_aid_over_price`) and nothing is written. The price comes from the request source's

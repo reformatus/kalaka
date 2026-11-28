@@ -134,10 +134,11 @@ final class RegistrationDetail
         }
         $answer = $carried(Requests::ANSWER);
         if ($answer) {
-            $read['requests'] = $this->requestsPart($key, $event->currency->value, $viewMoney);
+            $read['requests'] = $this->requestsPart($key, $event->currency->value, $registered, $viewMoney);
         }
         $read['can'] = [
-            'answer_request' => $answer,
+            // A request is answerable only while the registration is registered, as the grid column says (N655).
+            'answer_request' => $answer && $registered,
             'view_money' => $viewMoney,
             'record_money' => $record,
             // A manual charge or discount is offered only while the registration is registered ([UNAPPROVED]).
@@ -226,7 +227,9 @@ final class RegistrationDetail
 
     /**
      * The registration's requests with their latest answers, for the answer act's block: `state` is `awaiting`
-     * while the source's answer field holds none (the field is the truth), else the act's record says
+     * while the source's answer field holds none (the field is the truth) and the registration is registered,
+     * `inactive` for such an unanswered request on a registration that is not registered (waitlisted, withdrawn,
+     * removed: the grid column's meaning, N655), else the act's record says
      * `approved` or `refused`; `amount` is the aid award as text (0 for a refused aid request), null for an offer
      * and before an answer; `seat_full` is true for a refused offer whose pool is full now, the warning before a
      * "yes" that would go over the limit (B1). An aid item also carries `aid`, the money context (`aidTerms()`).
@@ -239,7 +242,7 @@ final class RegistrationDetail
      *
      * @return array{currency: string, items: list<array<string, mixed>>}
      */
-    private function requestsPart(RegistrationKey $key, string $currency, bool $viewMoney): array
+    private function requestsPart(RegistrationKey $key, string $currency, bool $registered, bool $viewMoney): array
     {
         $items = [];
         foreach ($this->requests->states($key) as $state) {
@@ -249,7 +252,9 @@ final class RegistrationDetail
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
                 'label' => $state->request->label,
-                'state' => $state->awaits() ? 'awaiting' : ($answer?->approved === true ? 'approved' : 'refused'),
+                'state' => $state->awaits()
+                    ? ($registered ? 'awaiting' : 'inactive')
+                    : ($answer?->approved === true ? 'approved' : 'refused'),
                 'amount' => $viewMoney ? $answer?->amount?->amount() : null,
                 'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
                 'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
