@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Divi4;
 
 use Kalaka\Divi4\DiviThemeAdapter;
 use Kalaka\Divi4\Module;
+use Kalaka\Forms\Api\ContentFrame;
 use Kalaka\Forms\Api\ElementRole;
 use Kalaka\Forms\Api\FieldWrapper;
 use Kalaka\Forms\Api\ThemeAdapterInput;
@@ -117,7 +118,16 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         self::assertStringContainsString(Module::IPHONE_CONTROLS, $css);
         self::assertStringContainsString('.et_pb_contact_form .kalaka-number__affix', $css);
         self::assertStringContainsString('--kalaka-number-affix-colour', $css);
-        self::assertStringContainsString('padding-left:var(--kalaka-number-prefix-room,0)', $css);
+        // The padding is scoped to the modifier classes: a number without an affix keeps Divi's own padding.
+        self::assertStringContainsString(
+            '.et_pb_contact_form .kalaka-number--prefix input{padding-left:var(--kalaka-number-prefix-room,0)}',
+            $css
+        );
+        self::assertStringContainsString(
+            '.et_pb_contact_form .kalaka-number--suffix input{padding-right:var(--kalaka-number-suffix-room,0)}',
+            $css
+        );
+        self::assertStringNotContainsString('.kalaka-number input{', $css);
         // Scoped to Kaláka's fields inside the form Divi styles, and only to checkboxes and radio buttons;
         // the ranking's +/× toggle, a checkbox Kaláka draws itself, is left out.
         self::assertSame(
@@ -282,5 +292,15 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         }
 
         self::assertFalse(wp_style_is('kalaka-divi4', 'enqueued'));
+    }
+
+    public function testTheCardReturnPageGetsDivisPageFrameAndFullWidthBodyFromTheClosedLists(): void
+    {
+        $adaptation = self::divi('4.27.4')->adapt(new ThemeAdapterInput('Divi', 'Divi'));
+
+        self::assertNotNull($adaptation);
+        self::assertSame(ContentFrame::Page, $adaptation->frame);
+        self::assertSame(['et_full_width_page'], $adaptation->classes(ElementRole::PageBody));
+        self::assertSame(['et_left_sidebar', 'et_right_sidebar'], $adaptation->pageBodyOff());
     }
 }

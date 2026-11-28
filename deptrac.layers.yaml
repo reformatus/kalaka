@@ -8,6 +8,7 @@ deptrac:
     - plugins/kalaka-price-ladder/src
     - plugins/kalaka-aid/src
     - plugins/kalaka-share/src
+    - plugins/kalaka-deposits/src
   layers:
     - name: Repositories
       collectors:

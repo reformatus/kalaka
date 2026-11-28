@@ -9,6 +9,7 @@ use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Foundation\Api\UseCase\LockLevel;
 
 /**
  * The only writer of `kalaka_price_ladder_tiers`.
@@ -31,6 +32,15 @@ final class TierRepository extends EntityRepository
         );
 
         return $records;
+    }
+
+    /**
+     * A tier is a quota row: a limited tier is a seat pool, locked before the registration rows
+     * (foundation.md, "Lock order").
+     */
+    protected function lockLevel(): LockLevel
+    {
+        return LockLevel::Quota;
     }
 
     protected function table(): string
@@ -63,6 +73,7 @@ final class TierRepository extends EntityRepository
             'label' => $entity->label,
             'amount' => $entity->amount->amount(),
             'currency' => $entity->amount->currency()->value,
+            'seat_limit' => $entity->limit,
         ];
     }
 
@@ -75,6 +86,7 @@ final class TierRepository extends EntityRepository
             (string) $row['label'],
             Money::of((string) $row['amount'], Currency::from((string) $row['currency'])),
             (int) $row['version'],
+            $row['seat_limit'] === null ? null : (int) $row['seat_limit'],
         );
     }
 

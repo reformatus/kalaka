@@ -26,7 +26,7 @@ use Kalaka\Registrations\Api\Registrations;
 /**
  * The shared body of "record payment", "record refund" and "record correction" (money.md, "Recording
  * payments by hand"): one registration, one payer, one amount, with the method, the value date and an optional
- * free-text note; a correction (the owner's ruling 2026-11-19) has a required reason instead, no method and
+ * free-text note; a correction (the owner's ruling 2026-11-19) has an optional reason instead, no method and
  * no value date, and counts from the time it is recorded. It
  * writes one manual line and its note, under the registration's lock. The registration's status does not
  * matter, and neither does the amount against the balance (owner ruling 2026-11-18). The caller's key is
@@ -159,9 +159,6 @@ abstract class RecordManualEntry implements AdminUseCase
             }
         }
         $note = trim((string) ($input[$correction ? 'reason' : 'note'] ?? ''));
-        if ($correction && $note === '') {
-            throw new InvalidInput();
-        }
 
         if (!$this->registrations->lock($key, $context)) {
             throw new NotFound();

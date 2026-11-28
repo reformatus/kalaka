@@ -14,7 +14,7 @@ use Kalaka\Payments\Api\OpenPayment;
 use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\CardRefusalCookie;
-use Kalaka\Portal\StatusMarkup;
+use Kalaka\Portal\Rest\CardPaymentRoute;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Forms\TestThemeAdapter;
 use Kalaka\Tests\Integration\Portal\PortalTestCase;
@@ -134,19 +134,104 @@ final class CardPaymentPortalTest extends PortalTestCase
         self::assertStringNotContainsString('Fizetés bankkártyával', $this->statusBlock());
     }
 
+    public function testTheBareLinkIsAPostFormCarryingThePagesAddressAsTheReturnUrlOnASingularPageOnly(): void
+    {
+        $this->owing();
+
+        // Not on a singular page: the form posts, and carries no return address (the route falls back).
+        $this->go_to(home_url('/'));
+        $off = $this->statusBlock();
+        self::assertStringContainsString('<form class="kalaka-pay-card" method="post" action="', $off);
+        self::assertStringNotContainsString('name="return_url"', $off);
+
+        $page = self::factory()->post->create(['post_type' => 'page', 'post_status' => 'publish']);
+        $this->go_to((string) get_permalink($page));
+        $on = $this->statusBlock();
+        self::assertStringContainsString('method="post"', $on);
+        self::assertStringContainsString(
+            '<input type="hidden" name="return_url" value="' . esc_attr((string) get_permalink($page)) . '">',
+            $on
+        );
+    }
+
+    /** @param array<string, mixed> $params */
     private function post(string $contentType, string $body): \WP_REST_Response
     {
         $request = new \WP_REST_Request('POST', '/kalaka-portal/v1/card-payment');
         $request->set_header('Content-Type', $contentType);
         $request->set_body($body);
         if ($contentType === 'application/json') {
-            $request->set_body_params((array) json_decode($body, true));
+            $params = (array) json_decode($body, true);
         } else {
+            $params = [];
             parse_str($body, $params);
-            $request->set_body_params($params);
         }
+        // Every ordinary post carries the page's nonce, as the rendered form and a script do.
+        $params['_wpnonce'] = wp_create_nonce(CardPaymentRoute::NONCE_ACTION);
+        $request->set_body_params($params);
 
         return rest_do_request($request);
+    }
+
+    public function testAValidNonceStartsThePaymentInJsonAndInAFormPost(): void
+    {
+        $this->owing();
+
+        $json = $this->post('application/json', '{}');
+        $form = $this->post('application/x-www-form-urlencoded', '');
+
+        self::assertSame(200, $json->get_status());
+        self::assertSame(['url' => 'https://pay.example.test/1'], $json->get_data());
+        self::assertSame(303, $form->get_status());
+        self::assertCount(2, $this->provider->requests);
+    }
+
+    public function testAJsonPostWithTheNonceInTheHeaderStartsThePayment(): void
+    {
+        $this->owing();
+        $request = new \WP_REST_Request('POST', '/kalaka-portal/v1/card-payment');
+        $request->set_header('Content-Type', 'application/json');
+        $request->set_header('X-WP-Nonce', wp_create_nonce(CardPaymentRoute::NONCE_ACTION));
+        $request->set_body_params([]);
+
+        $response = rest_do_request($request);
+
+        self::assertSame(200, $response->get_status());
+        self::assertCount(1, $this->provider->requests);
+    }
+
+    /** @return array<string, array{string, bool}> */
+    public static function missingOrBadNonce(): array
+    {
+        return [
+            'JSON without a nonce' => ['application/json', false],
+            'JSON with a bad nonce' => ['application/json', true],
+            'a form post without a nonce' => ['application/x-www-form-urlencoded', false],
+            'a form post with a bad nonce' => ['application/x-www-form-urlencoded', true],
+        ];
+    }
+
+    /** @dataProvider missingOrBadNonce */
+    public function testAMissingOrBadNonceIsRefusedOnBothFormAndJson(string $contentType, bool $bad): void
+    {
+        $this->owing();
+        $request = new \WP_REST_Request('POST', '/kalaka-portal/v1/card-payment');
+        $request->set_header('Content-Type', $contentType);
+        $request->set_body_params($bad ? ['_wpnonce' => 'kalaka_wrong'] : []);
+
+        $response = rest_do_request($request);
+
+        self::assertSame([], $this->provider->requests);
+        if ($contentType === 'application/json') {
+            self::assertSame(422, $response->get_status());
+            self::assertSame('kalaka_card_nonce_invalid', $response->get_data()['code'] ?? null);
+        } else {
+            self::assertSame(303, $response->get_status());
+            self::assertStringStartsWith(
+                'kalaka_card_refusal=kalaka_card_nonce_invalid;',
+                (string) $response->get_headers()['Set-Cookie']
+            );
+        }
     }
 
     public function testAJsonPostGivesTheUrl(): void
@@ -157,7 +242,7 @@ final class CardPaymentPortalTest extends PortalTestCase
 
         self::assertSame(200, $response->get_status());
         self::assertSame(['url' => 'https://pay.example.test/1'], $response->get_data());
-        self::assertSame(home_url('/vissza/'), $this->provider->returnUrls[0]);
+        self::assertSame(CardPaymentRoute::returnUrl(home_url('/vissza/'), false), $this->provider->returnUrls[0]);
         self::assertStringContainsString('no-store', (string) $response->get_headers()['Cache-Control']);
     }
 
@@ -178,7 +263,7 @@ final class CardPaymentPortalTest extends PortalTestCase
 
         $this->post('application/json', (string) wp_json_encode(['return_url' => 'https://elsewhere.example.net/']));
 
-        self::assertSame(home_url('/'), $this->provider->returnUrls[0]);
+        self::assertSame(CardPaymentRoute::returnUrl(home_url('/'), false), $this->provider->returnUrls[0]);
     }
 
     public function testWithoutAnActiveRegistrationItIsRefusedWithItsCode(): void
@@ -217,8 +302,8 @@ final class CardPaymentPortalTest extends PortalTestCase
     public static function statesAndWhetherItCanPay(): array
     {
         return [
-            'pending: the next start reuses the order' => [OpenPaymentState::Pending, true],
-            'failed: paid again' => [OpenPaymentState::Failed, true],
+            'pending: the next start replaces the order' => [OpenPaymentState::Pending, true],
+            'failed: the next start replaces the order' => [OpenPaymentState::Failed, true],
             'processing: in flight' => [OpenPaymentState::Processing, false],
             'paid, not yet recorded' => [OpenPaymentState::Paid, false],
         ];

@@ -22,23 +22,23 @@ use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 /**
  * "Awaits an answer" is a grid column of its own with a filter, a sort and a count, all over one SQL expression
  * (`RequestSource::awaitingRule()`, compiled by core); it equals `registered` and `Requests::states()` saying a request
- * awaits, for every status. The row's mark comes from the same SQL. [UNAPPROVED N668] [UNAPPROVED N669]
+ * awaits, for every status. The row's mark comes from the same SQL.
  */
 final class ViewAwaitsAnswerTest extends AdminTestCase
 {
     private const EVENT = 7;
 
-    /** @var array<string, bool> code → whether it awaits (the expected, from the fixture's meaning) */
+    /** @var array<string, ?bool> code → whether it awaits (the expected, from the fixture's meaning); null is N/A */
     private const EXPECTED = [
         '00A0' => true,  // church offer chosen, no answer
         '00A2' => false, // church offer, refused (an answer)
-        '00A5' => false, // aid asked, waitlisted: awaits only once registered
-        '00A8' => false, // withdrawn, offer unanswered
+        '00A5' => null,  // aid asked, waitlisted: N/A until registered, not "no"
+        '00A8' => null,  // withdrawn, offer unanswered: N/A
         '00B0' => false, // no request: another offer chosen
         '00B3' => true,  // aid asked, no award
         '00B6' => false, // aid asked, award 0 (a refusal is an answer)
         '00B9' => false, // aid asked, award granted
-        '00E2' => false, // removed, offer unanswered
+        '00E2' => null,  // removed, offer unanswered: N/A
         '00E5' => true,  // offer and aid, the offer answered, the aid not
         '00E8' => false, // aid asked as an empty value: no request
     ];
@@ -110,24 +110,29 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
             $status = RegistrationStatus::from((string) $row->values['status']);
             $states = $requests->states($row->key);
             $byStates = $status === RegistrationStatus::Registered
-                && array_filter($states, static fn ($state): bool => $state->awaits()) !== [];
+                ? array_filter($states, static fn ($state): bool => $state->awaits()) !== []
+                : null;
 
             $values = [];
             foreach ((new FieldValueRepository())->forRegistration($row->key) as $value) {
                 $values[$value->fieldKey] = $value->value;
             }
             $rule = (new TestRequestSource())->awaitingRule(self::EVENT);
-            $byRule = $status === RegistrationStatus::Registered && $rule !== null && $rule->matches($values);
+            $byRule = $status === RegistrationStatus::Registered ? $rule !== null && $rule->matches($values) : null;
 
             self::assertSame($byRule, $row->awaitsAnswer, $code . ' by the rule in PHP');
             self::assertSame($byStates, $row->awaitsAnswer, $code . ' by the request states');
             self::assertSame(self::EXPECTED[$code], $row->awaitsAnswer, $code . ' by the fixture');
             self::assertSame(
-                $status === RegistrationStatus::Registered && $requests->awaits($row->key, $status),
+                $requests->awaits($row->key, $status),
                 $row->awaitsAnswer,
                 $code . ' by Requests::awaits()'
             );
-            self::assertSame($row->awaitsAnswer ? '1' : '0', $row->values['awaits_answer'], $code);
+            self::assertSame(
+                $row->awaitsAnswer === null ? null : ($row->awaitsAnswer ? '1' : '0'),
+                $row->values['awaits_answer'],
+                $code
+            );
         }
     }
 
@@ -144,8 +149,8 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
             ) !== [];
             foreach (RegistrationStatus::cases() as $status) {
                 // The panel (RegistrationDetail::requestsPart()) says 'awaiting' for an unanswered request only
-                // while the registration is registered, 'inactive' otherwise.
-                $panel = $status === RegistrationStatus::Registered && $unanswered;
+                // while the registration is registered, 'inactive' (N/A) otherwise.
+                $panel = $status === RegistrationStatus::Registered ? $unanswered : null;
                 self::assertSame(
                     $panel,
                     $requests->awaits($row->key, $status),
@@ -212,8 +217,9 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         $page = $this->query(false)->page($this->held(), limit: 50);
 
         foreach ($page->rows as $row) {
-            self::assertFalse($row->awaitsAnswer);
-            self::assertSame('0', $row->values['awaits_answer']);
+            $registered = $row->values['status'] === 'registered';
+            self::assertSame($registered ? false : null, $row->awaitsAnswer);
+            self::assertSame($registered ? '0' : null, $row->values['awaits_answer']);
         }
     }
 
@@ -225,8 +231,19 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         self::assertSame(['00A0', '00B3', '00E5'], $this->codes(narrowing: $this->narrowing('isNot', false)));
 
         $no = $this->codes(narrowing: $this->narrowing('is', false));
-        self::assertSame(['00A2', '00A5', '00A8', '00B0', '00B6', '00B9', '00E2', '00E8'], $no);
+        // „Nem” is a registered registration with nothing waiting; N/A (00A5 waitlisted, 00A8 withdrawn, 00E2
+        // removed) is neither „Igen” nor „Nem”, in every operator and value.
+        self::assertSame(['00A2', '00B0', '00B6', '00B9', '00E8'], $no);
         self::assertSame($no, $this->codes(narrowing: $this->narrowing('isNot', true)));
+        foreach ([['is', true], ['is', false], ['isNot', true], ['isNot', false]] as [$operator, $value]) {
+            foreach (['00A5', '00A8', '00E2'] as $notApplicable) {
+                self::assertNotContains(
+                    $notApplicable,
+                    $this->codes(narrowing: $this->narrowing($operator, $value)),
+                    $operator . ' ' . var_export($value, true)
+                );
+            }
+        }
 
         $page = $this->query()->page($this->held(), narrowing: $this->narrowing('is', true));
         self::assertSame(3, $page->total);
@@ -249,8 +266,7 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         $yes = $search('igen', '1');
         sort($yes);
         self::assertSame(['00A0', '00B3', '00E5'], $yes);
-        self::assertCount(count(self::EXPECTED) - 3, $search('nem', '0'));
-        self::assertNotContains('00A0', $search('nem', '0'));
+        self::assertSame(['00A2', '00B0', '00B6', '00B9', '00E8'], $search('nem', '0'));
     }
 
     public function testNoAnswerIsNotAFilterOfTheColumn(): void
@@ -263,15 +279,21 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         ]));
     }
 
-    public function testSortYesFirstDescendingAndLastAscending(): void
+    public function testSortYesFirstDescendingThenNoThenNotApplicableAndTheReverseAscending(): void
     {
         $this->seed();
 
         $descending = $this->codes('awaits_answer', true);
         self::assertSame(['00A0', '00B3', '00E5'], array_slice($descending, 0, 3));
+        self::assertSame(['00A5', '00A8', '00E2'], array_slice($descending, -3), 'N/A (NULL) sorts last descending');
         $ascending = $this->codes('awaits_answer');
+        self::assertSame(['00A5', '00A8', '00E2'], array_slice($ascending, 0, 3), 'N/A (NULL) sorts first ascending');
         self::assertSame(['00A0', '00B3', '00E5'], array_slice($ascending, -3));
-        self::assertSame(['00A2', '00A5'], array_slice($ascending, 0, 2), 'ties fall back to the default order');
+        self::assertSame(
+            ['00A2', '00B0', '00B6', '00B9', '00E8'],
+            array_slice($ascending, 3, 5),
+            'ties fall back to the default order'
+        );
     }
 
     public function testTheCountIsTheNumberOfAwaitingRegistrations(): void

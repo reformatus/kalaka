@@ -74,7 +74,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(3, [self::FIXED_PRICES, self::MANUAL_CONFIRMATIONS, self::UNCONFIRMATIONS]);
+        return new Schema(4, [self::FIXED_PRICES, self::MANUAL_CONFIRMATIONS, self::UNCONFIRMATIONS]);
     }
 
     /** The per-event actions grants may carry (foundation.md, "Views and grants"). [UNAPPROVED N6] */
@@ -85,20 +85,22 @@ SQL;
 
     public function boot(): void
     {
+        if (defined('WP_CLI') && WP_CLI) {
+            MoneySettingsCommand::register();
+        }
         // The labels and descriptions of the abilities. [UNAPPROVED T4]
+        // replaces ticked T2: the description without the reason.
+        // replaces ticked T4: the description without the reason.
         Abilities::register(
             new SetManualConfirmation(),
             'Visszaigazolás befizetés nélkül',
-            'Egy jelentkező visszaigazolása befizetés nélkül, indoklással.'
+            'Egy jelentkező visszaigazolása befizetés nélkül.'
         );
         Abilities::register(
             new Unconfirm(),
             'Visszaigazolás visszavonása',
-            'Egy jelentkező visszaigazolásának visszavonása indoklással, '
+            'Egy jelentkező visszaigazolásának visszavonása, '
                 . 'a befizetés nélküli visszaigazolást is beleértve.'
         );
-        if (defined('WP_CLI') && WP_CLI) {
-            MoneySettingsCommand::register();
-        }
     }
 }

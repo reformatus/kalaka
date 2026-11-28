@@ -16,7 +16,6 @@ use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Pricing\Api\ProvidesBase;
 use Kalaka\Pricing\Api\StageTotals;
 use Kalaka\Registrations\Api\RegistrationFacts;
-use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * Composes the fee stage by stage (money.md, "Materializer"): tier → support → share → aid → extras. Each
@@ -47,13 +46,13 @@ final class FeeComposer
         foreach ($components as $component) {
             $composed[$component->id()] = [];
         }
-        if ($facts->status !== RegistrationStatus::Registered) {
+        if (!$facts->status->isLive()) {
             return $composed;
         }
 
         // The fixed price is the base only without a ladder (money.md, "Congregation share": "the chosen tier,
         // or the fixed price without a ladder"): by structure, not by what a tier owes. It is charged only
-        // when no component provides the event's base. [UNAPPROVED, #200 N7]
+        // when no component provides the event's base.
         $baseProvided = false;
         foreach ($components as $component) {
             if ($component instanceof ProvidesBase && $this->providesBase($component, $facts->registration->eventId)) {
@@ -64,7 +63,7 @@ final class FeeComposer
         $before = new StageTotals($currency);
         foreach (FeeStage::cases() as $stage) {
             $stageOwed = [];
-            // A stage's computed values reach the later stages only, like its totals. [UNAPPROVED, #200 N12]
+            // A stage's computed values reach the later stages only, like its totals.
             $stageComputed = [];
             foreach ($components as $component) {
                 if ($component->stage() !== $stage) {

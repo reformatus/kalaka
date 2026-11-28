@@ -22,6 +22,16 @@ final class Instant
         return new \DateTimeImmutable($stored, new \DateTimeZone('UTC'));
     }
 
+    /** The instant of a stored value; null when it is unset or the zero date (`0000-00-00 00:00:00`). */
+    public static function fromStoredOrNull(?string $stored): ?\DateTimeImmutable
+    {
+        if ($stored === null || $stored === '' || str_starts_with($stored, '0000-00-00')) {
+            return null;
+        }
+
+        return self::fromStorage($stored);
+    }
+
     /**
      * A wall time `YYYY-MM-DD HH:MM` in the site time zone, as the UTC instant. A time the zone skips
      * is refused; a time it has twice is the earlier instant.

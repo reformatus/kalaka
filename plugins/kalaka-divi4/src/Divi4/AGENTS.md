@@ -18,7 +18,8 @@ Divi4 is the Divi 4 theme adapter: one extension plugin, `kalaka-divi4`
 - The plugin uses core only through `Kalaka\<Module>\Api\…` (deptrac); core
   never uses the plugin.
 - The adapter returns data only (classes per element role, the `p` wrapper,
-  Divi's form red); it never changes or filters core's markup.
+  Divi's form red, the card return page's `ContentFrame` case and body classes, all from core's closed lists); it
+  never returns HTML and never changes or filters core's markup.
 - It applies only when the active theme's template is `Divi` at a version
   below 5 (the theme's `Version` header); an unknown version does not apply.
 - Labels stay visible and radio buttons and checkboxes stay the browser's
@@ -50,4 +51,8 @@ Divi4 is the Divi 4 theme adapter: one extension plugin, `kalaka-divi4`
 - Divi's button icon glyph keeps its look, with an empty text alternative
   (`content: "\35" / ""`), for Kaláka's own buttons only (the form's, the
   card payment button): a screen reader does not read it.
+- The card return page (core's `Portal\Rest\CardReturnPage`) sits in Divi's page frame: the adapter returns
+  core's closed `ContentFrame::Page` (core renders the markup), the role `page_body` class `et_full_width_page` and
+  the sidebar layout classes to drop; under any other theme core's neutral frame stays. The adapter returns no HTML
+  and registers no filter for it.
 - The plugin stores nothing.

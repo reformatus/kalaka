@@ -1,4 +1,4 @@
-import { cellText, fmt, plainText, sumParts, tableHtml } from '../../src/Admin/app/grid/format';
+import { cellText, codeName, fmt, plainText, sumParts, tableHtml } from '../../src/Admin/app/grid/format';
 
 const TEXT = ' style="mso-number-format:\'\\@\'" sdnum="1038;0;@"';
 
@@ -49,6 +49,18 @@ describe( 'a consent cell', () => {
 		expect( cell( '0' ) ).toBe( 'Nem' );
 		expect( cell( null ) ).toBe( '' );
 		expect( cell( undefined ) ).toBe( '' );
+	} );
+} );
+
+describe( 'a column with an N/A text', () => {
+	// The awaits column (N690, T1120): no value is N/A, shown „–”, never „Nem”.
+	const awaits = { column: 'awaits_answer', label: 'x', type: 'consent', options: { 1: 'Igen', 0: 'Nem' }, na: '–' };
+	it( 'shows – for no value and keeps Igen and Nem apart from it', () => {
+		const cell = ( value ) => cellText( awaits, { values: { awaits_answer: value } } );
+		expect( cell( '1' ) ).toBe( 'Igen' );
+		expect( cell( '0' ) ).toBe( 'Nem' );
+		expect( cell( null ) ).toBe( '–' );
+		expect( cell( undefined ) ).toBe( '–' );
 	} );
 } );
 
@@ -142,5 +154,14 @@ describe( 'the copy', () => {
 		expect( tableHtml( columns, [] ) ).toBe(
 			'<table><tr>' + columns.map( ( c ) => '<th' + TEXT + '>' + c.label + '</th>' ).join( '' ) + '</tr></table>'
 		);
+	} );
+} );
+
+describe( 'a registration as the screens name it', () => {
+	test( 'the code with the name beside it, or the code alone when there is no name', () => {
+		expect( codeName( '00A1', 'Kiss Anna' ) ).toBe( '00A1 · Kiss Anna' );
+		expect( codeName( '00A1', null ) ).toBe( '00A1' );
+		expect( codeName( '00A1', undefined ) ).toBe( '00A1' );
+		expect( codeName( '00A1', '' ) ).toBe( '00A1' );
 	} );
 } );

@@ -22,7 +22,6 @@ use Kalaka\ParticipantFields\Api\FieldKeyHeld;
  * "Fields"). The declaration stores the declarer's slug and whether the field's value is money relevant (locked
  * after its first write). Run nested in the declarer's own
  * use case (`ParticipantFields::declareExtensionField()`), e.g. the price ladder's save.
- * [UNAPPROVED, #200 N10, N5, N301]
  */
 final class DeclareExtensionField implements AdminUseCase
 {

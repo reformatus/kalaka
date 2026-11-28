@@ -22,10 +22,10 @@ final class MoneyWordsTest extends TestCase
         self::assertSame("\u{201E}TAB27 12A3\u{201D}", MoneyWords::quoted('TAB27 12A3'));
     }
 
-    public function testAQuoteInsideANoteShowsAsGuillemetsInsideTheOuterQuotes(): void
+    public function testAQuoteInsideANoteShowsExactlyAsTyped(): void
     {
         self::assertSame(
-            "\u{201E}a \u{00BB}Kati\u{00AB} nevében\u{201D}",
+            "\u{201E}a \u{201E}Kati\u{201D} nevében\u{201D}",
             MoneyWords::quoted("a \u{201E}Kati\u{201D} nevében")
         );
     }

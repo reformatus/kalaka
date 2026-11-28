@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Portal;
 
+use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Payments\Api\CardAmountRefused;
+use Kalaka\Payments\Api\CardNonceInvalid;
 use Kalaka\Payments\Api\CardPaymentInFlight;
 use Kalaka\Payments\Api\CardPaymentUnavailable;
 use Kalaka\Payments\Api\NoPaymentProvider;
@@ -59,7 +64,10 @@ final class CardRefusalCookie
         return in_array($code, [
             (new CardPaymentUnavailable())->errorCode(),
             (new CardPaymentInFlight())->errorCode(),
+            (new CardNonceInvalid())->errorCode(),
             (new NoPaymentProvider())->errorCode(),
+            (new InvalidInput())->errorCode(),
+            (new CardAmountRefused(Money::of('0', Currency::HUF), Money::of('0', Currency::HUF)))->errorCode(),
             self::GENERIC,
         ], true);
     }

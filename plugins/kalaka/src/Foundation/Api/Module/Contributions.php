@@ -17,9 +17,9 @@ use Kalaka\Ledger\Api\PayerKindInput;
 use Kalaka\Ledger\Api\PayerKindSource;
 use Kalaka\Payments\Api\OnlineRefs;
 use Kalaka\Payments\Api\PaymentProvider;
+use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\SeatClaimSource;
-use Kalaka\Pricing\Api\FeeComponent;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
 final class Contributions
@@ -50,16 +50,17 @@ final class Contributions
     /** @var list<RequestSource> */
     private array $requestSources = [];
 
-    /** @var list<SeatClaimSource> */
-    private array $seatClaimSources = [];
+    /** @var array<string, PaymentProvider> */
+    private array $paymentProviders = [];
+
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
 
+    /** @var list<SeatClaimSource> */
+    private array $seatClaimSources = [];
+
     /** @var array<string, PayerKindSource> by payer-kind ID */
     private array $payerKindSources = [];
-
-    /** @var array<string, PaymentProvider> */
-    private array $paymentProviders = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -218,12 +219,38 @@ final class Contributions
     }
 
     /**
-     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
-     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     * In contribution order.
+     *
+     * @return list<RequestSource>
      */
-    public function seatClaimSource(SeatClaimSource $source): void
+    public function requestSources(): array
     {
-        $this->seatClaimSources[] = $source;
+        return $this->requestSources;
+    }
+
+    /**
+     * A payment provider is an outside point, the payments port (money.md, "Payments"). Which one a site uses is
+     * `Payments\Api\PaymentProviders::active()`: the first contributed. One ID per provider; a second
+     * contribution with the same ID fails the contributing module.
+     */
+    public function paymentProvider(PaymentProvider $provider): void
+    {
+        $id = $provider->id();
+        if (preg_match(OnlineRefs::PROVIDER_PATTERN, $id) !== 1 || isset($this->paymentProviders[$id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a provider ID, never output
+            throw new \InvalidArgumentException('Payment provider ID invalid or already contributed: ' . $id . '.');
+        }
+        $this->paymentProviders[$id] = $provider;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<PaymentProvider>
+     */
+    public function paymentProviders(): array
+    {
+        return array_values($this->paymentProviders);
     }
 
     /**
@@ -248,11 +275,20 @@ final class Contributions
     /**
      * In contribution order.
      *
-     * @return list<RequestSource>
+     * @return list<FeeComponent>
      */
-    public function requestSources(): array
+    public function feeComponents(): array
     {
-        return $this->requestSources;
+        return array_values($this->feeComponents);
+    }
+
+    /**
+     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
+     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     */
+    public function seatClaimSource(SeatClaimSource $source): void
+    {
+        $this->seatClaimSources[] = $source;
     }
 
     /**
@@ -263,16 +299,6 @@ final class Contributions
     public function seatClaimSources(): array
     {
         return $this->seatClaimSources;
-    }
-
-    /**
-     * In contribution order.
-     *
-     * @return list<FeeComponent>
-     */
-    public function feeComponents(): array
-    {
-        return array_values($this->feeComponents);
     }
 
     /**
@@ -306,30 +332,5 @@ final class Contributions
     public function payerKindSources(): array
     {
         return array_values($this->payerKindSources);
-    }
-
-    /**
-     * A payment provider is an outside point, the payments port (money.md, "Payments"). Which one a site uses is
-     * `Payments\Api\PaymentProviders::active()`: the first contributed. One ID per provider; a second
-     * contribution with the same ID fails the contributing module.
-     */
-    public function paymentProvider(PaymentProvider $provider): void
-    {
-        $id = $provider->id();
-        if (preg_match(OnlineRefs::PROVIDER_PATTERN, $id) !== 1 || isset($this->paymentProviders[$id])) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a provider ID, never output
-            throw new \InvalidArgumentException('Payment provider ID invalid or already contributed: ' . $id . '.');
-        }
-        $this->paymentProviders[$id] = $provider;
-    }
-
-    /**
-     * In contribution order.
-     *
-     * @return list<PaymentProvider>
-     */
-    public function paymentProviders(): array
-    {
-        return array_values($this->paymentProviders);
     }
 }

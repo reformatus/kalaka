@@ -37,6 +37,9 @@ abstract class AidTestCase extends PricingTestCase
 
     private ActionCatalogue $catalogue;
 
+    /** The components of the runner `useComponents()` built: the contributed ones and the stand-ins. */
+    protected ?CoreFeeComponents $components = null;
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names it
     public function set_up(): void
     {
@@ -59,6 +62,7 @@ abstract class AidTestCase extends PricingTestCase
     protected function useComponents(FeeComponent ...$more): void
     {
         $components = new CoreFeeComponents($more);
+        $this->components = $components;
         $money = new Materializer($components);
         $rules = new DecisionRules();
         $rules->add(new ConfirmationRule($money->composition()), true);

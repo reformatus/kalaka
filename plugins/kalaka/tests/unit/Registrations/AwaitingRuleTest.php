@@ -9,7 +9,7 @@ use Kalaka\Registrations\Api\FieldTest;
 use Kalaka\Registrations\Api\FieldTestKind;
 use PHPUnit\Framework\TestCase;
 
-/** The awaiting rule in PHP: any-of groups of all-of field tests. [UNAPPROVED N669] */
+/** The awaiting rule in PHP: any-of groups of all-of field tests. */
 final class AwaitingRuleTest extends TestCase
 {
     public function testTheFourKindsOfTest(): void

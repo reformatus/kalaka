@@ -52,8 +52,8 @@ final class Module extends AbstractModule
         . 'pointer-events:none;user-select:none}'
         . '.et_pb_contact_form .kalaka-number__prefix{left:.75rem}'
         . '.et_pb_contact_form .kalaka-number__suffix{right:2rem}'
-        . '.et_pb_contact_form .kalaka-number input{padding-left:var(--kalaka-number-prefix-room,0);'
-        . 'padding-right:var(--kalaka-number-suffix-room,0)}';
+        . '.et_pb_contact_form .kalaka-number--prefix input{padding-left:var(--kalaka-number-prefix-room,0)}'
+        . '.et_pb_contact_form .kalaka-number--suffix input{padding-right:var(--kalaka-number-suffix-room,0)}';
 
     /**
      * What the variables cannot reach in Divi:
@@ -95,7 +95,7 @@ final class Module extends AbstractModule
      * The registrant's money table (`kalaka/status`) in Divi's look: Divi gives a table cell `td` a `#eee` line on
      * its top edge and a row header `th` none, so the first column gets the same line and the rows read as one
      * (every row but the ones with core's own darker separator, `kalaka-rule`). Core keeps the structure (the
-     * columns, the popover) and the emphasis (`em`, `strong`); nothing else of the table is styled here.
+     * columns, the info mark) and the emphasis (`em`, `strong`); nothing else of the table is styled here.
      */
     public const MONEY_TABLE = '.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}';
 

@@ -28,9 +28,16 @@ and `KalakaItem` (an order as the plugin reads it), `OrderMeta` (the meta names 
 
 The billing fields come from the registration: `BillingField` defines the five participant fields (`billing_name`, `billing_country`, `billing_postcode`, `billing_city`, `billing_address`) and `DeclareBillingFields` declares them per event (source `extension`, form-writable, `billing_country` a choice of ISO 3166-1 alpha-2), run by `wp kalaka card-billing <event>` in `Cli/CardBillingCommand`; `DeclaredFieldsBilling` is the provider's default `BillingSource`, reading the registration's values.
 
-Tests: `tests/integration/` (the filter on a real WooCommerce install, a grant
+`LoginRedirects` (`template_redirect`, priority 20) keeps one login and one password screen, WordPress's own: a
+logged-out visit to a My Account page, or to the pay page of an order an account owns, goes to `wp_login_url()` and
+back to the requested address; a logged-out visit to My Account's lost-password endpoint (not WooCommerce's own reset
+flow) goes to core's lost-password screen; `boot()` removes WooCommerce's `lostpassword_url` override
+(`wc_lostpassword_url()`), so `wp_lostpassword_url()` is `wp-login.php?action=lostpassword`. Always on. Guest orders,
+logged-in visitors, form posts, AJAX, cron and REST are not redirected.
+
+Tests: `tests/integration/` (the login redirects; the filter on a real WooCommerce install, a grant
 holder through WooCommerce's own `prevent_admin_access()`, a plain customer
 that WooCommerce really redirects, full access, an administrator and the
 missing-API guard; the card payment on real `WC_Order`s in both order-storage modes, with a test-only stand-in gateway).
 
-Entry points: `woocommerce_prevent_admin_access`, `woocommerce_disable_admin_bar`, `woocommerce_payment_complete`, `woocommerce_order_status_processing`, `woocommerce_order_status_completed`, `woocommerce_order_refunded`, `woocommerce_order_status_changed`, `woocommerce_trash_order`, `woocommerce_get_return_url`, `woocommerce_is_purchasable`; the CLI command `wp kalaka card-surcharge`; the periodic step `woocommerce_reconcile`.
+Entry points: `woocommerce_prevent_admin_access`, `woocommerce_disable_admin_bar`, `woocommerce_payment_complete`, `woocommerce_order_status_processing`, `woocommerce_order_status_completed`, `woocommerce_order_refunded`, `woocommerce_order_status_changed`, `woocommerce_trash_order`, `woocommerce_get_return_url`, `woocommerce_is_purchasable`, `template_redirect` (priority 20), and the removal of WooCommerce's `lostpassword_url` filter; the CLI command `wp kalaka card-surcharge`; the periodic step `woocommerce_reconcile`.
