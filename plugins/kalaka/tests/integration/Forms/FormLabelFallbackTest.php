@@ -12,7 +12,7 @@ use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
 /**
  * A form shows its own question title and option labels; where it leaves one empty it shows the participant
- * field's (for a code-declared field the declarer's, its admin name) [UNAPPROVED N806 of #231].
+ * field's (for a code-declared field the declarer's, its admin name).
  */
 final class FormLabelFallbackTest extends FormsTestCase
 {

@@ -67,7 +67,6 @@ export function filterSpec( column ) {
 		case 'number':
 			// Szám and the number columns take the same operators and decimals; the control is `NumberFilter.js` (a
 			// text input that keeps a typed decimal comma), and the chip shows the number in Hungarian form.
-			// [UNAPPROVED N65, N67]
 			return {
 				type: 'number',
 				format: { separatorThousand: '', separatorDecimal: ',', decimals: 8 },

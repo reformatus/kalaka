@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Events;
 
+use Kalaka\Events\Api\EventNotReady;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -11,7 +12,10 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 
-/** Draft or unpublished to published; needs a name, the four core points and a capacity. */
+/**
+ * Draft or unpublished to published; needs a name, the four core points and a capacity. What it lacks is named by
+ * key in the refusal (`EventNotReady`).
+ */
 final class PublishEvent implements AdminUseCase
 {
     public function __construct(private readonly EventRepository $repository = new EventRepository())
@@ -59,15 +63,17 @@ final class PublishEvent implements AdminUseCase
         if (!in_array($record->state, [EventState::Draft, EventState::Unpublished], true)) {
             throw new RuleViolation();
         }
-        if (
-            $record->name === ''
-            || $record->capacity === null
-            || $record->registrationOpensAt === null
-            || $record->registrationClosesAt === null
-            || $record->startsAt === null
-            || $record->endsAt === null
-        ) {
-            throw new RuleViolation();
+        $missing = array_keys(array_filter([
+            'name' => $record->name === '',
+            'capacity' => $record->capacity === null,
+            'registration_opens_at' => $record->registrationOpensAt === null,
+            'registration_closes_at' => $record->registrationClosesAt === null,
+            'starts_at' => $record->startsAt === null,
+            'ends_at' => $record->endsAt === null,
+        ]));
+        if ($missing !== []) {
+            $error = new EventNotReady($missing);
+            throw $error;
         }
         $record->state = EventState::Published;
 

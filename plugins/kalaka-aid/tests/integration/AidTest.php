@@ -329,7 +329,8 @@ final class AidTest extends AidTestCase
 
         $rows = $this->settings->preview(
             $this->event,
-            new ProposedMoneySettings(components: [$this->aid->propose($this->event, 'Teszt ösztöndíj')])
+            new ProposedMoneySettings(components: [$this->aid->propose($this->event, 'Teszt ösztöndíj')]),
+            new CliActor(null)
         );
 
         self::assertCount(1, $rows);

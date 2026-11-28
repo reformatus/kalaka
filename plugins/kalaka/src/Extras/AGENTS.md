@@ -38,17 +38,19 @@ plugin. It holds two fee components at the extras stage and is core money
   when absent or `number`; the document's `show` reads it
   back from the declared field. A form field joins the field by taking its
   key and never creates it. A `form` field of the same type that holds the key
-  is adopted (it becomes the declared `extension` field, retired or not, its values untouched) [UNAPPROVED N4];
+  is adopted (it becomes the declared `extension` field, retired or not, its values untouched);
   a key a `staff` or `system` field holds, or a field of another type, refuses the save, whole and early
   (`ChargeField` at the preview, the declaration at the save; the CLI prints its own English line). A number
   charge's field fixes its decimals at 0, and a form field that joins it holds none
-  (`SharedKeyCheck`'s `extension_decimals`) [UNAPPROVED N6]. Every declaration stores
+  (`SharedKeyCheck`'s `extension_decimals`). Every declaration stores
   `extras` (its module's ID) as the field's declarer (`declared_by`) and marks it money relevant (locked after its first
   write; `adomany` too), and a key another declarer's `extension` field holds is refused, by the
   one check `ParticipantFields::checkDeclarable()` (`ChargeField` calls it). A charge taken out
-  leaves its declared field in place, as every kind of item does; refusing the removal of a charge an open
-  registration chose comes with CF4. The participant field whose key equals the charge's key calls
-  it, **by the field's type**: a consent counts the
+  leaves its declared field in place, as every kind of item does, but a charge an open (`registered` or
+  `waitlisted`) registration chose is not taken out: the preview and the save refuse it (`ChargeRemovalGuard`, through
+  `Registrations::openChose()`: a consent's `1` or a quantity of one or more; the save takes the event row
+  first, as a submit does, before it reads) [UNAPPROVED N302]. The
+  participant field whose key equals the charge's key calls it, **by the field's type**: a consent counts the
   amount once (a `1`), a number field whose stored decimals are 0 counts it a
   positive whole `n` times, and every other type charges nobody. A charge key
   no field uses charges nobody, with no warning. The component is the guard:
@@ -64,7 +66,7 @@ plugin. It holds two fee components at the extras stage and is core money
   field of another type, a number field with the charge's key that allows
   decimals, and a number charge whose key a form of the event holds as a number
   field with other decimals (`FieldDecimalsHeld`, at the preview and again at the
-  apply, so adopting the key never closes a form) [UNAPPROVED N808].
+  apply, so adopting the key never closes a form).
 - An extra charge has no condition. Each charge is **its own** ledger line,
   `extras:<key>` (the materializer keeps one line source per item and payer,
   `FeeTargets::ofItems()`); a charge key holds at most 40 characters, the

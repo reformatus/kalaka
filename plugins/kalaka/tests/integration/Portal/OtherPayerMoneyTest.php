@@ -162,7 +162,8 @@ final class OtherPayerMoneyTest extends PortalTestCase
         }
 
         // With one other payer: its statement, and the names of its owed lines (the fee components, no statement).
-        self::assertSame(6, $counts[0]);
+        // The base count is the registration read's, with the fact source's two request reads.
+        self::assertSame(8, $counts[0]);
         self::assertSame($counts[0] + 1, $counts[1]);
     }
 }

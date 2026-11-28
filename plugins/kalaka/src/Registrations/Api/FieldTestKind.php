@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Api;
 
 /**
- * What a `FieldTest` asks of one participant field's stored value. [UNAPPROVED N669]
+ * What a `FieldTest` asks of one participant field's stored value.
  *
  * - `Filled`: the field has a non-empty value.
  * - `Empty`: the field has no value (no row, or an empty one).

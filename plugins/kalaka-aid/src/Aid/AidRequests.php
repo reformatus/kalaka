@@ -122,6 +122,7 @@ final class AidRequests implements RequestSource
         return new RequestTerms($price, $canPay);
     }
 
+    /** An aid request takes no seat: null (N1199). */
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
     {
         return null;

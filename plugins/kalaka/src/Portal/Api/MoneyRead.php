@@ -101,7 +101,11 @@ final class MoneyRead
         return [...$base, ...$positive, ...$negative];
     }
 
-    private static function movement(LedgerEntry $entry): MovementRow
+    /**
+     * The movement a paid-side ledger line is, as the table lists it. The payment mail reads one line through it
+     * (`MailMoney::movement()`), so the mail and the table use the same words. Not for a charge line.
+     */
+    public static function movement(LedgerEntry $entry): MovementRow
     {
         $refund = $entry->kind === LineKind::Refund || $entry->kind === LineKind::ManualRefund;
         $type = match (true) {

@@ -15,6 +15,9 @@
     <file>plugins/kalaka-woocommerce/src</file>
     <file>plugins/kalaka-woocommerce/kalaka-woocommerce.php</file>
     <file>plugins/kalaka-woocommerce/uninstall.php</file>
+    <file>plugins/kalaka-deposits/src</file>
+    <file>plugins/kalaka-deposits/kalaka-deposits.php</file>
+    <file>plugins/kalaka-deposits/uninstall.php</file>
     <file>plugins/kalaka/tests</file>
     <file>plugins/kalaka-support/tests</file>
     <file>plugins/kalaka-divi4/tests</file>
@@ -32,6 +35,7 @@
     <file>plugins/kalaka-share/kalaka-share.php</file>
     <file>plugins/kalaka-share/uninstall.php</file>
     <file>plugins/kalaka-share/tests</file>
+    <file>plugins/kalaka-deposits/tests</file>
     <file>bin</file>
     <arg name="extensions" value="php"/>
     <exclude-pattern>*/vendor/*</exclude-pattern>

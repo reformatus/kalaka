@@ -172,6 +172,7 @@ final class MoneySettingsCommandTest extends PricingTestCase
         $this->setPrice('1000');
         $key = $this->register('00A0');
         $file = $this->file(['fixed_price' => '1800']);
+        \WP_CLI::$exitWithoutYes = true;
 
         try {
             $this->command()->apply([(string) $this->event], ['file' => $file]);

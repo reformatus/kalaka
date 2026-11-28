@@ -69,6 +69,11 @@ corrections
   and marked as completed it writes the fact and the paid entry in one run
   under one audit row; the paid entry is never a correction and nothing links
   the two.
+- Recording a manual payment or refund, and the paid entry of a „Díj” or
+  „Kedvezmény” ticked „Azonnal befizetve”, decides the "payment recorded" mail in
+  the same run (`Mail\Api\ActionMails::lineRecorded()`); a correction, a replay, a
+  line of a payer other than the participant and every other use case decide
+  none.
 - One grant action, `kalaka_record_money`, carries every manual money use
   case: payment, refund, correction, charge and discount.
 - `record()` refuses unless the run holds the registration's lock

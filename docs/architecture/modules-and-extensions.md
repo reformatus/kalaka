@@ -77,7 +77,7 @@ flowchart LR
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, seats, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
 | Extras | extra charges and the donation: generic per-event charges, each declaring the participant field with its key for forms to join, and the donation, the number field with the key `adomany`, declared by the same save |
-| Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
+| Ledger | lines, payers, balances, organizer-recorded payments, refunds and corrections, manual charges and discounts |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
 | Portal | the active registration (by secret link or account), the participant blocks admins place on any page, the account area |
@@ -88,12 +88,14 @@ flowchart LR
 Modules, workshops, talk groups, rooms and meal turns share one core concept.
 
 - **A set** belongs to an event: a name, an optional time slot,
-  required or optional, a choice window, an access mode and a **published
+  required or optional, an access mode and a **published
   switch** (for a direct set, unpublished, it is hidden from participants
-  and publishing opens the choice; a request set's field follows its choice
-  window only).
-- **An option** has a capacity, leaders (display text), a place and
-  eligibility conditions on field values (e.g. age, gender).
+  and publishing opens the choice). A set has **no choice window of its
+  own:** the form that holds the choice, with its own open period and
+  conditions, decides when it can be answered.
+- **An option** has a capacity, leaders (display text) and a place. Who may
+  pick it is decided in the form: the form field that names the set may hold a
+  condition per option ([Conditions](events-and-forms.md#conditions)).
 - **A registration holds at most one option per set,** stored as an
   assignment fact with its source and state (proposed or confirmed),
   audited (computed meal turns excepted, below).
@@ -109,29 +111,28 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
   pool's limit.
 - **Access modes:**
   - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
-    field writes a confirmed assignment; capacity and eligibility are checked
+    field writes a confirmed assignment; capacity is checked
     in the transaction under a lock on the option row; a full option cannot be
     chosen; the choice can be changed through an additional form holding it
-    while the window is open, then only by staff;
+    while that form is open, then only by staff;
   - **request** (e.g. IVK's modules): the participant writes a request (a
     field value; the ranking field type comes from the `kalaka-ranking`
-    extension), which an additional form holding it can change while the
-    window is open. The request field's block either names its set, and its
+    extension), which an additional form holding it can change while that
+    form is open. The request field's block either names its set, and its
     options are then the set's, or names none and holds its own options; the
     author picks one per block. The participant field a block that names a
     set declares becomes the set's one **request field**, recorded on the
     set, and a second, different field naming the same set is refused on
-    save. The request is locked at close;
+    save. The request is locked when its form closes;
     staff run the proposer with a preview, then confirm in bulk; the
     participant sees the result once confirmed and the set is published.
     **Bulk confirmation** runs one transaction per item: it locks the option
-    row and re-checks capacity and eligibility; items that no longer fit go
+    row and re-checks capacity; items that no longer fit go
     into the report;
   - **none** (talk groups, rooms, meal turns): staff place people, or a
     proposer proposes and staff confirm; shown once published.
   - Staff can place or override in every mode. Staff are warned first when
-    the option is full or the registration does not meet its conditions; the
-    warning never stops the placing.
+    the option is full; the warning never stops the placing.
 - **Meal turns** (IVK's lunch turn, REFISZ's dining shift) are an access-none
   set **computed from another set through an option map**, never stored,
   unless staff placed someone by hand, which is stored as a fact;
@@ -147,8 +148,8 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 - **The assignment proposer** is an extension point. The IVK ranking engine
   is the first: it fills first choices in registration order, then second
   choices into what is left, then third; staff confirm. **It runs once, on
-  module choices frozen beforehand** (after the set's choice window has
-  closed), and need not handle later changes. Talk-group and room
+  module choices frozen beforehand** (after the form that holds the request
+  has closed), and need not handle later changes. Talk-group and room
   algorithms come later on the same point.
 - Extensions read confirmed assignments through point inputs and keep their
   own per-option data (e.g. a module's level and the needs it answers).
@@ -307,7 +308,7 @@ never our prefix.
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer ·<br/>request source"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · seat claim source · slot requirement"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · slot requirement · seat claim source"]
   REG --> DECL["Declarations<br/>payer kind (its appliesTo read runs inside; contained in reads) · block host"]
 ```
 
@@ -324,7 +325,7 @@ flowchart LR
     decision, action-mail act, assignment proposer, request source): fires no
     WordPress hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter, seat claim source, slot requirement). A field type's value type
+    view column, filterable fact, theme adapter, slot requirement, seat claim source). A field type's value type
     and its reading of a stored answer as a value fire no WordPress hooks
     and write nothing (they may read, e.g. a congregation's name), so the
     evaluation reads a registration's field values with them inside the
@@ -345,9 +346,11 @@ flowchart LR
     [Failure isolation](#failure-isolation) is not built yet for any
     contribution. The source runs no other code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
-    blocks) that an editor other than a form's may insert, for a post type or a
-    block editor context. Forms gates its blocks by post type and lets a host
-    allow some elsewhere, without knowing the module that declares it.
+    blocks) that an editor other than a form's may insert, and its own blocks
+    that no other editor offers, for a post type or a block editor context.
+    Forms gates its blocks by post type and lets a host allow some elsewhere;
+    a host's own blocks it hides in every other editor and keeps out of forms,
+    without knowing the module that declares it.
 - **Date types** are an inside point: one immutable input (the
   registration's facts and the event's points) in, a date or nothing out; no
   database access, no hooks ([Events](events-and-forms.md#date-references)).
@@ -370,9 +373,16 @@ flowchart LR
   ([Money](money.md#sponsor-and-church-support)).
 - **A seat claim source** is an outside point: a submit's validated answers
   in, the seat claims of the limited choices made in them out (the field and
-  the pool of each). It locks, counts and writes nothing; the submit locks the
+  the pool of each). It also lists its pools (the field, the option value and
+  the pool of each), from which a form's `seats_left.<field key>.<option
+  value>` is served. It locks, counts and writes nothing; the submit locks the
   pools and takes the seats when the registration becomes `registered`
-  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)). An
+  additional form may take seats, only for a `registered` registration: it
+  takes the seat of a new claim and frees the seat of one its values no longer
+  make, in one run, and a full pool refuses it as it does the registration form
+  (a waitlisted registration has no additional forms). A tier or an offer
+  stays once written, so a price never changes through it.
 - **A theme adapter** is an outside point that fits participant-side markup
   to a theme which styles its own components instead of WordPress's
   ([Engineering](engineering.md#wordpress-surfaces)). It says whether it
