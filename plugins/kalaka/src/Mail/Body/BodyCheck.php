@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Mail\Body;
 
 use Kalaka\Forms\Api\Values;
+use Kalaka\Foundation\Api\Entry\SaveVeto;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\BodyUnusable;
 
 /**
@@ -61,6 +63,33 @@ final class BodyCheck
         return null;
     }
 
+    /**
+     * The refusal of a live body's save, or null: the value check, then the account-link rule. The editor's
+     * filters and the command line share it; `$assignedTo` is the mail a body is about to be assigned to.
+     */
+    public static function refusal(int $id, string $content, ?int $eventId, ?ActionMail $assignedTo = null): ?string
+    {
+        return self::judge($id, $content, $eventId, $assignedTo)[1];
+    }
+
+    /**
+     * The one judgement behind `refusal()`: the value problem (`<code> <subject>`, for the log) and the
+     * refusal's text; both null when the body passes, only the text when the account-link rule refuses it.
+     *
+     * @return array{?string, ?string}
+     */
+    private static function judge(int $id, string $content, ?int $eventId, ?ActionMail $assignedTo): array
+    {
+        $problem = self::problem($content, $eventId);
+
+        return [
+            $problem,
+            $problem === null
+                ? (new AccountLinkRule())->problem($id, $content, $eventId, $assignedTo)
+                : self::message($problem),
+        ];
+    }
+
     /** The refusal's text for a problem. */
     public static function message(string $problem): string
     {
@@ -95,13 +124,9 @@ final class BodyCheck
         $event = is_array($meta) && array_key_exists(MailPosts::META_EVENT_ID, $meta)
             ? self::eventId($meta[MailPosts::META_EVENT_ID])
             : (new MailPosts())->eventOf($id);
-        $problem = self::problem($content, $event);
-        if ($problem !== null) {
-            return new \WP_Error(self::CODE, self::message($problem), ['status' => 400]);
-        }
-        $account = (new AccountLinkRule())->problem($id, $content, $event);
-        if ($account !== null) {
-            return new \WP_Error(self::CODE, $account, ['status' => 400]);
+        $message = self::refusal($id, $content, $event);
+        if ($message !== null) {
+            return new \WP_Error(self::CODE, $message, ['status' => 400]);
         }
         self::$restEvents[$id] = $event;
 
@@ -135,10 +160,7 @@ final class BodyCheck
             default => (new MailPosts())->eventOf($id),
         };
         $content = wp_unslash($data['post_content']);
-        $problem = self::problem($content, $event);
-        $message = $problem === null
-            ? (new AccountLinkRule())->problem($id, $content, $event)
-            : self::message($problem);
+        [$problem, $message] = self::judge($id, $content, $event, null);
         if ($message === null) {
             return $data;
         }
@@ -152,6 +174,7 @@ final class BodyCheck
         if ($user > 0) {
             set_transient(self::NOTICE . $user, $message, HOUR_IN_SECONDS);
         }
+        SaveVeto::report('saving mail body ' . $id, $message, $problem ?? 'account_link ' . $id);
 
         return $data;
     }

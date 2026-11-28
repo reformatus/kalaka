@@ -10,15 +10,18 @@ title: Modules and extensions
   with one version number and one CI pipeline that builds a zip per plugin.
   Extensions use only core's public API.
 - **Core itself is internally modular** with strict boundaries.
-- **Core money is minimal:** a fixed price per registration and full payment.
-  Deposits, the price ladder, financial aid, sponsor and church support, the
-  congregation share, late fees and the wallet are plugins; core keeps full
-  support for extending it in these ways ([Money](money.md#core-money-scope)).
+- **Core money is minimal:** a fixed price per registration, full payment,
+  an event's extra charges and its donation. Deposits, the price ladder,
+  financial aid, sponsor and church support, the congregation share, late
+  fees and the wallet are plugins; core keeps full support for extending it
+  in these ways ([Money](money.md#core-money-scope)).
 - **Core keeps the base concepts that organizations extend,** such as
   assignment sets ([Assignment sets](#assignment-sets)), not a general system
   that could build either organization's logic.
 - **The WooCommerce integration is our own extension plugin** on core's
-  payments port. Core has no WooCommerce dependency at all.
+  payments port. Core has no WooCommerce dependency at all. On a WooCommerce
+  site, the WooCommerce extension lets anyone who may reach Kaláka's admin
+  (full access or any grant) into wp-admin.
 - **Sponsor and church support is one extension plugin, `kalaka-support`:**
   the organization directory, the congregation picker and the support offers
   ([Money](money.md#sponsor-and-church-support)). Core holds no organization
@@ -36,7 +39,7 @@ flowchart LR
     SP["Sponsor / church support"]
     CS["Congregation share"]
     REC["Module ranking"]
-    MORE["Wallet · attendance sheets · check-in ·<br/>donations · settlement"]
+    MORE["Wallet · attendance sheets · check-in · settlement"]
   end
   subgraph CORE["Core plugin"]
     direction TB
@@ -47,6 +50,7 @@ flowchart LR
     AS["Assignments"]
     RE["Registrations"]
     RU["Pricing"]
+    EX["Extras"]
     LE["Ledger"]
     PA["Payments"]
     MA["Mail"]
@@ -68,8 +72,9 @@ flowchart LR
 | Forms | forms, the registration slot, field types, field definitions, values and conditions, prefill, form links |
 | ParticipantFields | the event's participant fields: the list, its sources, titles and option labels, retired fields |
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
-| Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
+| Registrations | registrations, field values, submissions, presets, statuses, waitlist, seats, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
+| Extras | extra charges and the donation: generic per-event charges linked by key to the participant field with the same key, and the donation, the number field with the key `adomany` |
 | Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
@@ -85,14 +90,25 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
   switch** (for a direct set, unpublished, it is hidden from participants
   and publishing opens the choice; a request set's field follows its choice
   window only).
-- **An option** has a capacity, leaders (display text), a place and
-  eligibility conditions on field values (e.g. age, gender).
+- **An option** has a capacity, leaders (display text) and a place. Who may
+  pick it is decided in the form: the form field that names the set may hold a
+  condition per option ([Conditions](events-and-forms.md#conditions)).
 - **A registration holds at most one option per set,** stored as an
   assignment fact with its source and state (proposed or confirmed),
   audited (computed meal turns excepted, below).
+- **A `registered` registration holds a seat in the pool of each option it
+  is confirmed into,** under the one seat rule
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)): taken
+  under the lock on the option row, freed by withdrawal, removal or a placing
+  elsewhere in the set. The confirmed assignment stays as the record, and
+  holds no seat while its registration is not `registered`. An admission or a
+  restore takes its seats again, over the limit where an option is full, with
+  the "full" warning. A proposed
+  assignment holds none until it is confirmed. The option's capacity is the
+  pool's limit.
 - **Access modes:**
   - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
-    field writes a confirmed assignment; capacity and eligibility are checked
+    field writes a confirmed assignment; capacity is checked
     in the transaction under a lock on the option row; a full option cannot be
     chosen; the choice can be changed through an additional form holding it
     while the window is open, then only by staff;
@@ -108,13 +124,12 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
     staff run the proposer with a preview, then confirm in bulk; the
     participant sees the result once confirmed and the set is published.
     **Bulk confirmation** runs one transaction per item: it locks the option
-    row and re-checks capacity and eligibility; items that no longer fit go
+    row and re-checks capacity; items that no longer fit go
     into the report;
   - **none** (talk groups, rooms, meal turns): staff place people, or a
     proposer proposes and staff confirm; shown once published.
   - Staff can place or override in every mode. Staff are warned first when
-    the option is full or the registration does not meet its conditions; the
-    warning never stops the placing.
+    the option is full; the warning never stops the placing.
 - **Meal turns** (IVK's lunch turn, REFISZ's dining shift) are an access-none
   set **computed from another set through an option map**, never stored,
   unless staff placed someone by hand, which is stored as a fact;
@@ -290,7 +305,7 @@ never our prefix.
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer ·<br/>request source"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · seat claim source"]
   REG --> DECL["Declarations<br/>payer kind · block host"]
 ```
 
@@ -307,7 +322,11 @@ flowchart LR
     decision, action-mail act, assignment proposer, request source): fires no
     WordPress hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter).
+    view column, filterable fact, theme adapter, seat claim source). A field type's value type
+    and its reading of a stored answer as a value fire no WordPress hooks
+    and write nothing (they may read, e.g. a congregation's name), so the
+    evaluation reads a registration's field values with them inside the
+    transaction.
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, and its own blocks
@@ -333,6 +352,11 @@ flowchart LR
   when the one "answer a request" act answers one. Core keeps the answer
   record and the computed "awaits an answer"
   ([Money](money.md#sponsor-and-church-support)).
+- **A seat claim source** is an outside point: a submit's validated answers
+  in, the seat claims of the limited choices made in them out (the field and
+  the pool of each). It locks, counts and writes nothing; the submit locks the
+  pools and takes the seats when the registration becomes `registered`
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **A theme adapter** is an outside point that fits participant-side markup
   to a theme which styles its own components instead of WordPress's
   ([Engineering](engineering.md#wordpress-surfaces)). It says whether it

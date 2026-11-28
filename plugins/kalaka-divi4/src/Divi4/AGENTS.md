@@ -33,7 +33,9 @@ Divi4 is the Divi 4 theme adapter: one extension plugin, `kalaka-divi4`
   a 2-pixel border in Divi's input grey, its text grey; a focus ring Divi's
   `:focus { outline: 0 }` removes; the ranking's row gap, handle, lines,
   lists, the empty rows' dashed places Divi's reset hides, and the dragged
-  row's lift, white with a shadow). It never changes markup.
+  row's lift, white with a shadow; the number field's affix position, the
+  input's padding from the room core's script measures, and a muted affix
+  grey lighter than Divi's digits). It never changes markup.
   Functional too: on an iPhone (Divi's `body.iphone`) it gives Kaláka's own
   checkboxes and radio buttons their native appearance back, which Divi's
   contact-form rule sets to `initial` (0×0).

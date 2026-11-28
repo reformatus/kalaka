@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kalaka\Assignments;
 
 use Kalaka\Foundation\Api\Audit\Subject;
-use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
 
 /**
@@ -44,15 +43,6 @@ final class OptionRepository extends EntityRepository
 
     protected function toRow(object $entity): array
     {
-        $condition = null;
-        if ($entity->condition !== null) {
-            $condition = wp_json_encode($entity->condition, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            if ($condition === false) {
-                $error = new SystemFailure(null, new \LogicException('A condition is not JSON-encodable.'));
-                throw $error;
-            }
-        }
-
         return [
             'set_id' => $entity->setId,
             'option_key' => $entity->key,
@@ -60,10 +50,9 @@ final class OptionRepository extends EntityRepository
             'version' => $entity->version,
             'position' => $entity->position,
             'label' => $entity->label,
-            'capacity' => $entity->capacity,
+            'capacity' => $entity->limit,
             'leaders' => $entity->leaders,
             'place' => $entity->place,
-            'eligibility' => $condition,
         ];
     }
 

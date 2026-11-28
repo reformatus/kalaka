@@ -38,7 +38,22 @@ final class Module extends AbstractModule
      */
     private const BASE = '.et_pb_contact_form{--kalaka-control-background:#eee;--kalaka-control-color:#666;'
         . '--kalaka-control-hover-background:#ddd;--kalaka-border-color:transparent;--kalaka-radius:0;'
-        . '--kalaka-button-background:#eee;--kalaka-button-color:#666;--kalaka-button-hover-background:#ddd}';
+        . '--kalaka-button-background:#eee;--kalaka-button-color:#666;--kalaka-button-hover-background:#ddd;'
+        . '--kalaka-number-affix-colour:#b3b3b3}';
+
+    /**
+     * The number field's affixes under Divi (A1, A2, A4): Divi's unlayered `.et_pb_contact_field *` makes
+     * them `position: relative`, so the core layer loses; these unlayered, more specific rules keep the
+     * affixes at the input's ends and take the input's padding from the room core's script measures. The
+     * muted grey is the variable above (a UI choice, N16).
+     */
+    private const NUMBER = '.et_pb_contact_form .kalaka-number__affix{position:absolute;top:50%;'
+        . 'transform:translateY(-50%);color:var(--kalaka-number-affix-colour);opacity:.6;'
+        . 'pointer-events:none;user-select:none}'
+        . '.et_pb_contact_form .kalaka-number__prefix{left:.75rem}'
+        . '.et_pb_contact_form .kalaka-number__suffix{right:2rem}'
+        . '.et_pb_contact_form .kalaka-number--prefix input{padding-left:var(--kalaka-number-prefix-room,0)}'
+        . '.et_pb_contact_form .kalaka-number--suffix input{padding-right:var(--kalaka-number-suffix-room,0)}';
 
     /**
      * What the variables cannot reach in Divi:
@@ -141,7 +156,7 @@ final class Module extends AbstractModule
             return;
         }
         $css = (self::holdsForm($post->post_content)
-            ? self::DIV_FIELDS . self::IPHONE_CONTROLS . self::BASE . self::RANKING : '')
+            ? self::DIV_FIELDS . self::IPHONE_CONTROLS . self::BASE . self::NUMBER . self::RANKING : '')
             . (self::holdsMoneyTable($post->post_content) ? self::MONEY_TABLE : '');
         if ($css === '') {
             return;

@@ -45,13 +45,13 @@ final class EventFormHost implements FormHost
     ) {
     }
 
-    public function factTypes(): array
+    public function factTypes(Form $form): array
     {
         return EventValues::FORM_TYPES;
     }
 
     /** The event's keys and `account.logged_in`: yes or no on a form with an account step, none on one without. */
-    public function facts(Form $form): ?ValueContext
+    public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
         $event = $this->event($form);
         if ($event === null) {
@@ -59,7 +59,7 @@ final class EventFormHost implements FormHost
         }
         $loggedIn = self::accountStepOf($form, $event) === null ? null : is_user_logged_in();
 
-        return new ValueContext(EventValues::form($event, $loggedIn));
+        return new ValueContext(EventValues::form($event, $loggedIn, $now));
     }
 
     public function refusals(Form $form, \DateTimeImmutable $now, array $roles, bool $passwordGiven): array
@@ -162,8 +162,7 @@ final class EventFormHost implements FormHost
         }
         $options = [];
         foreach ($set->options as $option) {
-            $options[] = ['value' => $option->key, 'label' => $option->label]
-                + ($option->condition === null ? [] : ['condition' => $option->condition]);
+            $options[] = ['value' => $option->key, 'label' => $option->label];
         }
 
         return new RequestOptions($options, $set->windowOpens, $set->windowCloses);

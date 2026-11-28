@@ -15,11 +15,12 @@ use Kalaka\Registrations\FieldValue\FieldValueRepository;
  * says is not answered, read from the source's own answer field, whatever the answer says ("no", or an award of
  * 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record the act (who, when, the note, the
  * mail's key) and decide nothing else. A withdrawn or removed registration awaits nothing; a waitlisted one
- * does. [UNAPPROVED N10] [UNAPPROVED N136]
+ * does (the fact stays computed, but nothing shows it while the registration is inactive, and the request is
+ * answerable only once it is `registered`).
  *
  * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
  * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field
- * values). [UNAPPROVED N1] [UNAPPROVED N2]
+ * values).
  */
 final class Requests
 {
@@ -57,7 +58,8 @@ final class Requests
                 $request,
                 $source,
                 $source->isAnswered($request, $values),
-                $latest[$id] ?? null
+                $latest[$id] ?? null,
+                $values
             );
         }
 
@@ -107,7 +109,7 @@ final class Requests
      * cost is fixed whatever the count: with no source, or when every registration is withdrawn or removed, no
      * statement; otherwise one, the field values, which hold every answer. (Shapes) grid rows carry
      * awaits_answer: bool, PHP-computed per page; not filterable, sortable or summable (alt: a
-     * per-request-source SQL predicate seam, after opening). [UNAPPROVED N351]
+     * per-request-source SQL predicate seam, after opening).
      *
      * @param array<string, RegistrationStatus> $statusByCode the registrations' codes with their statuses
      * @return array<string, bool> by code, every given code
