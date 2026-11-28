@@ -20,8 +20,12 @@ use Kalaka\Foundation\Api\Entry\SaveVeto;
  * - REST (the block editor): `rest_pre_insert_post` and `rest_pre_insert_page` refuse the save with a 422
  *   before anything is stored.
  * - Any other path (code, WP-CLI, a revision restore): `wp_insert_post_data` vetoes gracefully, as
- *   `Forms\DefinitionCheck` and `Mail\BodyCheck` do: a published post keeps its stored content, any other
- *   stays unpublished, and the saving user gets the refusal as an admin notice.
+ *   `Forms\DefinitionCheck` and `Mail\BodyCheck` do: a live post keeps its stored content, a new one stays
+ *   unpublished, and the saving user gets the refusal as an admin notice.
+ *
+ * Both check only a save that is, or makes, the post live (`publish`, `future`), as `Forms\DefinitionCheck`
+ * and `Mail\BodyCheck` do: a draft, a pending or a private post may hold a placeholder its context cannot fill
+ * yet, so it is saved as it is and must stay trashable and restorable until it is published.
  *
  * Only `post` and `page` are checked: a form and a mail body have their own save checks.
  * [UNAPPROVED N1180]
@@ -55,7 +59,9 @@ final class PageCheck
     }
 
     /**
-     * `rest_pre_insert_post` and `rest_pre_insert_page`.
+     * `rest_pre_insert_post` and `rest_pre_insert_page`: only a save that is, or makes, the post live is checked
+     * (the status the request sets, else the prepared one, else the stored one, and the content the request sets,
+     * else the stored one, as `Forms\DefinitionCheck` reads them); a draft, a trash or a restore passes.
      *
      * @internal
      * @param \WP_REST_Request<array<string, mixed>> $request
@@ -65,14 +71,27 @@ final class PageCheck
         if ($prepared instanceof \WP_Error) {
             return $prepared;
         }
-        $content = is_string($prepared->post_content ?? null) ? $prepared->post_content : '';
+        $id = isset($prepared->ID) && is_int($prepared->ID) ? $prepared->ID : 0;
+        $stored = $id > 0 ? get_post($id) : null;
+        $requested = $request->get_param('status');
+        $status = is_string($requested) && $requested !== ''
+            ? $requested
+            : (is_string($prepared->post_status ?? null)
+                ? $prepared->post_status
+                : ($stored instanceof \WP_Post ? $stored->post_status : 'draft'));
+        if (!in_array($status, self::LIVE, true)) {
+            return $prepared;
+        }
+        $content = is_string($prepared->post_content ?? null)
+            ? $prepared->post_content
+            : ($stored instanceof \WP_Post ? $stored->post_content : '');
         $unknown = self::unknown($content);
 
         return $unknown === null ? $prepared : $unknown->toWpError();
     }
 
     /**
-     * `wp_insert_post_data`: the graceful veto of any other save path.
+     * `wp_insert_post_data`: the graceful veto of any other save path that would publish or schedule the post.
      *
      * @internal
      * @param array<string, mixed> $data the post's fields, slashed
@@ -81,7 +100,11 @@ final class PageCheck
      */
     public static function onInsert(array $data, array $postarr): array
     {
-        if (!in_array($data['post_type'] ?? null, self::TYPES, true) || !is_string($data['post_content'] ?? null)) {
+        if (
+            !in_array($data['post_type'] ?? null, self::TYPES, true)
+            || !in_array($data['post_status'] ?? null, self::LIVE, true)
+            || !is_string($data['post_content'] ?? null)
+        ) {
             return $data;
         }
         $unknown = self::unknown(wp_unslash($data['post_content']));

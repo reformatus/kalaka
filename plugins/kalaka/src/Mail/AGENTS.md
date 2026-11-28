@@ -129,8 +129,11 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   gracefully (a published body keeps its content, another stays unpublished),
   tells the saving user in an admin notice, writes a log line and, on
   WP-CLI, warns and fails the command.
-- The catalogue lists every `ActionMail` case, whether or not a use case produces
-  it yet (no hand-kept "has a producer" list); it has six action mails ("answered", keyed by the answer record of Registrations' answer act, is the
+- The catalogue lists every `ActionMail` case, whether or not an act on this
+  line queues it yet; `ActionMail::isWired()` is the one declared list of the
+  points that work, the list the screen shows (a point that is not wired can be
+  set up and switched on, but nothing sends it), and the PR that adds a producer
+  keeps it current. [UNAPPROVED R334] It has six action mails ("answered", keyed by the answer record of Registrations' answer act, is the
   sixth, and a body may branch on `registration.awaits_answer`, a yes/no choice with no display text). The mail
   context takes `registration.code`, `registration.status` (with its word) and `registration.awaits_answer` from
   the one source, `Registrations::factsOf()`, and adds only the mail's own keys.

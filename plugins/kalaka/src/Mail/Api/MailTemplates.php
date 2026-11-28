@@ -24,7 +24,8 @@ use Kalaka\Mail\Catalogue\UpdateActionMail;
  * would not let go (the "registered" mail of an event with accounts stays on, and a draft cannot be its template).
  *
  * `createDraft()` makes the same draft without a point (the screen's unassigned templates): no point changes and
- * nothing switches off.
+ * nothing switches off. Both entry points are outside the abilities, as `wp kalaka action-mail body` is: the post
+ * is WordPress data, which no use case's transaction writes.
  * [UNAPPROVED N1184]
  */
 final class MailTemplates

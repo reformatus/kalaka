@@ -22,7 +22,10 @@ enum ActionMail: string
 
     /**
      * Whether an act queues this mail: the one declared list of the points that work (owner 2026-11-27,
-     * walkthrough 8.5). A point that is not wired can be set up and switched on, but nothing sends it yet.
+     * walkthrough 8.5; the screen shows only those as usable). A point that is not wired can be set up and
+     * switched on, but nothing sends it yet. "payment recorded" (every act that records a payment fact, through
+     * `ActionMails::lineRecorded()`) and "answered" (Registrations' answer act) have their producers here;
+     * "link regenerated" has none yet. The PR that adds a producer adds its point here.
      */
     public function isWired(): bool
     {
