@@ -328,6 +328,21 @@ describe( 'the dialog', () => {
 		expect( textarea().value ).toBe( 'Elírás' );
 	} );
 
+	test( 'after a conflict and a re-read behind the dialog, the next save still sends the opening value (N239)', async () => {
+		apiFetch.mockRejectedValue( { code: 'kalaka_version_conflict', message: 'x' } );
+		await dialog( NAME );
+		await type( textarea(), 'Elírás' );
+		await submit();
+		const reread = { ...NAME, value: 'Más', text: 'Más', edit: { ...NAME.edit, answer: { kind: 'kalaka/name-field', value: 'Más' }, expected: 'Más' } };
+		await act( async () => root.render( createElement( FieldEditDialog, { config, code: '01F4', field: reread, onClose: () => {}, onDone: done, reload } ) ) );
+		await submit();
+		const saves = apiFetch.mock.calls.map( ( [ request ] ) => request.data.input ).filter( ( input ) => ! input.preview );
+		expect( saves ).toHaveLength( 2 );
+		expect( saves[ 1 ].expected ).toBe( 'Próba' );
+		expect( done ).not.toHaveBeenCalled();
+		expect( errors() ).toEqual( [ 'x' ] );
+	} );
+
 	test( 'any other failure is the generic text, never a raw message', async () => {
 		apiFetch.mockRejectedValue( { code: 'rest_no_route', message: 'No route was found' } );
 		await dialog( NAME );

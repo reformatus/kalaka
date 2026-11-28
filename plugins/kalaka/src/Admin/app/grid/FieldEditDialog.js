@@ -29,6 +29,10 @@ const NONE = '';
  */
 export default function FieldEditDialog( { config, code, field, onClose, onDone, reload } ) {
 	const control = controlOf( field );
+	// The value as read when the dialog opened: every save sends its `expected`, so a re-read behind the open dialog
+	// (after a conflict) never turns the next „Mentés” into an overwrite; the refusal repeats until the dialog is
+	// opened again. [UNAPPROVED N239]
+	const opening = useRef( field ).current;
 	const [ picked, setPicked ] = useState( () => openingOf( field ) );
 	const [ reason, setReason ] = useState( '' );
 	const [ error, setError ] = useState( '' );
@@ -46,7 +50,7 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 		let live = true;
 		setWarnings( [] );
 		if ( full ) {
-			api.editFieldValue( inputOf( config.event, code, field, picked, '', true ) ).then(
+			api.editFieldValue( inputOf( config.event, code, opening, picked, '', true ) ).then(
 				( result ) => live && setWarnings( warningsOf( result ) ),
 				() => {}
 			);
@@ -91,7 +95,7 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 		sending.current = true;
 		setBusy( true );
 		try {
-			const result = await api.editFieldValue( inputOf( config.event, code, field, picked, reason.trim() ) );
+			const result = await api.editFieldValue( inputOf( config.event, code, opening, picked, reason.trim() ) );
 			await onDone( result );
 		} catch ( failure ) {
 			sending.current = false;
