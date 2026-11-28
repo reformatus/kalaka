@@ -21,7 +21,6 @@ import { unconfirmBlocked, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
 import RequestsBlock from './RequestsBlock';
-import StatusMark from './StatusMark';
 import { StatusRow } from './PanelRows';
 import { tabClicks } from './panel';
 import { PANEL } from './texts';
