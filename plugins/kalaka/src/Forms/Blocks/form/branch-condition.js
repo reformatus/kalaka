@@ -47,7 +47,7 @@ export const AFTER_SUBMIT = "kalaka/after-submit";
 /** A key whose type the editor cannot know (a condition outside a form): any operator and value pass. */
 const ANY = "any";
 
-/** [UNAPPROVED N694] The fact key of the moment itself (`Facts::NOW`): a left key, always a datetime. */
+/** The fact key of the moment itself (`Facts::NOW`): a left key, always a datetime. */
 const NOW_KEY = "time.now";
 
 const MATCH = ["all", "any"];
@@ -329,11 +329,21 @@ export const scopeOf = (store, clientId, inForm = true) => {
       };
     }
   }
+  // A key the form holds as a field is read from its answers, never from the server's list of keys (an
+  // additional form's stored values): an earlier field wins, a later or branch-own one is no key at all.
+  const held = new Set();
+  for (const id of store.getClientIdsWithDescendants()) {
+    const attributes = store.getBlockAttributes(id) ?? {};
+    if (fieldTypes()[store.getBlockName(id)] && typeof attributes.key === "string") {
+      held.add(attributes.key);
+    }
+  }
   const events = eventTypes();
+  const declared = (key) => (held.has(key) ? null : (events[key] ?? null));
   return {
-    typeOf: (key) => events[key] ?? fields[key]?.type ?? null,
-    choices: (key) => (events[key] ? null : (fields[key]?.choices ?? null)),
-    isPath: (key) => !events[key] && fields[key]?.path === true,
+    typeOf: (key) => fields[key]?.type ?? declared(key),
+    choices: (key) => fields[key]?.choices ?? null,
+    isPath: (key) => fields[key]?.path === true,
   };
 };
 

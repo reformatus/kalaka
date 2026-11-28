@@ -49,7 +49,7 @@ final class Confirmations
         if ($codes === []) {
             return [];
         }
-        $statuses = array_intersect_key($this->registrations->statusesOf($eventId), $codes);
+        $statuses = $this->registrations->statusesOf($eventId, array_keys($codes));
         $states = $this->decisions->currentStates($eventId, $statuses, [ConfirmationRule::KIND]);
 
         $confirmed = [];

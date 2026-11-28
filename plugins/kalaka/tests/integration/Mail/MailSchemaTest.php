@@ -49,7 +49,6 @@ final class MailSchemaTest extends WP_UnitTestCase
         'version' => 'int(10) unsigned',
         'enabled' => 'tinyint(1) unsigned',
         'body_id' => 'bigint(20) unsigned null',
-        'layout' => 'tinyint(1) unsigned',
     ];
 
     private const LAYOUTS = [
@@ -58,14 +57,35 @@ final class MailSchemaTest extends WP_UnitTestCase
         'html' => 'longtext',
     ];
 
+    private const BATCHES = [
+        'id' => 'bigint(20) unsigned',
+        'event_id' => 'bigint(20) unsigned',
+        'version' => 'int(10) unsigned',
+        'body_id' => 'bigint(20) unsigned',
+        'request_key' => 'varchar(64) null',
+        'created_at' => 'datetime(6)',
+        'created_by' => 'bigint(20) unsigned null',
+        'queued' => 'int(10) unsigned',
+        'skipped' => 'int(10) unsigned',
+    ];
+
+    private const BATCH_MEMBERS = [
+        'batch_id' => 'bigint(20) unsigned',
+        'code' => 'varchar(16)',
+        'event_id' => 'bigint(20) unsigned',
+        'outcome' => 'varchar(20)',
+    ];
+
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
     {
-        self::assertSame(4, (int) get_option('kalaka_schema_mail'));
+        self::assertSame(5, (int) get_option('kalaka_schema_mail'));
         self::assertSame([], LoadState::current()->failures);
         self::assertSame(self::DELIVERIES, $this->columns('kalaka_deliveries'));
         self::assertSame(self::STATES, $this->columns('kalaka_mail_states'));
         self::assertSame(self::ACTION_MAILS, $this->columns('kalaka_action_mails'));
         self::assertSame(self::LAYOUTS, $this->columns('kalaka_mail_layouts'));
+        self::assertSame(self::BATCHES, $this->columns('kalaka_mail_batches'));
+        self::assertSame(self::BATCH_MEMBERS, $this->columns('kalaka_mail_batch_members'));
     }
 
     public function testTheKeysAreAsDeclaredWithoutAPrefixIndex(): void
@@ -96,6 +116,28 @@ final class MailSchemaTest extends WP_UnitTestCase
                     => $row['Key_name'] . ':' . $row['Column_name'] . ':' . $row['Non_unique'],
                 $keys
             )
+        );
+    }
+
+    public function testARequestKeyIsUniquePerEventAndABatchKeepsItsMembersOnce(): void
+    {
+        global $wpdb;
+        $keys = $wpdb->get_results("SHOW INDEX FROM {$wpdb->prefix}kalaka_mail_batches", ARRAY_A);
+        self::assertIsArray($keys);
+        self::assertSame(
+            ['PRIMARY:id:0', 'request_key:event_id:0', 'request_key:request_key:0', 'event_id:event_id:1',
+                'event_id:id:1'],
+            array_map(
+                static fn (array $row): string
+                    => $row['Key_name'] . ':' . $row['Column_name'] . ':' . $row['Non_unique'],
+                $keys
+            )
+        );
+        $keys = $wpdb->get_results("SHOW INDEX FROM {$wpdb->prefix}kalaka_mail_batch_members", ARRAY_A);
+        self::assertIsArray($keys);
+        self::assertSame(
+            ['PRIMARY:batch_id', 'PRIMARY:code'],
+            array_map(static fn (array $row): string => $row['Key_name'] . ':' . $row['Column_name'], $keys)
         );
     }
 

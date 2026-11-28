@@ -19,20 +19,17 @@ use Kalaka\Ledger\Api\LedgerEntry;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Ledger\Api\Side;
-use Kalaka\Mail\Api\ActionMail;
-use Kalaka\Mail\Api\ActionMails;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
-use Kalaka\Registrations\Api\OfferSeats;
-use Kalaka\Registrations\Api\SeatOfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestState;
 use Kalaka\Registrations\Api\Requests;
+use Kalaka\Registrations\Api\Seats;
 
 /**
  * The admin detail read of one registration (the data of `GET kalaka-admin/v1/events/{event}/registrations/{code}`).
@@ -41,7 +38,7 @@ use Kalaka\Registrations\Api\Requests;
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
  * The manual confirmation flag shows behind the same gate as the money. The requests (and whether they are
  * answered) show only to a holder of the answer action of a grant whose view holds the registration.
- * [UNAPPROVED Access] [UNAPPROVED N11] [UNAPPROVED N6]
+ * [UNAPPROVED Access]
  */
 final class RegistrationDetail
 {
@@ -55,10 +52,9 @@ final class RegistrationDetail
         private readonly PayerKinds $payerKinds = new PayerKinds(),
         private readonly LineNames $lineNames = new LineNames(),
         private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
-        private readonly ActionMails $actionMails = new ActionMails(),
         private readonly Confirmations $confirmations = new Confirmations(),
         private readonly Requests $requests = new Requests(),
-        private readonly OfferSeats $seats = new SeatOfferSeats(),
+        private readonly Seats $seats = new Seats(),
     ) {
     }
 
@@ -138,7 +134,7 @@ final class RegistrationDetail
         }
         $answer = $carried(Requests::ANSWER);
         if ($answer) {
-            $read['requests'] = $this->requestsPart($key, $event->currency->value, $registered);
+            $read['requests'] = $this->requestsPart($key, $event->currency->value, $registered, $viewMoney);
         }
         $read['can'] = [
             // A request is answerable only while the registration is registered, as the grid column says (N655).
@@ -221,6 +217,7 @@ final class RegistrationDetail
                 'label' => $declaredKind->label,
                 'state' => $current->state,
                 'state_label' => $declaredKind->states[$current->state] ?? $current->state,
+                'marks' => $declaredKind->marks,
                 'effective_at' => self::instant($current->effectiveAt),
             ];
         }
@@ -239,16 +236,18 @@ final class RegistrationDetail
      * No hold is read: awaiting is
      * computed.
      *
+     * The money figures — the item's `amount` and an aid item's `aid` — follow the read's money gate (owner
+     * 2026-11-27, the access sweep): a holder of the answer action whose view and grant give no money fields reads
+     * the requests without them, so no figure reaches a holder the view/grant does not give the money fields.
+     *
      * @return array{currency: string, items: list<array<string, mixed>>}
      */
-    private function requestsPart(RegistrationKey $key, string $currency, bool $registered): array
+    private function requestsPart(RegistrationKey $key, string $currency, bool $registered, bool $viewMoney): array
     {
         $items = [];
         foreach ($this->requests->states($key) as $state) {
             $answer = $state->answer;
-            $pool = $state->request->kind === RequestKind::Offer
-                ? $state->source->seatPool($key, $state->request)
-                : null;
+            $pool = $state->source->seatPool($state->request);
             $item = [
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
@@ -256,12 +255,12 @@ final class RegistrationDetail
                 'state' => $state->awaits()
                     ? ($registered ? 'awaiting' : 'inactive')
                     : ($answer?->approved === true ? 'approved' : 'refused'),
-                'amount' => $answer?->amount?->amount(),
+                'amount' => $viewMoney ? $answer?->amount?->amount() : null,
                 'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
                 'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
-                    && $pool !== null && $this->seats->isFull($key, $pool),
+                    && $pool !== null && $this->seats->wouldOverfill($pool, $key),
             ];
-            if ($state->request->kind === RequestKind::Aid) {
+            if ($state->request->kind === RequestKind::Aid && $viewMoney) {
                 $item['aid'] = $this->aidTerms($key, $state);
             }
             $items[] = $item;
@@ -275,10 +274,10 @@ final class RegistrationDetail
      * before the aid), `can_pay` (what they stated, null when none) and `asked` (the difference, never below
      * zero) and `max_award` (the most an award can be: the full price today, named apart so the rule can change),
      * money amounts as text in the read's currency, formatted as the item's `amount`; the dialog computes nothing:
-     * it hints `asked` and warns above `max_award`, which the act refuses. The part is shown to every holder of
-     * the answer action, as the item's `amount` is: answering sets a money amount. Null when the source gives no
-     * terms or a fee component fails.
-     * [UNAPPROVED N1131]
+     * it hints `asked` and warns above `max_award`, which the act refuses. The part follows the read's money gate,
+     * as the item's `amount` does (`requestsPart()`): answering sets a money amount, but the figures are only for a
+     * holder whose view/grant gives the money fields. Null when the source gives no terms or a fee component
+     * fails.
      *
      * @return ?array{full_price: string, can_pay: ?string, asked: ?string, max_award: string}
      */
@@ -323,9 +322,8 @@ final class RegistrationDetail
      * The warning to show before staff's unconfirm: the text when confirmation would decide `confirmed` again
      * at once, null otherwise. A holder with money-view gets the reason, payments or nothing due; a holder
      * without it gets one text that names neither a reason nor money, so the read never tells them what the
-     * payments are. While the event's confirmed mail is on, one sentence is appended: the registrant gets that
-     * mail again (the owner's ruling 2026-11-23, topic 15, Q4). It reads and writes nothing else.
-     * [UNAPPROVED N11, Q4, T5a, T5b, T5c, T6]
+     * payments are. It says nothing of the mail that may follow (owner 2026-11-27: T6 is not part of the
+     * warning). It reads and writes nothing else. [UNAPPROVED N11, Q4, T5a, T5b, T5c]
      */
     private function unconfirmWarning(RegistrationKey $key, bool $viewMoney, ?string $reconfirms): ?string
     {
@@ -343,9 +341,7 @@ final class RegistrationDetail
             $text = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
         }
 
-        return $this->actionMails->isOn($key->eventId, ActionMail::Confirmed)
-            ? $text . ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.' // [UNAPPROVED T6]
-            : $text;
+        return $text;
     }
 
     /**

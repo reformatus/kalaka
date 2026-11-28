@@ -7,7 +7,6 @@ namespace Kalaka\Tests\Integration\Registrations;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Context;
-use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\Answer;
 use Kalaka\Registrations\Api\AwaitingRule;
 use Kalaka\Registrations\Api\FieldTest;
@@ -44,6 +43,7 @@ final class TestRequestSource implements RequestSource
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
         private readonly ?int $fullPrice = null,
+        private readonly ?SeatPool $pool = null,
     ) {
     }
 
@@ -85,47 +85,9 @@ final class TestRequestSource implements RequestSource
         ]);
     }
 
-    public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
+    public function seatPool(Request $request): ?SeatPool
     {
-        if ($request->kind !== RequestKind::Offer) {
-            return null;
-        }
-
-        return new class ($registration->eventId) implements SeatPool {
-            public function __construct(private readonly int $event)
-            {
-            }
-
-            public function eventId(): int
-            {
-                return $this->event;
-            }
-
-            public function key(): string
-            {
-                return TestRequestSource::POOL;
-            }
-
-            public function lockLevel(): LockLevel
-            {
-                return LockLevel::Other;
-            }
-
-            public function lockRow(): array
-            {
-                return ['kalaka_test_pool', [TestRequestSource::POOL]];
-            }
-
-            public function limit(): ?int
-            {
-                return null;
-            }
-
-            public function lock(Context $context): ?int
-            {
-                return null;
-            }
-        };
+        return $request->kind === RequestKind::Offer ? $this->pool : null;
     }
 
     public function terms(

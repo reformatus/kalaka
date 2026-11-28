@@ -1,7 +1,7 @@
 import { createElement, useState } from '@wordpress/element';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { NumberEdit, SerialEdit } from '../../src/Admin/app/grid/NumberFilter';
+import { NumberEdit, editFor } from '../../src/Admin/app/grid/NumberFilter';
 import { narrowOf } from '../../src/Admin/app/grid/narrow';
 
 // @wordpress/components is ESM-only for Jest here: plain stand-ins that render what the control hands them.
@@ -88,16 +88,15 @@ describe( 'a number filter’s control keeps the typed decimal comma (A4)', () =
 		m.done();
 	} );
 
-	test( 'a range has DataViews’ own help line, and Szám’s carries the approved hint under it', () => {
+	test( 'a range has DataViews’ own help line only, on Szám too (N69)', () => {
 		const plain = mount( NumberEdit, 'between' );
 		expect( plain.host.querySelector( '.help' ).textContent ).toBe( 'The max. value must be greater than the min. value.' );
 		plain.done();
-		const serial = mount( SerialEdit, 'between' );
-		expect( serial.host.querySelector( '.help' ).textContent ).toContain( 'Például 1–50: az első 50 jelentkező' );
+		// Szám takes the same control as any number column, and has no help line of ours.
+		expect( editFor( { type: 'serial' } ).Edit ).toBe( editFor( { type: 'number' } ).Edit );
+		const serial = mount( editFor( { type: 'serial' } ).Edit, 'between' );
+		expect( serial.host.querySelector( '.help' ).textContent ).toBe( 'The max. value must be greater than the min. value.' );
+		expect( serial.host.textContent ).not.toContain( 'Például' );
 		serial.done();
-		// A single value has no hint, even on Szám.
-		const single = mount( SerialEdit, 'is' );
-		expect( single.host.textContent ).not.toContain( 'Például' );
-		single.done();
 	} );
 } );

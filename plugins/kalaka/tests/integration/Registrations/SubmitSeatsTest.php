@@ -74,8 +74,6 @@ final class SubmitSeatsTest extends FormsTestCase
             'event_id' => $this->event,
             'name' => 'Modulok',
             'required' => false,
-            'window_opens_at' => null,
-            'window_closes_at' => null,
             'published' => false,
         ], new CliActor(null));
         $sets->saveOption([
@@ -84,7 +82,6 @@ final class SubmitSeatsTest extends FormsTestCase
             'limit' => $places,
             'leaders' => '',
             'place' => '',
-            'condition' => null,
             'position' => 0,
         ], new CliActor(null));
     }

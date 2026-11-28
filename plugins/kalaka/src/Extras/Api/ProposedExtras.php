@@ -37,7 +37,7 @@ final readonly class ProposedExtras implements ProposedComponentSettings
      * own transaction may not read form posts. `MoneySettings::apply()` asks before it writes anything.
      *
      * @throws \Kalaka\ParticipantFields\Api\FieldDecimalsHeld when a form holds a number charge's key with
-     *     decimals [UNAPPROVED N808]
+     *     decimals
      */
     public function save(): SettingsSave
     {

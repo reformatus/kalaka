@@ -122,6 +122,20 @@ final class PriceTierSlotTest extends PriceLadderTestCase
         self::assertNull($check($note, FormPlacement::Additional));
     }
 
+    /** The review's blocking finding: the save closes forms, so the stored broken-form warning is refreshed. */
+    public function testTheBrokenFormListIsRefreshedAfterALadderSaveThatClosesAPublishedForm(): void
+    {
+        $form = $this->insert(self::slotFields());
+        update_option(BrokenForms::OPTION, ['#0 stale: old'], false);
+
+        $this->applyLadder(self::ivkTiers());
+
+        $stored = BrokenForms::stored();
+        self::assertCount(1, $stored);
+        self::assertStringContainsString('#' . $form . ' ', $stored[0]);
+        self::assertStringContainsString(SlotRules::REQUIRED_FIELD_MISSING, $stored[0]);
+    }
+
     public function testAFormWithoutPriceTierIsClosedOnceTheEventHasTiersAndReopensWhenFixed(): void
     {
         $form = $this->insert(self::slotFields());

@@ -16,7 +16,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\AidAbovePrice;
 use Kalaka\Registrations\Api\Answer;
 use Kalaka\Registrations\Api\AnswerRead;
-use Kalaka\Registrations\Api\OfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Registrations;
@@ -24,29 +23,35 @@ use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\RequestState;
-use Kalaka\Registrations\Api\SeatOfferSeats;
+use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\SeatOutcome;
+use Kalaka\Registrations\Api\Seats;
 
 /**
  * "Answer a request" (foundation.md, "Facts, decisions and computed values"; money.md, "Sponsor and church
  * support"): the one act that answers a registration's requests, offers and aid alike, for staff and for a
  * partner (a grant holder whose view holds only their registrations), carried by `kalaka_answer_request`. Giving
- * a different answer later is this act again. [UNAPPROVED N1] [UNAPPROVED N3]
+ * a different answer later is this act again.
  *
  * - Input: the registration, the request's id, `yes` or `no`, for aid the amount awarded, and a note: optional, a
  *   "yes" to an offer (a partner's approval) too, where it is the reason (owner 2026-11-26: a reason is never
  *   required).
  *   For aid a "no" is an award of 0 Ft (B2) and a "yes" needs an amount above zero and no more than the full
  *   price the participant has to pay (`RequestSource::terms()`; a larger one is `AidAbovePrice`, nothing written);
- *   an offer takes no amount. [UNAPPROVED N5] [UNAPPROVED N1132]
+ *   an offer takes no amount.
  * - Writes one answer record per act (its id is the key the "answered" mail will take) and the answer as the
  *   source's own participant field value (B3: the source stays that field's only writer). Both are facts; the
  *   registration is then evaluated in the same run, so money, then confirmation, then mail, follow the answer.
  * - A repeat of the latest answer, the same yes or no, the same amount and no new note, writes nothing; a new
- *   note alone is a new act. [UNAPPROVED N8] Only a
+ *   note alone is a new act. Only a
  *   `registered` registration is answered (a waitlisted registration is inactive: its request waits until it is
- *   admitted); a waitlisted, withdrawn or removed one is a `RuleViolation`. [UNAPPROVED N9]
+ *   admitted); a waitlisted, withdrawn or removed one is a `RuleViolation`.
  * - A refusal frees the offer's seat; a "yes" after a refusal takes one again, and when the pool is full the
- *   answer stands and `over_limit` says so (B1). Both go through `OfferSeats`, over the one seat rule.
+ *   answer stands and `over_limit` says so (B1). Both go through slice A's one seat rule, `Seats`: the pool is
+ *   the request source's own (`RequestSource::seatPool()`, never a key parsed here), locked before the
+ *   registration lock, released on a refusal and retaken as `SeatAct::Answer` on a "yes" after one — both only
+ *   while the registration is `registered` — and `retake()` answering `SeatOutcome::Over` is `over_limit`.
+ *   [UNAPPROVED N4]
  *
  * Returns `{changed, answer, over_limit}`: the new record's id, null when nothing was written.
  */
@@ -56,7 +61,7 @@ final class AnswerRequest implements AdminUseCase
         private readonly Requests $requests = new Requests(),
         private readonly Registrations $registrations = new Registrations(),
         private readonly AnswerRepository $answers = new AnswerRepository(),
-        private readonly OfferSeats $seats = new SeatOfferSeats(),
+        private readonly Seats $seats = new Seats(),
         private readonly Events $events = new Events(),
     ) {
     }
@@ -114,9 +119,9 @@ final class AnswerRequest implements AdminUseCase
         // The request is found with a plain read first: the seat's pool lock, which the request names, comes
         // before the registration lock. It is read again under the lock.
         $first = self::stateOf($this->requests->states($key), (string) $input['request']);
-        $pool = $first->request->kind === RequestKind::Offer ? $first->source->seatPool($key, $first->request) : null;
+        $pool = $first->source->seatPool($first->request);
         if ($pool !== null) {
-            $this->seats->lockPool($pool, $context);
+            $this->seats->lock($pool, $context);
         }
         if (!$this->registrations->lock($key, $context)) {
             throw new NotFound();
@@ -133,7 +138,7 @@ final class AnswerRequest implements AdminUseCase
         $answer = new Answer($yes, $amount, $note === '' ? null : $note);
         $previous = $state->answer;
         // An answer whose only change is a new note is a new act (a new row, so the "answered" mail goes out
-        // again); an empty note adds nothing. [UNAPPROVED N8]
+        // again); an empty note adds nothing.
         $newNote = $answer->note !== null && $answer->note !== $previous?->note;
         if (
             $previous !== null && $previous->approved === $yes
@@ -143,7 +148,7 @@ final class AnswerRequest implements AdminUseCase
         }
 
         // An aid award is no more than what the participant has to pay: refused, nothing written. The same
-        // `terms()` is on the detail read, so the dialog can warn before the send. [UNAPPROVED N1132]
+        // `terms()` is on the detail read, so the dialog can warn before the send.
         if ($yes && $request->kind === RequestKind::Aid && $answer->amount !== null) {
             $terms = $state->source->terms($key, $request, $state->values, $context->now());
             if ($terms !== null && $answer->amount->isGreaterThan($terms->maxAmount())) {
@@ -166,9 +171,9 @@ final class AnswerRequest implements AdminUseCase
         $overLimit = false;
         if ($pool !== null) {
             if (!$yes) {
-                $this->seats->release($key, $pool, $context);
+                $this->seats->release($pool, $key, $context);
             } elseif ($previous !== null && !$previous->approved) {
-                $overLimit = !$this->seats->take($key, $pool, $context);
+                $overLimit = $this->seats->retake($pool, $key, SeatAct::Answer, $context) === SeatOutcome::Over;
             }
         }
 

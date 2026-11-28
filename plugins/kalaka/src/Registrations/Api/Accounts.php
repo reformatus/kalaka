@@ -22,14 +22,16 @@ final class Accounts
 
     /**
      * A fresh link to WordPress's own "set new password" screen for the account
-     * (`wp-login.php?action=rp&key=…&login=…`), from `get_password_reset_key()`. WordPress keeps one key per
-     * user, so making one replaces the last: the newest link wins. It writes WordPress's user row, so it
-     * runs outside any use case (the sender renders a mail outside one). Null when there is no such user or
-     * WordPress refuses a key.
+     * (`action=rp&key=…&login=…` on `wp_lostpassword_url()`), from
+     * `get_password_reset_key()`. WordPress keeps one key per user, so making one replaces the
+     * last: the newest link wins. It writes WordPress's user row, so it runs outside any use case (the sender
+     * renders a mail outside one). Null when there is no such user or WordPress refuses a key.
      *
      * With `$formId` (the registration's slot form), the link carries the form's marker (`SignUp::MARKER`):
      * WordPress keeps it through its reset screens, and the login after the password is set returns to the
-     * form's page, resolved on the server (`SignUp::page()`; OP1, owner 2026-11-17).
+     * form's page, resolved on the server (`SignUp::page()`; OP1, owner 2026-11-17). On a WooCommerce site the
+     * marker holds once https://github.com/reformatus/kalaka/pull/260 (N825) removes WooCommerce's
+     * `lostpassword_url` override (code comment, not UI).
      */
     public function passwordLink(int $userId, ?int $formId = null): ?string
     {
@@ -42,9 +44,12 @@ final class Accounts
             return null;
         }
 
-        $link = network_site_url(
-            'wp-login.php?action=rp&key=' . rawurlencode($key) . '&login=' . rawurlencode($user->user_login),
-            'login'
+        // WordPress's own lost-password address (it passes `lostpassword_url`, so a login-page plugin's
+        // screen is used) with the reset screen's arguments, never a fixed `wp-login.php` address.
+        // `add_query_arg()` does not encode values: key and login are encoded here, as `retrieve_password()` does.
+        $link = add_query_arg(
+            ['action' => 'rp', 'key' => rawurlencode($key), 'login' => rawurlencode($user->user_login)],
+            wp_lostpassword_url()
         );
 
         return $formId === null ? $link : $link . '&' . SignUp::MARKER . '=' . $formId;
