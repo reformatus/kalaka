@@ -29,8 +29,11 @@ const DATA = {
 	confirm: 'Lemondom a jelentkezést',
 	cancel: 'Mégsem',
 	action: 'http://example.test/wp-json/kalaka-portal/v1/withdraw',
-	code: '12A3',
-	returnUrl: 'http://example.test/jelentkezesem/#kalaka-withdraw-error',
+	fields: {
+		code: '12A3',
+		return_url: 'http://example.test/jelentkezesem/#kalaka-withdraw-error',
+		kalaka_withdraw_nonce: 'abc123',
+	},
 };
 
 function page( data = DATA ) {
@@ -72,8 +75,10 @@ test( 'the press opens the dialog from the data and does not navigate', async ()
 	const form = dialog().querySelector( 'form' );
 	expect( form.method ).toBe( 'post' );
 	expect( form.getAttribute( 'action' ) ).toBe( DATA.action );
-	expect( form.querySelector( 'input[name="code"]' ).value ).toBe( '12A3' );
-	expect( form.querySelector( 'input[name="return_url"]' ).value ).toBe( DATA.returnUrl );
+	// Every hidden field the server named is posted, nothing else.
+	expect( [ ...form.querySelectorAll( 'input[type="hidden"]' ) ].map( ( i ) => [ i.name, i.value ] ) ).toEqual(
+		Object.entries( DATA.fields )
+	);
 	const buttons = [ ...form.querySelectorAll( 'button' ) ];
 	expect( buttons.map( ( b ) => b.textContent ) ).toEqual( [ DATA.confirm, DATA.cancel ] );
 	expect( buttons[ 0 ].type ).toBe( 'submit' );
@@ -107,7 +112,7 @@ test( 'no money line when the server sent none', async () => {
 } );
 
 test( 'a form whose data cannot be read keeps its plain submit', async () => {
-	for ( const data of [ '{broken', '{}', '[]' ] ) {
+	for ( const data of [ '{broken', '{}', '[]', { question: 'x' } ] ) {
 		page( data );
 		load();
 		const event = await press();

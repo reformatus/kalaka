@@ -12,6 +12,7 @@ use Kalaka\Portal\Api\Availability;
 use Kalaka\Portal\Api\PaymentView;
 use Kalaka\Portal\Api\RegistrationStatusView;
 use Kalaka\Portal\Api\WithdrawOffer;
+use Kalaka\Portal\Api\Withdrawal;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
@@ -249,8 +250,12 @@ final class StatusMarkup
                 'confirm' => self::WITHDRAW_CONFIRM,
                 'cancel' => self::WITHDRAW_CANCEL,
                 'action' => $offer->actionUrl,
-                'code' => $offer->code,
-                'returnUrl' => $errorUrl,
+                // The hidden fields of the post, by name: the script holds no field name.
+                'fields' => [
+                    'code' => $offer->code,
+                    'return_url' => $errorUrl,
+                    Withdrawal::NONCE_FIELD => $offer->nonce,
+                ],
             ]);
 
             return $open . '<form method="get" action="' . esc_url($returnUrl . '#kalaka-withdraw-question') . '"'
@@ -264,6 +269,8 @@ final class StatusMarkup
             . self::withdrawMoney($offer)
             . '<input type="hidden" name="code" value="' . esc_attr($offer->code) . '">'
             . '<input type="hidden" name="return_url" value="' . esc_attr($errorUrl) . '">'
+            . '<input type="hidden" name="' . esc_attr(Withdrawal::NONCE_FIELD) . '" value="'
+            . esc_attr($offer->nonce) . '">'
             . '<div class="kalaka-withdraw-actions" style="display: flex; flex-wrap: wrap; gap: 0.75em">'
             . '<button type="submit"' . $class . $describedBy . '>' . esc_html(self::WITHDRAW_CONFIRM) . '</button>'
             . '<button type="submit" form="kalaka-withdraw-cancel"' . $class . '>' . esc_html(self::WITHDRAW_CANCEL)
@@ -282,44 +289,34 @@ final class StatusMarkup
 
     /**
      * The confirmation's money line [UNAPPROVED N773, T1303 to T1306]: how much of what was paid is kept, from the
-     * preview's values only. Nobody owes more after withdrawing (the retention is held to what was paid), so
-     * `owed_after` is never above zero; below zero it is the surplus. The kept amount is `paid` less that
-     * surplus (the preview carries no kept figure of its own, and `paid + owed_after` is its identity), so the two
-     * printed parts always add up to `paid`.
+     * preview's values only: `paid`, `retained` (the part of it kept) and `surplus` (the rest). Nobody owes more
+     * after withdrawing, so nothing is said about money still to pay.
      *
      *  - (a) nothing paid (a waitlisted registration shows no line);
-     *  - (b) paid, nothing of it a surplus: all kept (also if `owed_after` were above zero, which cannot happen);
-     *  - (c) paid, a surplus below `paid`: part kept, the rest a surplus;
-     *  - (d) paid, a surplus of all of it: nothing kept.
+     *  - (b) paid, no surplus: all kept;
+     *  - (c) paid, a surplus and a kept part: part kept, the rest a surplus;
+     *  - (d) paid, nothing kept: all of it a surplus.
      *
      * A registered one whose preview gave nothing gets T772; a waitlisted one gets nothing. Null: no line.
      */
     public static function withdrawMoneyLine(WithdrawOffer $offer): ?string
     {
-        if ($offer->paid === null) {
+        if ($offer->paid === null || $offer->retained === null || $offer->surplus === null) {
             return $offer->previewFailed ? self::WITHDRAW_NO_MONEY : null;
         }
         if (!$offer->paid->isPositive()) {
             return $offer->waitlisted ? null : self::WITHDRAW_NOTHING_PAID;
         }
-        $paid = $offer->paid;
-        $line = self::WITHDRAW_PAID . ' ' . MoneyText::of($paid) . '.';
-        $surplus = Money::zero($paid->currency());
-        if ($offer->owedAfter !== null && $offer->owedAfter->isNegative() && !$offer->owedAfter->countsAsZero()) {
-            $surplus = $offer->owedAfter->negated();
-            if ($surplus->isGreaterThan($paid)) {
-                $surplus = $paid;
-            }
-        }
-        if (!$surplus->isPositive()) {
+        $line = self::WITHDRAW_PAID . ' ' . MoneyText::of($offer->paid) . '.';
+        if (!$offer->surplus->isPositive()) {
             return $line . ' ' . self::WITHDRAW_KEPT_ALL;
         }
-        if (!$surplus->isLessThan($paid)) {
+        if (!$offer->retained->isPositive()) {
             return $line . ' ' . self::WITHDRAW_KEPT_NONE;
         }
 
-        return $line . ' ' . self::WITHDRAW_KEPT_PART . ' ' . MoneyText::of($paid->minus($surplus)) . '. '
-            . self::WITHDRAW_SURPLUS_REST . ' ' . MoneyText::of($surplus) . '.';
+        return $line . ' ' . self::WITHDRAW_KEPT_PART . ' ' . MoneyText::of($offer->retained) . '. '
+            . self::WITHDRAW_SURPLUS_REST . ' ' . MoneyText::of($offer->surplus) . '.';
     }
 
     /**
@@ -330,7 +327,8 @@ final class StatusMarkup
     public static function withdrawRefusalText(string $code): string
     {
         return match ($code) {
-            'kalaka_withdraw_stale' => self::WITHDRAW_STALE,
+            // [UNAPPROVED N1346] An old page's nonce (#253's `kalaka_withdraw_bad_nonce`) reads as T771.
+            'kalaka_withdraw_stale', 'kalaka_withdraw_bad_nonce' => self::WITHDRAW_STALE,
             'kalaka_withdraw_unavailable', 'kalaka_status_act_refused' => self::WITHDRAW_UNAVAILABLE,
             'kalaka_version_conflict' => self::WITHDRAW_VERSION_CONFLICT,
             // [UNAPPROVED N1029] The page maps `kalaka_withdraw_closed` itself (extends N771's table).

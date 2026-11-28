@@ -439,7 +439,9 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertSame('Lemondom a jelentkezést', $data['confirm']);
         self::assertSame('Mégsem', $data['cancel']);
         self::assertSame(rest_url('kalaka-portal/v1/withdraw'), $data['action']);
-        self::assertSame('00A0', $data['code']);
+        self::assertSame('00A0', $data['fields']['code']);
+        self::assertSame(Withdrawal::nonceValue('00A0'), $data['fields'][Withdrawal::NONCE_FIELD]);
+        self::assertStringContainsString('#kalaka-withdraw-error', $data['fields']['return_url']);
         // Nothing paid, registered: case (a).
         self::assertSame(StatusMarkup::WITHDRAW_NOTHING_PAID, $data['money']);
 
@@ -465,7 +467,8 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
     private static function line(
         ?string $paid,
-        ?string $owedAfter,
+        ?string $retained,
+        ?string $surplus,
         bool $waitlisted = false,
         bool $failed = false,
     ): ?string {
@@ -477,7 +480,8 @@ final class SelfWithdrawalTest extends StaffEditTestCase
             'y',
             '00A0',
             paid: $money($paid),
-            owedAfter: $money($owedAfter),
+            retained: $money($retained),
+            surplus: $money($surplus),
             previewFailed: $failed,
             waitlisted: $waitlisted,
         ));
@@ -488,28 +492,29 @@ final class SelfWithdrawalTest extends StaffEditTestCase
     {
         $nbsp = "\u{00A0}";
         // (a) nothing paid: a line for a registered one, none for a waitlisted one.
-        self::assertSame(StatusMarkup::WITHDRAW_NOTHING_PAID, self::line('0', '0'));
-        self::assertNull(self::line('0', '0', waitlisted: true));
-        // (b) paid and all kept: nothing is owed after (or, cannot happen, a little: still all kept).
+        self::assertSame(StatusMarkup::WITHDRAW_NOTHING_PAID, self::line('0', '0', '0'));
+        self::assertNull(self::line('0', '0', '0', waitlisted: true));
+        // (b) paid, no surplus: all kept.
         self::assertSame(
             "Befizetve: 20{$nbsp}000{$nbsp}Ft. Ezt az összeget megtartjuk.",
-            self::line('20000', '0')
+            self::line('20000', '20000', '0')
         );
-        self::assertStringEndsWith(StatusMarkup::WITHDRAW_KEPT_ALL, (string) self::line('20000', '5000'));
-        self::assertStringEndsWith(StatusMarkup::WITHDRAW_KEPT_ALL, (string) self::line('20000', '-0.001'));
-        // (c) part kept: the two parts add up to what was paid.
+        // (c) part kept: the two parts are the preview's, and add up to what was paid.
         self::assertSame(
             "Befizetve: 30{$nbsp}000{$nbsp}Ft. Ebből megtartunk: 10{$nbsp}000{$nbsp}Ft. "
             . "A többi túlfizetés lesz: 20{$nbsp}000{$nbsp}Ft.",
-            self::line('30000', '-20000')
+            self::line('30000', '10000', '20000')
         );
-        // (d) nothing kept: the whole payment is a surplus (also if the surplus were reported above what was paid).
-        $none = "Befizetve: 3{$nbsp}000{$nbsp}Ft. " . StatusMarkup::WITHDRAW_KEPT_NONE;
-        self::assertSame($none, self::line('3000', '-3000'));
-        self::assertSame($none, self::line('3000', '-3500'));
+        // (d) nothing kept: the whole payment is a surplus.
+        self::assertSame(
+            "Befizetve: 3{$nbsp}000{$nbsp}Ft. " . StatusMarkup::WITHDRAW_KEPT_NONE,
+            self::line('3000', '0', '3000')
+        );
+        // An old page's nonce reads as the stale text (N1346).
+        self::assertSame(StatusMarkup::WITHDRAW_STALE, StatusMarkup::withdrawRefusalText('kalaka_withdraw_bad_nonce'));
         // A registered one whose preview gave nothing: T772; a waitlisted one: nothing.
-        self::assertSame(StatusMarkup::WITHDRAW_NO_MONEY, self::line(null, null, failed: true));
-        self::assertNull(self::line(null, null));
+        self::assertSame(StatusMarkup::WITHDRAW_NO_MONEY, self::line(null, null, null, failed: true));
+        self::assertNull(self::line(null, null, null));
     }
 
     /** The money line the status block hands the Modal, from the data on the start form. */

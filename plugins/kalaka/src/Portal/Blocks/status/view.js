@@ -18,8 +18,9 @@ export function Dialog( { data, onClose } ) {
 			'form',
 			{ method: 'post', action: data.action },
 			data.money ? el( 'p', { className: 'kalaka-withdraw-money' }, data.money ) : null,
-			el( 'input', { type: 'hidden', name: 'code', value: data.code } ),
-			el( 'input', { type: 'hidden', name: 'return_url', value: data.returnUrl } ),
+			...Object.entries( data.fields ).map( ( [ name, value ] ) =>
+				el( 'input', { key: name, type: 'hidden', name, value } )
+			),
 			el(
 				'div',
 				{ className: 'kalaka-withdraw-actions', style: { display: 'flex', flexWrap: 'wrap', gap: '0.75em' } },
@@ -38,7 +39,7 @@ export function open( form ) {
 	} catch {
 		return false;
 	}
-	if ( ! data || typeof data.question !== 'string' ) {
+	if ( ! data || typeof data.question !== 'string' || ! data.fields ) {
 		return false;
 	}
 	const host = document.createElement( 'div' );

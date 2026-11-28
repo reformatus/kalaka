@@ -93,17 +93,20 @@ final class ParticipantBlocks
         $asked = isset($_GET['kalaka_withdraw']) ? sanitize_key(wp_unslash($_GET['kalaka_withdraw'])) : '';
         $confirming = $canWithdraw && $asked === 'confirm';
         $paid = null;
-        $owedAfter = null;
+        $retained = null;
+        $surplus = null;
         $previewFailed = false;
         // The Modal opens with no request, so the preview is taken whenever the button shows (N1333).
         if ($canWithdraw) {
             try {
                 $preview = (new Withdrawal())->run(ActiveRegistration::current(), $view->key->code, true);
                 $currency = (new Events())->find($view->key->eventId)?->currency;
-                $amounts = is_string($preview['paid'] ?? null) && is_string($preview['owed_after'] ?? null);
+                $amounts = is_string($preview['paid'] ?? null) && is_string($preview['retained'] ?? null)
+                    && is_string($preview['surplus'] ?? null);
                 if ($amounts && $currency !== null) {
                     $paid = Money::of($preview['paid'], $currency);
-                    $owedAfter = Money::of($preview['owed_after'], $currency);
+                    $retained = Money::of($preview['retained'], $currency);
+                    $surplus = Money::of($preview['surplus'], $currency);
                 } else {
                     $previewFailed = $view->status === RegistrationStatus::Registered;
                 }
@@ -134,9 +137,11 @@ final class ParticipantBlocks
             $confirming,
             $view->withdrawRefusal,
             $paid,
-            $owedAfter,
+            $retained,
+            $surplus,
             $previewFailed,
             $view->status === RegistrationStatus::Waitlisted,
+            Withdrawal::nonceValue($view->key->code),
         );
     }
 
