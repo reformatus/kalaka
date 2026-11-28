@@ -4,8 +4,8 @@ title: Release plan
 
 # Release plan
 
-What each release must contain, and what gives way first when time runs
-short. The architecture pages say how things are built; this page says when.
+What each release must contain. When time runs short, the owner decides
+what is dropped. The architecture pages say how things are built; this page says when.
 
 ## IVK: registration opens 2026-11-30
 
@@ -25,18 +25,21 @@ short. The architecture pages say how things are built; this page says when.
    IVK) and activated through a set-password link in the registration's
    mail (the account area itself may only say "Coming soon").
 2. **Money core:** the ledger with payers, the materializer and the money
-   settings apply; IVK's price tiers (examples only: 48 000 Ft with no share,
-   42 000 Ft with a declared share, 32 000 Ft with the whole tier as the
-   share; the 68 000 Ft "Teljes ár" is the 48 000 Ft tier plus a 20 000 Ft
-   donation); donation, lunch, the invoice request and billing fields, with
+   settings apply; IVK's price tiers, which set only the base price (examples
+   only: 32 000 Ft, 42 000 Ft, 48 000 Ft, and the 68 000 Ft "Teljes ár", a
+   tier of its own); the share between payers is set by the form's own
+   questions, which may offer different share choices on different tiers;
+   donation, lunch, the invoice request and billing fields, with
    every line shown on the invoice and the part another payer pays marked;
    the payment-due date with its one anchor; confirmation per payer;
    recording a payment by hand.
 3. **Congregation share** ([NR-1](money.md#congregation-share)): the
    organization directory, the congregation picker and the share pair.
 4. **Support and decisions:** support offers with quota places (Baptist,
-   Dunamellék); pending decisions with the payment hold (discount or aid
-   requests, partner confirmation). Until partners have their own views, IVK
+   Dunamellék); requests that await an answer (support offers, aid requests,
+   partner approval). A partner approves in a view of its own through the one
+   "answer a request" act its grant carries, the act staff use, filtered to
+   the partner's registrations. Until partners have their own views, IVK
    staff record a partner's confirmation on its behalf, audited with a
    reason.
 5. **Mail:** IVK's mails 1, 1O, 1V and 2 and the other action mails; the
@@ -45,12 +48,10 @@ short. The architecture pages say how things are built; this page says when.
    sent during an interactive request.
 6. **Organizer side:** full access; the master view with the grid, the detail
    page, field editing, and exports that write an audit entry.
-7. **Form links:** locked and editable values, single use and expiry. Partner
-   links depend on them.
-8. **Module ranking** ([Extensions in view](modules-and-extensions.md#extensions-in-view)):
+7. **Module ranking** ([Extensions in view](modules-and-extensions.md#extensions-in-view)):
    the ranking field type, in `kalaka-ranking`. The module recommender is
    IVK's own quiz, outside Kaláka.
-9. **Operations:** deployment to the IVK site and to a staging copy; a real
+8. **Operations:** deployment to the IVK site and to a staging copy; a real
    system cron verified on IVK's host, with WP-Cron as the fallback, a
    warning when the last run is older than 20 minutes, and a lock
    against overlapping runs; a backup and a restore drill; mail sent through
@@ -61,11 +62,11 @@ short. The architecture pages say how things are built; this page says when.
 
 ### Order of sacrifice
 
-If the date is at risk, these give way, in this order:
+Not a commitment: the owner drops requirements when needed. Candidates:
 
 1. **Card payment through WooCommerce:** bank transfer only on opening day,
    card payment in early December.
-2. **Partner self-service views:** staff record confirmations meanwhile
+2. **Partner self-service views:** staff record approvals meanwhile
    (item 4).
 3. **The Evangélikus and Akadémia support offers,** which also wait on
    stakeholder question SQ-5.
@@ -81,7 +82,8 @@ scrub, self-service erasure and the other GDPR features (deferred until a wide
 release, [Deferred](deferred.md));
 the allocation proposer (needed before IVK's
 registration closes; it runs once, on module choices frozen beforehand); the
-module letter; late fees and
+module letter; form links (locked and editable values, single use and
+expiry: no planned use, and they may be dropped); late fees and
 reminders; starting a WooCommerce refund from Kaláka (refunds made in
 WooCommerce are recorded from day one); substitution; the wallet; attendance
 sheets.
@@ -108,14 +110,15 @@ feasible; the date is not fixed. It builds on everything in IVK's release.
 2. **Card payment through WooCommerce** on REFISZ's store; it is not
    sacrificed for REFISZ.
 3. **Money as at the summer camps, with smaller amounts:** the price ladder
-   with its tiers and any tier quotas (places held at registration, reassigned
-   only by staff); the deposit as the confirmation threshold, and a deposit
-   payment request of the threshold minus what has been paid, capped at the
+   with its tiers and any tier quotas (places are seats, taken at registration
+   and freed on leaving, by the one seat rule in
+   [Foundation](foundation.md#facts-decisions-and-computed-values)); the
+   deposit as the confirmation threshold, and a deposit payment request of the threshold minus what has been paid, capped at the
    remaining balance; a donation and an invoice request.
 4. **Mails as at the summer camps:** application received, waitlisted,
    confirmed and fully paid. Someone who pays everything at once gets only the
    fully-paid mail; if that needs real extra logic, both are sent, as today.
-5. **Operations on REFISZ's host:** as for IVK (item 9).
+5. **Operations on REFISZ's host:** as for IVK (item 8).
 
 ### Must exist within about ten days of opening
 
@@ -148,6 +151,8 @@ after 11 days, so these must exist before the first registrants reach them:
 - **Support requests decided by staff,** reusing IVK's pending decisions.
 
 ### Order of sacrifice for opening day
+
+Not a commitment: the owner drops requirements when needed. Candidates:
 
 1. **The invoice request:** requests go to the bookkeeper by e-mail.
 2. **The donation field.**

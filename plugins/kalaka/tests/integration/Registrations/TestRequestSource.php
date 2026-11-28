@@ -14,6 +14,7 @@ use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\RequestTerms;
+use Kalaka\Registrations\Api\SeatPool;
 
 /**
  * A test source of requests, standing for the offers and aid of slice B0: the field `support` holding `church`
@@ -39,6 +40,7 @@ final class TestRequestSource implements RequestSource
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
         private readonly ?int $fullPrice = null,
+        private readonly ?SeatPool $pool = null,
     ) {
     }
 
@@ -62,9 +64,9 @@ final class TestRequestSource implements RequestSource
             : ($values['aid_award'] ?? '') !== '';
     }
 
-    public function seatPool(Request $request): ?string
+    public function seatPool(Request $request): ?SeatPool
     {
-        return $request->kind === RequestKind::Offer ? self::POOL : null;
+        return $request->kind === RequestKind::Offer ? $this->pool : null;
     }
 
     public function terms(

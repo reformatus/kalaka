@@ -217,7 +217,7 @@ describe( 'the note', () => {
 		expect( noteField().closest( 'div' ).parentElement.textContent ).toContain( REQUESTS.noteField );
 		expect( host.textContent ).not.toContain( MONEY.reasonField );
 		await submit();
-		expect( host.textContent ).not.toContain( MONEY.noteRequired );
+		expect( errorsIn( host ) ).toEqual( [] );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 	} );
 

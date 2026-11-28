@@ -43,6 +43,46 @@ for zip in "$@"; do
     esac
 done
 
+# WordPress refuses to activate an extension whose "Requires Plugins:" header
+# names a plugin that is not installed and active. The given zips provide some
+# of those (core's kalaka); the rest are wordpress.org slugs, installed and
+# activated from wordpress.org before the extensions.
+provided=""
+for zip in "$@"; do
+    slug="$(basename "$zip" .zip)"
+    provided="$provided ${slug%-"$version"}"
+done
+requirements=""
+for zip in "$@"; do
+    slug="$(basename "$zip" .zip)"
+    slug="${slug%-"$version"}"
+    case "$slug" in
+        kalaka) continue ;;
+    esac
+    header="$(unzip -p "$zip" "$slug/$slug.php" 2> /dev/null || true)"
+    line="$(printf '%s\n' "$header" | sed -n -E 's/^[[:space:]\/#@*]*Requires Plugins:[[:space:]]*//Ip' | head -n 1)"
+    [ -n "$line" ] || continue
+    IFS=',' read -r -a required_slugs <<< "$line"
+    for required in "${required_slugs[@]}"; do
+        required="$(printf '%s' "$required" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+        [ -n "$required" ] || continue
+        case "$required" in
+            *[!a-z0-9_-]* | '')
+                echo "Unexpected plugin slug '$required' in the Requires Plugins header of $zip." >&2
+                exit 1
+                ;;
+        esac
+        case "$provided " in
+            *" $required "*) continue ;;
+        esac
+        case " $requirements " in
+            *" $required "*) continue ;;
+        esac
+        requirements="$requirements $required"
+    done
+done
+requirements="${requirements# }"
+
 # The check that runs after the seed. It is PHP inside JSON, so node writes the JSON.
 read -r -d '' check <<'PHP' || true
 <?php
@@ -92,17 +132,28 @@ done
 check="${check//\/\*plugins\*\/ \[\]/[${php_plugins%, }]}"
 
 # Playground defaults to the production environment type, where the seed refuses.
-CHECK="$check" INSTALLED="$installed" node -e '
+CHECK="$check" INSTALLED="$installed" REQUIREMENTS="$requirements" node -e '
 const installs = process.env.INSTALLED.trim().split(" ").map((name) => ({
     step: "installPlugin",
     pluginData: { resource: "vfs", path: "/smoke/" + name },
     options: { activate: true },
 }));
+const requirementList = (process.env.REQUIREMENTS || "").trim();
+const requirements = requirementList
+    ? requirementList.split(" ").map((slug) => ({
+        step: "installPlugin",
+        pluginData: { resource: "wordpress.org/plugins", slug },
+        options: { activate: true },
+    }))
+    : [];
+const [core, ...extensions] = installs;
 const blueprint = {
     preferredVersions: { php: "8.3", wp: "latest" },
     steps: [
         { step: "defineWpConfigConsts", consts: { WP_ENVIRONMENT_TYPE: "development" } },
-        ...installs,
+        core,
+        ...requirements,
+        ...extensions,
         { step: "wp-cli", command: "wp kalaka seed" },
         { step: "runPHP", code: process.env.CHECK },
     ],

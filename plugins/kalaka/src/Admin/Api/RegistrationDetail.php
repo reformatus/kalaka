@@ -19,20 +19,17 @@ use Kalaka\Ledger\Api\LedgerEntry;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Ledger\Api\Side;
-use Kalaka\Mail\Api\ActionMail;
-use Kalaka\Mail\Api\ActionMails;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
-use Kalaka\Registrations\Api\NoOfferSeats;
-use Kalaka\Registrations\Api\OfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestState;
 use Kalaka\Registrations\Api\Requests;
+use Kalaka\Registrations\Api\Seats;
 
 /**
  * The admin detail read of one registration (the data of `GET kalaka-admin/v1/events/{event}/registrations/{code}`).
@@ -55,10 +52,9 @@ final class RegistrationDetail
         private readonly PayerKinds $payerKinds = new PayerKinds(),
         private readonly LineNames $lineNames = new LineNames(),
         private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
-        private readonly ActionMails $actionMails = new ActionMails(),
         private readonly Confirmations $confirmations = new Confirmations(),
         private readonly Requests $requests = new Requests(),
-        private readonly OfferSeats $seats = new NoOfferSeats(),
+        private readonly Seats $seats = new Seats(),
     ) {
     }
 
@@ -220,6 +216,7 @@ final class RegistrationDetail
                 'label' => $declaredKind->label,
                 'state' => $current->state,
                 'state_label' => $declaredKind->states[$current->state] ?? $current->state,
+                'marks' => $declaredKind->marks,
                 'effective_at' => self::instant($current->effectiveAt),
             ];
         }
@@ -247,7 +244,7 @@ final class RegistrationDetail
         $items = [];
         foreach ($this->requests->states($key) as $state) {
             $answer = $state->answer;
-            $pool = $state->request->kind === RequestKind::Offer ? $state->source->seatPool($state->request) : null;
+            $pool = $state->source->seatPool($state->request);
             $item = [
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
@@ -256,7 +253,7 @@ final class RegistrationDetail
                 'amount' => $viewMoney ? $answer?->amount?->amount() : null,
                 'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
                 'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
-                    && $pool !== null && $this->seats->isFull($key, $pool),
+                    && $pool !== null && $this->seats->wouldOverfill($pool, $key),
             ];
             if ($state->request->kind === RequestKind::Aid && $viewMoney) {
                 $item['aid'] = $this->aidTerms($key, $state);
@@ -320,9 +317,8 @@ final class RegistrationDetail
      * The warning to show before staff's unconfirm: the text when confirmation would decide `confirmed` again
      * at once, null otherwise. A holder with money-view gets the reason, payments or nothing due; a holder
      * without it gets one text that names neither a reason nor money, so the read never tells them what the
-     * payments are. While the event's confirmed mail is on, one sentence is appended: the registrant gets that
-     * mail again (the owner's ruling 2026-11-23, topic 15, Q4). It reads and writes nothing else.
-     * [UNAPPROVED N11, Q4, T5a, T5b, T5c, T6]
+     * payments are. It says nothing of the mail that may follow (owner 2026-11-27: T6 is not part of the
+     * warning). It reads and writes nothing else. [UNAPPROVED N11, Q4, T5a, T5b, T5c]
      */
     private function unconfirmWarning(RegistrationKey $key, bool $viewMoney, ?string $reconfirms): ?string
     {
@@ -340,9 +336,7 @@ final class RegistrationDetail
             $text = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
         }
 
-        return $this->actionMails->isOn($key->eventId, ActionMail::Confirmed)
-            ? $text . ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.' // [UNAPPROVED T6]
-            : $text;
+        return $text;
     }
 
     /**

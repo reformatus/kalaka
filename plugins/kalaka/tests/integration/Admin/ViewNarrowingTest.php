@@ -440,7 +440,7 @@ final class ViewNarrowingTest extends AdminTestCase
         );
     }
 
-    public function testTheSumRowFollowsTheNarrowing(): void
+    public function testTheSumRowFollowsTheNarrowingAndNeverCountsAnInactiveRow(): void
     {
         $view = $this->view();
         $model = new GridModel();
@@ -450,12 +450,26 @@ final class ViewNarrowingTest extends AdminTestCase
         $all = $model->sums($view, self::fields());
         $narrowed = $model->sums($view, self::fields(), $narrowing);
 
-        self::assertSame(6, $all['code']['n']);
-        self::assertSame(2, $narrowed['code']['n']);
-        self::assertSame('14', $narrowed['field:nights']['n']);
-        self::assertSame('20.5', $all['field:nights']['n']);
-        self::assertSame(1, $narrowed['field:photo']['n']);
-        self::assertSame(2, $all['field:photo']['n']);
+        // Only the three registered rows count; the two waitlisted and the withdrawn one never do (owner, 2026-11-27).
+        self::assertSame(3, $all['code']['n']);
+        self::assertSame(0, $narrowed['code']['n']);
+        self::assertNull($narrowed['field:nights']['n']);
+        self::assertSame('5.5', $all['field:nights']['n']);
+        self::assertSame(0, $narrowed['field:photo']['n']);
+        self::assertSame(1, $all['field:photo']['n']);
+
+        // A narrowing inside the active rows still follows the filter: „veg” finds 00A0 and 00A2 by the
+        // column's collation (the waitlisted and the withdrawn vegetarian rows never count).
+        $veg = (new GridNarrowing())->of(
+            $view,
+            self::fields(),
+            [self::filter('field:lunch', 'isAny', ['veg'])],
+            null
+        );
+        $active = $model->sums($view, self::fields(), $veg);
+        self::assertSame(2, $active['code']['n']);
+        self::assertSame('5.5', $active['field:nights']['n']);
+        self::assertSame(1, $active['field:photo']['n']);
     }
 
     public function testAWordWithNoKeysMatchesNothingInThatColumn(): void

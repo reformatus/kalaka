@@ -56,6 +56,8 @@ final class ParticipantFields
                 $record->retiredAt !== null,
                 is_string($title) && $title !== '' ? $title : $record->type,
                 $record->writableFromForms(),
+                [],
+                $record->settings ?? [],
             );
         }
 

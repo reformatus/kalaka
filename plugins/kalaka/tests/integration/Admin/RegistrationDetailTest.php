@@ -21,7 +21,7 @@ use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
-use Kalaka\Tests\Integration\Registrations\RecordingSeats;
+use Kalaka\Tests\Integration\Registrations\AnswerPool;
 use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /** S22 and S38: the detail read of one registration, through views and grants. */
@@ -33,14 +33,17 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
     private function decisions(): Decisions
     {
         $rules = new DecisionRules();
-        $rules->add(
-            new TestRule(
-                'confirmation',
-                ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
-                label: 'Visszaigazolás'
-            ),
-            true
+        $confirmation = new TestRule(
+            'confirmation',
+            ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
+            label: 'Visszaigazolás'
         );
+        $confirmation->marks = [
+            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+        ];
+        $rules->add($confirmation, true);
+        $rules->add(new TestRule('payment_hold', ['held' => 'Zárolva'], label: 'Fizetési zárolás'), true);
         $rules->add(new TestRule('sample_kind', ['held' => 'Zárolva'], label: 'Minta döntés'), true);
 
         return new Decisions(rules: $rules);
@@ -109,6 +112,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Visszaigazolás',
                         'state' => 'unconfirmed',
                         'state_label' => 'Nincs visszaigazolva',
+                        'marks' => [
+                            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                        ],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                     [
@@ -116,6 +123,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Minta döntés',
                         'state' => 'held',
                         'state_label' => 'Zárolva',
+                        'marks' => [],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                 ],
@@ -341,6 +349,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'label' => 'Visszaigazolás',
                     'state' => 'unconfirmed',
                     'state_label' => 'Nincs visszaigazolva',
+                    'marks' => [
+                        'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                        'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                    ],
                     'effective_at' => '2026-11-30T08:00:00Z',
                 ]],
                 'confirmed' => false,
@@ -884,8 +896,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
     }
 
-    /** T6, appended to T5a, T5b or T5c only while the event's confirmed mail is on (the ruling 2026-11-23, Q4). */
-    public function testTheMailNoteIsAppendedOnlyWhileTheConfirmedMailIsOn(): void
+    /** The warning is T5a, T5b or T5c only: the confirmed mail's sentence (T6) is not part of it (owner 2026-11-27). */
+    public function testTheWarningSaysNothingOfTheMailEvenWhileTheConfirmedMailIsOn(): void
     {
         $this->addRegistration('00A0');
         $this->addDecision('00A0', 'confirmation', 'confirmed');
@@ -899,7 +911,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ['kalaka_confirm_manually', 'kalaka_view_money']
         );
         $warning = fn (int $user): ?string => $this->detail($user)['registration']['unconfirm_warning'];
-        $note = ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.';
+        $note = 'levél';
         $generic = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
         $nothingDue = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra '
             . 'visszaigazolt lesz.';
@@ -917,8 +929,11 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         ]);
         ObjectCache::clear();
 
-        self::assertSame($generic . $note, $warning($blind), 'T5c and T6.');
-        self::assertSame($nothingDue . $note, $warning($seeing), 'T5b and T6.');
+        // The mail is on, and the warning still says nothing of it.
+        self::assertSame($generic, $warning($blind), 'T5c only.');
+        self::assertSame($nothingDue, $warning($seeing), 'T5b only.');
+        self::assertStringNotContainsString($note, (string) $warning($blind));
+        self::assertStringNotContainsString($note, (string) $warning($seeing));
 
         $wpdb->update(
             $wpdb->prefix . 'kalaka_action_mails',
@@ -926,7 +941,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ['event_id' => $this->event, 'mail' => 'confirmed']
         );
         ObjectCache::clear();
-        self::assertSame($generic, $warning($blind), 'Off again: the note goes.');
+        self::assertSame($generic, $warning($blind), 'Off again: unchanged.');
     }
 
     public function testTheReconfirmsKeyTellsTheReasonToAMoneyViewHolderAndOnlyYesToOthers(): void
@@ -1002,9 +1017,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->addRegistration('00A0');
         $this->addValue('00A0', 'support', 'church');
         $this->addValue('00A0', 'aid_asked', '12000');
-        $read = fn (int $user, ?RecordingSeats $seats = null): array => (new RegistrationDetail(
-            requests: new Requests([new TestRequestSource()]),
-            seats: $seats ?? new RecordingSeats(),
+        $read = fn (int $user, ?AnswerPool $pool = null): array => (new RegistrationDetail(
+            requests: new Requests([new TestRequestSource(pool: $pool ?? new AnswerPool($this->event))]),
         ))->of(new UserActor($user), $this->event, '00A0');
 
         $partner = $this->plainUser();
@@ -1066,9 +1080,9 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 $request === 'aid' ? '9000' : 'refused'
             );
         }
-        $seats = new RecordingSeats();
-        $seats->full = true;
-        $items = $read($partner, $seats)['requests']['items'];
+        // A refused offer in a pool with no free place: the warning before a "yes".
+        $full = new AnswerPool($this->event, 0);
+        $items = $read($partner, $full)['requests']['items'];
         self::assertSame(['refused', 'approved'], array_column($items, 'state'));
         // The award is a money figure: the partner reads the states and the seat warning, never the amount.
         self::assertSame([null, null], array_column($items, 'amount'));
@@ -1080,7 +1094,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->grant($money, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER, 'kalaka_view_money']);
         self::assertSame(
             [null, '9000.00000000'],
-            array_column($read($money, $seats)['requests']['items'], 'amount')
+            array_column($read($money, $full)['requests']['items'], 'amount')
         );
     }
 
@@ -1089,9 +1103,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->addRegistration('00A0');
         $this->addValue('00A0', 'support', 'church');
         $this->addValue('00A0', 'aid_asked', '12000');
-        $read = static fn (int $price): RegistrationDetail => new RegistrationDetail(
-            requests: new Requests([new TestRequestSource(fullPrice: $price)]),
-            seats: new RecordingSeats(),
+        $read = fn (int $price): RegistrationDetail => new RegistrationDetail(
+            requests: new Requests([
+                new TestRequestSource(fullPrice: $price, pool: new AnswerPool($this->event)),
+            ]),
         );
 
         $items = fn (int $price): array => $read($price)

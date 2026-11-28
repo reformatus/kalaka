@@ -35,10 +35,11 @@ interface RequestSource
     public function isAnswered(Request $request, array $values): bool;
 
     /**
-     * The key of the seat pool an offer's seat comes from, or null when the request has no limit (an aid
-     * request, an offer with no quota). The answer act passes it to `OfferSeats`.
+     * The seat pool an offer's seat comes from, or null when the request has no limit (an aid request, an offer
+     * with no quota). The source builds its own pool, so core never parses a pool key; the answer act passes it to
+     * `Seats` and the detail read asks `Seats::wouldOverfill()` of it. [UNAPPROVED N4]
      */
-    public function seatPool(Request $request): ?string;
+    public function seatPool(Request $request): ?SeatPool;
 
     /**
      * What an aid request is measured against, now: the full price the participant has to pay before the aid and

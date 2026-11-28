@@ -7,6 +7,7 @@ namespace Kalaka\Assignments;
 use Kalaka\Assignments\Cli\AssignmentCommand;
 use Kalaka\Assignments\Rest\AssignmentSetsRoute;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
@@ -36,9 +37,7 @@ SQL;
 
     /**
      * One row per option of a set, keyed by set and option key (`utf8mb4_nopad_bin`, compared exactly).
-     * `eligibility` is the option's condition in the one format, as JSON (a `longtext` like the audit's
-     * JSON; `condition` is a reserved word); null when everybody is eligible. Options show by
-     * `position`, then key.
+     * Options show by `position`, then key.
      */
     private const OPTIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_assignment_options (
@@ -51,7 +50,6 @@ CREATE TABLE {prefix}kalaka_assignment_options (
   capacity int(10) unsigned DEFAULT NULL,
   leaders varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   place varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
-  eligibility longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
   PRIMARY KEY  (set_id,option_key),
   KEY event_set (event_id,set_id,position)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
@@ -88,6 +86,11 @@ SQL;
     public function schema(): Schema
     {
         return new Schema(1, [self::SETS, self::OPTIONS, self::ASSIGNMENTS]);
+    }
+
+    public function contribute(Contributions $to): void
+    {
+        $to->seatClaimSource(new SetOptionClaimSource());
     }
 
     public function boot(): void

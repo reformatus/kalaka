@@ -60,7 +60,7 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
 <form novalidate<?php echo $kalakaFormClass; ?> data-wp-interactive="kalaka/form"
         <?php echo wp_interactivity_data_wp_context($kalakaView->context); ?>
         <?php echo $kalakaStyle; ?> data-wp-init="callbacks.start" data-wp-on--change="actions.update"
-    data-wp-on--submit="actions.submit">
+    data-wp-on--input="actions.edited" data-wp-on--submit="actions.submit">
     <input type="hidden" data-kalaka-token value="<?php echo esc_attr($kalakaView->token); ?>">
         <?php echo $kalakaView->content; ?>
     <div role="alert" data-kalaka-alert></div>
