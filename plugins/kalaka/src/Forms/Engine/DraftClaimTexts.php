@@ -49,7 +49,7 @@ final class DraftClaimTexts
             'confirmTitle' => 'Törlöd a mentett válaszaidat?',
             'confirmText' => 'Ha csak a bejövő válaszokat tartod meg, az összes mentett válaszodat töröljük '
                 . 'az űrlap minden oldaláról. Ezt nem lehet visszavonni.',
-            'confirmCancel' => 'Mégse',
+            'confirmCancel' => 'Mégsem',
             'confirm' => 'Igen, törlöm a mentett válaszaimat',
             'reload' => 'Az oldal újratöltése',
         ];

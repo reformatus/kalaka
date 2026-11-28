@@ -5,7 +5,7 @@
  *
  * - Merge comes first, filled, with the initial focus; its line carries the number of fields the link
  *   changes. Then keep_draft, then keep_link, which is red and asks a second time in its own Modal (the
- *   focus starts on „Mégse”; Esc or „Mégse” returns it to the red button).
+ *   focus starts on „Mégsem”; Esc or „Mégsem” returns it to the red button).
  * - The choice goes only through the form's store action `actions.resolveDraftClaim(choice, form)`, which
  *   stops the autosave first. When the route takes it, the page reloads, and that load shows the one-line
  *   notice (`view.js`).

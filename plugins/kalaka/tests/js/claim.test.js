@@ -22,7 +22,7 @@ const TEXTS = {
 	keepLinkLine: 'Bejövő sora',
 	confirmTitle: 'Megerősítés',
 	confirmText: 'Megerősítés szövege',
-	confirmCancel: 'Mégse',
+	confirmCancel: 'Mégsem',
 	confirm: 'Igen, törlöm a mentett válaszaimat',
 	reload: 'Az oldal újratöltése',
 };
@@ -119,7 +119,7 @@ describe('the claim popup', () => {
 		await open();
 		await click('Csak a bejövő válaszok');
 		const buttons = [...document.querySelectorAll('[role="dialog"] button')];
-		await click('Mégse');
+		await click('Mégsem');
 		await click('Egyesítés');
 		buttons.push(button('Az oldal újratöltése'));
 
@@ -127,7 +127,7 @@ describe('the claim popup', () => {
 			'Egyesítés',
 			'Csak a mentett válaszok',
 			'Csak a bejövő válaszok',
-			'Mégse',
+			'Mégsem',
 			'Igen, törlöm a mentett válaszaimat',
 			'Az oldal újratöltése',
 		]);
@@ -177,16 +177,16 @@ describe('the claim popup', () => {
 		expect(reload).toHaveBeenCalledTimes(1);
 	});
 
-	test('keep_link asks first: Mégse sends nothing and returns the focus, the confirmation sends', async () => {
+	test('keep_link asks first: Mégsem sends nothing and returns the focus, the confirmation sends', async () => {
 		await open();
 
 		await click('Csak a bejövő válaszok');
 		expect(claimCalls()).toHaveLength(0);
 		expect(dialogs()).toHaveLength(2);
 		expect(dialogs()[1].getAttribute('aria-modal')).toBe('true');
-		expect(document.activeElement).toBe(button('Mégse'));
+		expect(document.activeElement).toBe(button('Mégsem'));
 
-		await click('Mégse');
+		await click('Mégsem');
 		expect(dialogs()).toHaveLength(1);
 		expect(claimCalls()).toHaveLength(0);
 		expect(document.activeElement).toBe(button('Csak a bejövő válaszok'));
